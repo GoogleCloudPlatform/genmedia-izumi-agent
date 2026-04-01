@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<!--
+ Copyright 2025 Google LLC
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asset and Canvas Management</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Asset and Canvas Management</h1>
+
+    <div class="container user-container">
+        <h2>User</h2>
+        <div class="user-controls">
+            <p>User ID: <span id="userId"></span></p>
+            <button id="listItems">Reload Assets and Canvases</button>
+            <div class="loader hidden" id="loader"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Assets</h2>
+        <div class="asset-controls">
+            <input type="text" id="assetSearch" placeholder="Search by name...">
+            <span>Asset Type:</span>
+            <select id="assetTypeFilter">
+                <option value="all">All</option>
+                <option value="video">Video</option>
+                <option value="audio">Audio</option>
+                <option value="image">Image</option>
+            </select>
+            <span>Sort by:</span>
+            <select id="assetSortBy">
+                <option value="file_name">Name</option>
+                <option value="create_time">Created Time</option>
+            </select>
+            <select id="assetSortOrder">
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+            </select>
+            <span id="deleteAssetsStatus"></span>
+            <button id="deleteAllAssets">Delete All Assets</button>
+        </div>
+        <ul id="assetList"></ul>
+    </div>
+
+    <div class="container">
+        <h2>Canvases</h2>
+        <div class="canvas-controls">
+            <input type="text" id="canvasSearch" placeholder="Search by title...">
+            <span>Sort by:</span>
+            <select id="canvasSortBy">
+                <option value="title">Name</option>
+                <option value="create_time">Created Time</option>
+            </select>
+            <select id="canvasSortOrder">
+                <option value="asc">Ascending</option>
+                <option value="desc">Descending</option>
+            </select>
+            <span id="deleteCanvasesStatus"></span>
+            <button id="deleteAllCanvases">Delete All Canvases</button>
+        </div>
+        <ul id="canvasList"></ul>
+    </div>
+
+    <div class="container">
+        <h2>Upload Asset</h2>
+        <form id="uploadForm">
+            <input type="file" id="file" name="file" required>
+            <input type="text" id="fileName" name="fileName" placeholder="File Name" required>
+            <input type="text" id="mimeType" name="mimeType" placeholder="MIME Type" required>
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+
+    <script src="app.js"></script>
+
+    <div id="imageModal" class="modal">
+        <span class="close">&times;</span>
+        <img class="modal-content" id="modalImage">
+    </div>
+
+    <div id="generationConfigModal" class="modal">
+        <div class="config-modal-content">
+            <span class="close-config">&times;</span>
+            <h2>Generation Config</h2>
+            <pre id="generationConfigContent"></pre>
+        </div>
+    </div>
+</body>
+</html>
