@@ -1,0 +1,130 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+[project]
+name = "genmedia-izumi-agent"
+version = "0.3.0"
+description = "Combined repository for GenMedia mediagent-kit and reference demos."
+authors = [
+    {name = "Khanh LeViet", email = "khanhlvg@google.com"},
+    {name = "Daniel Vlasic", email = "dvlasic@google.com"},
+    {name = "Ye Jin", email = "jinye@google.com"},
+    {name = "Rhyard Zhu", email = "shoudongzhu@google.com"},
+]
+dependencies = [
+    "beautifulsoup4",
+    "fastapi",
+    "firebase-admin",
+    "google-adk==1.20.0",
+    "google-cloud-aiplatform[adk,agent-engines]>=1.132.0",
+    "google-cloud-storage",
+    "google-cloud-texttospeech",
+    "google-genai",
+    "moviepy",
+    "opentelemetry-exporter-gcp-trace",
+    "python-dotenv",
+    "requests",
+    "uvicorn",
+]
+
+requires-python = ">=3.11,<3.14"
+
+[dependency-groups]
+dev = [
+    "hatch",
+    "jupyter",
+    "keyrings.google-artifactregistry-auth",
+    "langchain-google-vertexai",
+    "locust",
+    "nest-asyncio",
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "uv",
+]
+
+[project.optional-dependencies]
+
+lint = [
+    "codespell",
+    "mypy",
+    "ruff",
+    "types-pyyaml",
+    "types-requests",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = ["samples", "notebooks", "tmp"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "C",  # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "UP", # pyupgrade
+    "RUF", # ruff specific rules
+]
+ignore = ["E501", "C901"] # ignore line too long, too complex
+
+[tool.ruff.lint.isort]
+known-first-party = ["mediagent_kit"]
+
+[tool.mypy]
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+no_implicit_optional = true
+check_untyped_defs = true
+disallow_subclassing_any = true
+warn_incomplete_stub = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+follow_imports = "silent"
+ignore_missing_imports = true
+explicit_package_bases = true
+disable_error_code = ["misc", "no-untyped-call", "no-any-return"]
+
+exclude = [".venv", "samples", "notebooks", "tmp"]
+
+[tool.codespell]
+ignore-words-list = "rouge"
+skip = "./locust_env/*,uv.lock,.venv,./frontend,**/*.ipynb"
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[tool.pytest.ini_options]
+pythonpath = [".", "demos", "tests"]
+asyncio_default_fixture_loop_scope = "function"
+norecursedirs = "samples tests/examples/load_test tmp"
+markers = ["integration: marks tests as integration tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["mediagent_kit"]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[[tool.uv.index]]
+url = "https://pypi.org/simple"
+default = true

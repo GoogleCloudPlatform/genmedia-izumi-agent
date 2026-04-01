@@ -1,0 +1,128 @@
+# ==========================================
+# Common / General
+# ==========================================
+# Operating System
+.DS_Store
+Thumbs.db
+
+# Editors / IDEs
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.sublime-workspace
+*.sw?
+.project
+.classpath
+.settings/
+
+# Logs
+logs/
+*.log
+
+# Temporary Files
+tmp/
+tmp*/
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.backup
+
+# ==========================================
+# Backend (Python)
+# ==========================================
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+.venv/
+venv/
+env/
+.Python
+
+# Distribution / Packaging
+build/
+develop-eggs/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Tool specific
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+nosetests.xml
+coverage.xml
+*.cover
+*.py.cover
+.hypothesis/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Package Managers
+Pipfile
+Pipfile.lock
+# uv.lock is tracked to make sure we have a stable enviroment
+# uv.lock
+
+# ==========================================
+# Frontend (Node.js / React)
+# ==========================================
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build Outputs
+dist/
+dist-ssr/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local environment files
+*.local
+.env
+.env.*
+
+# ==========================================
+# Project Specific
+# ==========================================
+
+# Archives
+mediagent_demos.zip
+genmedia-agent-bot/
+
+# Local/User specific
+locust_env/
+.streamlit_chats/
+.saved_chats/
+my_env.tfvars
+samples/
+output/screenlog.*
