@@ -1,0 +1,85 @@
+# Copyright 2025 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+steps:
+# Log the service account being used
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'bash'
+  args: ['-c', 'echo "Cloud Build is using service account: $(gcloud auth list --filter="status:ACTIVE" --format="value(account)")"']
+
+# 1. Pull the latest image to use as a cache
+- name: 'gcr.io/cloud-builders/docker'
+  entrypoint: 'bash'
+  args:
+    - '-c'
+    - 'docker pull ${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}-${_APP_ENV}/${_IMAGE_NAME}:${_APP_ENV} || exit 0'
+
+# 2. Build the container image
+- name: 'gcr.io/cloud-builders/docker'
+  args:
+    - 'build'
+    - '-t'
+    - '${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}-${_APP_ENV}/${_IMAGE_NAME}:${_APP_ENV}'
+    - '--cache-from'
+    - '${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}-${_APP_ENV}/${_IMAGE_NAME}:${_APP_ENV}'
+    - '.'
+    - '-f'
+    - 'deployment/Dockerfile'
+    - '--build-arg'
+    - 'APP_ENV=${_APP_ENV}'
+
+# 3. Authenticate Docker to Artifact Registry
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'gcloud'
+  args: ['auth', 'configure-docker', '${_LOCATION}-docker.pkg.dev', '--quiet']
+
+# 4. Push the container image to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', '${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}-${_APP_ENV}/${_IMAGE_NAME}:${_APP_ENV}']
+
+# 5. Deploy the container image to Cloud Run
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: gcloud
+  args:
+    - 'beta'
+    - 'run'
+    - 'services'
+    - 'update'
+    - '${_SERVICE_NAME}'
+    - '--image'
+    - '${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}-${_APP_ENV}/${_IMAGE_NAME}:${_APP_ENV}'
+    - '--region'
+    - '${_LOCATION}'
+    - '--timeout'
+    - '3600'
+
+# Specify the images to be built
+images:
+  - '${_LOCATION}-docker.pkg.dev/${_PROJECT_ID}/${_ARTIFACT_REGISTRY_REPO}-${_APP_ENV}/${_IMAGE_NAME}:${_APP_ENV}'
+
+# Default substitutions
+substitutions:
+  _APP_ENV: 'dev'
+  _LOCATION: 'us-central1'
+  _ARTIFACT_REGISTRY_REPO: 'genmedia-images'
+  _IMAGE_NAME: 'genmedia-agent'
+  _PROJECT_ID: ''
+  _SERVICE_NAME: ''
+  _CLOUD_BUILD_SA_RESOURCE_NAME: ''
+
+# Specify the service account for the build
+serviceAccount: '${_CLOUD_BUILD_SA_RESOURCE_NAME}'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
