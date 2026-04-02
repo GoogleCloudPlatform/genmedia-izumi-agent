@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && VITE_API_BASE_URL=\"\" vite build",
-    "lint": "eslint .",
-    "format": "prettier --write .",
+    "lint": "gts lint",
+    "format": "gts fix",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest --watch"
@@ -36,6 +36,7 @@
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
+    "gts": "^7.0.0",
     "jsdom": "^27.2.0",
     "msw": "^2.12.2",
     "prettier": "^3.6.2",
