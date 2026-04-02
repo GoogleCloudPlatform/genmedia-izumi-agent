@@ -45,29 +45,38 @@ Run the declarative Python setup helper to provision standard `.env.local` bindi
 uv run scripts/setup_gcp_project.py --app_env local
 ```
 
-### 5. Start Unified App Workspace
-Run the native single-click launcher to boot BOTH the API server and the React UI simultaneously (port multiplexed). By default, it is recommended to run using the **local Firestore Emulator** mock to avoid real cloud database conflicts:
+### 5. Choose Your Database & Launch
+
+You can run the application in two modes: **Local Emulator** (fastest, recommended for development) or **Live Cloud** (connects to real GCP Firestore). This script boots both the API server (Port 8000) and the React UI (Port 5173) simultaneously.
+
+#### 🔴 Path A: Local Emulator (Recommended)
+This starts a local mock database. It isolates your work and prevents conflicts with shared cloud data.
+
 ```bash
+# Starts both Frontend and Backend with local Firestore emulator
 ./scripts/start-all.sh --with-db-emulator
 ```
 
+- **Frontend:** http://localhost:5173
+- **Backend API:** http://localhost:8000
+- **API Docs (Swagger):** http://localhost:8000/docs
+
 ---
 
-### 🌐 Alternative: Connecting to Live Google Cloud Firestore
-If you prefer testing against your real live **Google Cloud Projects** (no local emulator), follow these steps to bypass 404 connection errors:
+#### ☁️ Path B: Live Google Cloud Projects
+This connects your local server directly to your live Google Cloud Firestore instance.
 
-1.  **Create the Database** in your Google Cloud Console:
-    *   Visit the [Firestore Console](https://console.cloud.google.com/firestore).
-    *   Click **Create Database** and select **Native Mode**. Choose a region (e.g., `us-central1`).
-2.  **Resolve Default vs Named database**:
-    *   If you created the standard `(default)` database in Step 1, leave `FIRESTORE_DATABASE_ID=` blank in your `demos/backend/.env.local` file. The system will resolve it properly as long as it exists in GCP!
-    *   If you created a named database (e.g., via Terraform run), enter that name inside `FIRESTORE_DATABASE_ID=my-database-name`.
-3.  **Run without the emulator flag**:
+1.  **Verify Firestore Exists:** Ensure you have a Firestore database initialized in your project in **Native Mode**.
+2.  **Configure Database ID:** Update `demos/backend/.env.local`:
+    - For the `(default)` database: Leave `FIRESTORE_DATABASE_ID=` blank.
+    - For named databases: Set `FIRESTORE_DATABASE_ID=your-database-name`.
+3.  **Launch:**
     ```bash
     ./scripts/start-all.sh
     ```
 
 ---
+
 
 ## 🧪 Testing & Quality Standards
 
