@@ -103,14 +103,9 @@ def get_current_gcloud_user_email():
 # --- Core Logic ---
 
 
-
-
-
 def run_dependency_checks():
     """Checks for required command-line tools and authentication."""
     print("--- Running Dependency Checks ---")
-
-
 
     run_command(["gcloud", "--version"], cwd=PROJECT_ROOT)
 
@@ -303,14 +298,14 @@ def setup_cloud_environment(app_env):
         print(f"✅ Bucket 'gs://{tf_state_bucket}' created.")
 
     backend_tf_path = TERRAFORM_DIR / "backend.tf"
-    backend_tf_path.write_text(f'''
+    backend_tf_path.write_text(f"""
 terraform {{
   backend "gcs" {{
     bucket  = "{tf_state_bucket}"
     prefix  = "terraform/state/{app_env}"
   }}
 }}
-''')
+""")
     print("✅ Terraform backend configured.")
 
     # 3. Generate Firestore Config
@@ -519,14 +514,14 @@ def destroy_cloud_environment(app_env):
 
     # 1. Configure backend
     backend_tf_path = TERRAFORM_DIR / "backend.tf"
-    backend_tf_path.write_text(f'''
+    backend_tf_path.write_text(f"""
 terraform {{
   backend "gcs" {{
     bucket  = "{tf_state_bucket}"
     prefix  = "terraform/state/{app_env}"
   }}
 }}
-''')
+""")
     print("✅ Terraform backend configured for destruction.")
 
     # 2. Generate Firestore config

@@ -38,7 +38,9 @@ if not PROJECT_ID or not LOCATION or not STAGING_BUCKET:
 if not STAGING_BUCKET.startswith("gs://"):
     STAGING_BUCKET = f"gs://{STAGING_BUCKET}"
 
-print(f"🚀 Initializing Vertex AI for project {PROJECT_ID} in {LOCATION} with bucket {STAGING_BUCKET}...")
+print(
+    f"🚀 Initializing Vertex AI for project {PROJECT_ID} in {LOCATION} with bucket {STAGING_BUCKET}..."
+)
 vertexai.init(project=PROJECT_ID, location=LOCATION, staging_bucket=STAGING_BUCKET)
 
 # 2. Setup path to import the agent
@@ -119,10 +121,12 @@ try:
         requirements=requirements,
         extra_packages=extra_packages,
         env_vars=env_vars,
-        resource_limits= {"cpu": "4", "memory": "8Gi"},
+        resource_limits={"cpu": "4", "memory": "8Gi"},
     )
     print(f"✅ Successfully deployed agent: {remote_agent.resource_name}")
-    print(f"🔗 Agent Engine Resource: https://console.cloud.google.com/vertex-ai/publishers/google/model-garden/agent-engine?project={PROJECT_ID}")
+    print(
+        f"🔗 Agent Engine Resource: https://console.cloud.google.com/vertex-ai/publishers/google/model-garden/agent-engine?project={PROJECT_ID}"
+    )
 finally:
     # Cleanup
     print(f"🧹 Cleaning up temporary bundle...")

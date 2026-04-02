@@ -98,6 +98,7 @@ node_modules/
 # Build Outputs
 dist/
 dist-ssr/
+.vite/
 
 # Logs
 npm-debug.log*

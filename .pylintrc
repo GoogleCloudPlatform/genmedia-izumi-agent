@@ -1,0 +1,44 @@
+[MASTER]
+ignore=.git,.venv,samples,notebooks,tmp
+load-plugins=
+
+[MESSAGES CONTROL]
+# Disable some checks that may be too strict or don't align perfectly with our needs
+disable=
+    C0114, # missing-module-docstring
+    C0115, # missing-class-docstring
+    C0116, # missing-function-docstring
+    W0511, # fixme (TODOs are fine)
+    R0903, # too-few-public-methods
+    C0301, # line-too-long (Black handles it)
+    R0401, # cyclic-import
+    R0801, # duplicate-code
+    C0411, # wrong-import-order
+    C0415, # import-outside-toplevel
+    W1203, # logging-fstring-interpolation
+    C0413, # wrong-import-position
+    C0412, # ungrouped-imports
+
+[REPORTS]
+output-format=text
+reports=no
+
+[FORMAT]
+max-line-length=88
+indent-string='    '
+
+[VARIABLES]
+ignored-argument-names=(_.*|unused_.*|args|kwargs)
+
+[DESIGN]
+max-args=8
+max-locals=20
+max-returns=10
+max-branches=15
+max-statements=50
+max-parents=10
+max-attributes=10
+max-public-methods=20
+
+[TYPECHECK]
+ignored-modules=google.adk,google.cloud.aiplatform

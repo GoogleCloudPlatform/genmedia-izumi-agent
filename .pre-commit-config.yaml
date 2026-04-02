@@ -1,0 +1,20 @@
+repos:
+-   repo: local
+    hooks:
+    -   id: black
+        name: black
+        entry: uv run black
+        language: system
+        types: [python]
+    -   id: pylint
+        name: pylint
+        entry: uv run pylint --fail-under=9.0 mediagent_kit demos/backend
+        language: system
+        types: [python]
+        require_serial: true
+        pass_filenames: false
+    -   id: add-licenses
+        name: add-licenses
+        entry: uv run python scripts/add_licenses.py
+        language: system
+        pass_filenames: false
