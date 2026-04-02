@@ -69,6 +69,38 @@ If you prefer testing against your real live **Google Cloud Projects** (no local
 
 ---
 
+## 🧪 Testing & Quality Standards
+
+The repository enforces high quality standards through automated testing and pre-commit hooks.
+
+### Running Tests
+
+We utilize `pytest` for unit testing and coverage tracking. To run the full test suite with coverage reporting:
+
+```bash
+uv run pytest tests/demos/ --cov=demos/backend --cov-report=term-missing
+```
+
+The repository maintains an **80% coverage threshold** for core modules.
+
+### Code Style & Pre-commit
+
+We use `black` for formatting, `pylint` for linting, and automated license header checks. Pre-commit hooks are configured to run these checks before every commit.
+
+To install pre-commit hooks:
+
+```bash
+uv run pre-commit install
+```
+
+To run checks manually:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+---
+
 ## 🧩 Architectural Topography
 
 | Folder | Description |
