@@ -417,9 +417,7 @@ class VideoStitchingService:
                 if audio_clip.asset:
                     blob = asset_service.get_asset_blob(asset_id=audio_clip.asset.id)
                     safe_file_name = os.path.basename(audio_clip.asset.file_name)
-                    audio_path = os.path.join(
-                        temp_dir, f"audio_{i}_{safe_file_name}"
-                    )
+                    audio_path = os.path.join(temp_dir, f"audio_{i}_{safe_file_name}")
                     with open(audio_path, "wb") as f:
                         f.write(blob.content)
                     audio_files.append(audio_path)

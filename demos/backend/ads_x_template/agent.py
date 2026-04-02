@@ -35,19 +35,27 @@ from .tools.storyboard import production_tools, storyboard_repair_tools
 from .utils.common import common_utils
 from .tools.parameters import parameters_tools
 
+
 async def debug_parameters_callback(*args, **kwargs):
     import logging
+
     logger = logging.getLogger(__name__)
     logger.error(f"🚨 [PARAMETERS AGENT RAW OUTPUT] args: {args}")
     logger.error(f"🚨 [PARAMETERS AGENT RAW OUTPUT] kwargs: {kwargs}")
+
 
 def instrument_agent(agent_name: str):
     async def debug_cb(*args, **kwargs):
         import logging
         from datetime import datetime
+
         logger = logging.getLogger(__name__)
-        logger.error(f"🚨🚨🚨 [ROUTING TRACE] ENTERING AGENT: {agent_name} at {datetime.utcnow().isoformat()} 🚨🚨🚨")
+        logger.error(
+            f"🚨🚨🚨 [ROUTING TRACE] ENTERING AGENT: {agent_name} at {datetime.utcnow().isoformat()} 🚨🚨🚨"
+        )
+
     return debug_cb
+
 
 from google.genai import types
 
@@ -60,7 +68,7 @@ parameters_agent = llm_agent.LlmAgent(
     disallow_transfer_to_parent=False,
     disallow_transfer_to_peers=False,
     before_model_callback=instrument_agent("parameters_agent"),
-    after_model_callback=debug_parameters_callback
+    after_model_callback=debug_parameters_callback,
 )
 
 user_assets_agent = llm_agent.LlmAgent(
@@ -143,8 +151,8 @@ planning_agent_text = sequential_agent.SequentialAgent(
     sub_agents=[
         parameters_agent,
         user_assets_agent,
-        strategy_agent,    # Stage 3
-        storyboard_router, # Stage 4
+        strategy_agent,  # Stage 3
+        storyboard_router,  # Stage 4
     ],
 )
 
@@ -154,7 +162,7 @@ full_pipeline_agent = sequential_agent.SequentialAgent(
     description="Sequential agent for the Ads-X pipeline.",
     sub_agents=[
         planning_agent_text,  # Use the specialized planning agent
-        generation_agent,     # Step 4: Generate & Stitch
+        generation_agent,  # Step 4: Generate & Stitch
     ],
 )
 
