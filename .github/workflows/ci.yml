@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  backend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' # Using a stable version
+
+      - name: Install uv
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run Black Check
+        run: uv run black --check .
+
+      - name: Run License Check
+        run: |
+          uv run python scripts/add_licenses.py
+          git diff --exit-code
+
+      - name: Run PyLint
+        run: uv run pylint --fail-under=9.0 mediagent_kit demos/backend
+
+      - name: Run Tests with Coverage (Strict 80%)
+        run: uv run pytest tests/ --cov=mediagent_kit --cov=demos/backend --cov-fail-under=80
+
+  frontend-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        working-directory: demos/frontend
+        run: npm ci
+
+      - name: Run Lint
+        working-directory: demos/frontend
+        run: npm run lint
+
+      - name: Run Tests
+        working-directory: demos/frontend
+        run: npm run test
