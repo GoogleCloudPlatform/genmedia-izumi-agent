@@ -19,7 +19,6 @@ import pydantic
 from typing import Any, get_args, get_origin
 from google.genai import types
 
-
 PARAMETERS_KEY = "parameters"
 USER_ASSETS_KEY = "user_assets"
 STORYBOARD_KEY = "storyboard"

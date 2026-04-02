@@ -63,7 +63,10 @@ Rewrite these snippets into a compelling narrative (1-3 sentences). The goal is 
 
 """
 
-async def rewrite_group_script(user_id: str, group: VoiceoverGroup, group_index: int = 0) -> str:
+
+async def rewrite_group_script(
+    user_id: str, group: VoiceoverGroup, group_index: int = 0
+) -> str:
     """Uses an LLM to rewrite a group's choppy scripts into a flowing narrative."""
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
     asset_service = mediagent_kit.services.aio.get_asset_service()
@@ -71,35 +74,38 @@ async def rewrite_group_script(user_id: str, group: VoiceoverGroup, group_index:
     # Format inputs for the prompt
     formatted_texts = []
     for i, script in enumerate(group.original_scripts):
-        formatted_texts.append(f"- Segment {i+1}: \"{script}\"")
-    
+        formatted_texts.append(f'- Segment {i+1}: "{script}"')
+
     # Use explicit newline joining
     formatted_str = "\n".join(formatted_texts)
-    
+
     prompt = REWRITE_INSTRUCTION.format(
-        total_duration=group.total_duration,
-        original_texts_formatted=formatted_str
+        total_duration=group.total_duration, original_texts_formatted=formatted_str
     )
 
     try:
         short_id = uuid.uuid4().hex[:8]
-        filename = f"voiceover_rewrite_group_{group_index}_{group.group_id}_{short_id}.txt"
-        
+        filename = (
+            f"voiceover_rewrite_group_{group_index}_{group.group_id}_{short_id}.txt"
+        )
+
         response_asset = await mediagen_service.generate_text_with_gemini(
             user_id=user_id,
             prompt=prompt,
             file_name=filename,
             reference_image_filenames=[],
-            model="gemini-2.5-flash"
+            model="gemini-2.5-flash",
         )
-        
+
         blob = await asset_service.get_asset_blob(response_asset.id)
         rewritten_text = blob.content.decode("utf-8").strip()
-        
+
         if not rewritten_text:
-            logger.warning(f"Rewritten text was empty for group {group.group_id}. Fallback to concat.")
+            logger.warning(
+                f"Rewritten text was empty for group {group.group_id}. Fallback to concat."
+            )
             return " ".join(group.original_scripts)
-            
+
         logger.info(f"Rewrote script for group {group.group_id}: '{rewritten_text}'")
         return rewritten_text
 
@@ -112,13 +118,13 @@ async def _shorten_group_script(user_id: str, text: str, target_duration: float)
     """Uses LLM to condense a script to fit a target duration."""
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
     asset_service = mediagent_kit.services.aio.get_asset_service()
-    
+
     pause_instruction = (
         "Keep [short pause], [medium pause], and [long pause] tags if present."
         if target_duration >= 3.0
         else "CRITICAL: The target duration is extremely short. DO NOT use any pause tags ([short pause], etc.). Write a single, punchy phrase with no internal punctuation."
     )
-    
+
     prompt = (
         "You are a professional script editor. The following voiceover script is too long. "
         f"Rewrite it to be approximately {target_duration:.1f} seconds long while keeping the core message and tone. "
@@ -126,7 +132,7 @@ async def _shorten_group_script(user_id: str, text: str, target_duration: float)
         "CRITICAL: Respond ONLY with the script. No intro text like 'Revised version:'."
         f"\n\nORIGINAL SCRIPT:\n{text}"
     )
-    
+
     try:
         short_id = uuid.uuid4().hex[:6]
         response = await mediagen_service.generate_text_with_gemini(
@@ -134,7 +140,7 @@ async def _shorten_group_script(user_id: str, text: str, target_duration: float)
             prompt=prompt,
             file_name=f"shorten_script_{short_id}.txt",
             reference_image_filenames=[],
-            model="gemini-2.5-flash"
+            model="gemini-2.5-flash",
         )
         blob = await asset_service.get_asset_blob(response.id)
         return blob.content.decode("utf-8").strip()
@@ -144,51 +150,61 @@ async def _shorten_group_script(user_id: str, text: str, target_duration: float)
 
 
 async def generate_group_voiceover(
-    user_id: str, 
-    group: VoiceoverGroup, 
+    user_id: str,
+    group: VoiceoverGroup,
     voice_name: str = "Aoede",
     style_prompt: str = "Narrate in a warm, professional, and engaging tone for a high-end commercial. Ensure natural pauses and prosody.",
-    group_index: int = 0
+    group_index: int = 0,
 ) -> Optional[Asset]:
     """Generates the audio asset for a voiceover group with duration optimization."""
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-    
+
     # 1. Initial Rewrite
     current_text = await rewrite_group_script(user_id, group, group_index=group_index)
-    
+
     # 2. Generation Loop (Max 3 attempts)
     MAX_ATTEMPTS = 4
-    SPEED_TOLERANCE = 1.25 # Allow up to 25% speed-up in post-processing
-    
+    SPEED_TOLERANCE = 1.25  # Allow up to 25% speed-up in post-processing
+
     for attempt in range(MAX_ATTEMPTS):
         filename = f"voiceover_group_{group_index}_{group.group_id}_att{attempt}.mp3"
-        
+
         try:
-            logger.info(f"Generating group audio (Attempt {attempt+1}/{MAX_ATTEMPTS})...")
+            logger.info(
+                f"Generating group audio (Attempt {attempt+1}/{MAX_ATTEMPTS})..."
+            )
             voiceover_asset = await mediagen_service.generate_speech_single_speaker(
                 user_id=user_id,
                 file_name=filename,
                 text=current_text,
                 voice_name=voice_name,
-                prompt=style_prompt
+                prompt=style_prompt,
             )
-            
+
             # Check Duration
             actual_duration = voiceover_asset.versions[-1].duration_seconds
             max_allowed = group.total_duration * SPEED_TOLERANCE
-            
+
             if actual_duration <= max_allowed:
-                logger.info(f"Group {group_index} audio accepted. Duration: {actual_duration:.2f}s (Target: {group.total_duration}s, Limit: {max_allowed:.2f}s)")
+                logger.info(
+                    f"Group {group_index} audio accepted. Duration: {actual_duration:.2f}s (Target: {group.total_duration}s, Limit: {max_allowed:.2f}s)"
+                )
                 group.rewritten_script = current_text
                 group.audio_asset_id = voiceover_asset.id
                 return voiceover_asset
-            
+
             # If too long, shorten and retry
-            logger.warning(f"Group {group_index} audio too long ({actual_duration:.2f}s > {max_allowed:.2f}s). Shortening script...")
-            current_text = await _shorten_group_script(user_id, current_text, group.total_duration * 0.9)
-            
+            logger.warning(
+                f"Group {group_index} audio too long ({actual_duration:.2f}s > {max_allowed:.2f}s). Shortening script..."
+            )
+            current_text = await _shorten_group_script(
+                user_id, current_text, group.total_duration * 0.9
+            )
+
         except Exception as e:
-            logger.error(f"Failed to generate voiceover audio for group {group.group_id}: {e}")
+            logger.error(
+                f"Failed to generate voiceover audio for group {group.group_id}: {e}"
+            )
             break
-            
+
     return None

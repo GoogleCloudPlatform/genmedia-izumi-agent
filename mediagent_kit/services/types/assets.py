@@ -188,9 +188,13 @@ class AssetVersion:
                 "generate_audio": self.video_generate_config.generate_audio,
             }
             if self.video_generate_config.first_frame_asset:
-                video_config["first_frame_asset_id"] = self.video_generate_config.first_frame_asset.id
+                video_config["first_frame_asset_id"] = (
+                    self.video_generate_config.first_frame_asset.id
+                )
             if self.video_generate_config.last_frame_asset:
-                video_config["last_frame_asset_id"] = self.video_generate_config.last_frame_asset.id
+                video_config["last_frame_asset_id"] = (
+                    self.video_generate_config.last_frame_asset.id
+                )
             data["video_generate_config"] = video_config
 
         if self.speech_generate_config:
@@ -202,7 +206,6 @@ class AssetVersion:
             }
 
         return data
-
 
 
 @dataclasses.dataclass

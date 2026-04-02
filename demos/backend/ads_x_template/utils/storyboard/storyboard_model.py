@@ -22,7 +22,8 @@ from .templates_model import CinematographyHints, AudioHints, TransitionHints
 
 class SpeechPrompt(pydantic.BaseModel):
     """Prompt to generate a speech."""
-    model_config = pydantic.ConfigDict(extra='allow')
+
+    model_config = pydantic.ConfigDict(extra="allow")
 
     text: str = pydantic.Field(description="Text to be spoken.")
     gender: str = pydantic.Field(
@@ -33,13 +34,14 @@ class SpeechPrompt(pydantic.BaseModel):
     )
     style: str = pydantic.Field(
         default="Natural",
-        description="A specific vibe or tone (e.g. 'Energetic', 'Empathetic')."
+        description="A specific vibe or tone (e.g. 'Energetic', 'Empathetic').",
     )
 
 
 class MusicPrompt(pydantic.BaseModel):
     """Prompt to generate music."""
-    model_config = pydantic.ConfigDict(extra='allow')
+
+    model_config = pydantic.ConfigDict(extra="allow")
 
     description: str = pydantic.Field(
         description=(
@@ -51,7 +53,8 @@ class MusicPrompt(pydantic.BaseModel):
 
 class ImagePrompt(pydantic.BaseModel):
     """Prompt to generate an image."""
-    model_config = pydantic.ConfigDict(extra='allow')
+
+    model_config = pydantic.ConfigDict(extra="allow")
 
     description: str = pydantic.Field(
         description=(
@@ -72,7 +75,8 @@ class ImagePrompt(pydantic.BaseModel):
 
 class VideoPrompt(pydantic.BaseModel):
     """Prompt to generate a video."""
-    model_config = pydantic.ConfigDict(extra='allow')
+
+    model_config = pydantic.ConfigDict(extra="allow")
 
     description: str = pydantic.Field(
         description=(
@@ -96,7 +100,8 @@ class VideoPrompt(pydantic.BaseModel):
 
 class Scene(pydantic.BaseModel):
     """A single scene in the storyboard."""
-    model_config = pydantic.ConfigDict(extra='allow')
+
+    model_config = pydantic.ConfigDict(extra="allow")
 
     topic: str = pydantic.Field(
         description="A short, descriptive topic for this scene."
@@ -120,41 +125,57 @@ class Scene(pydantic.BaseModel):
         default_factory=AudioHints, description="Ambient sound and SFX details."
     )
     duration_seconds: float = pydantic.Field(
-        default=4, description="Target duration for this scene in seconds. Can be a decimal value (e.g., 2.5, 3.5) to match fast-paced template timings."
+        default=4,
+        description="Target duration for this scene in seconds. Can be a decimal value (e.g., 2.5, 3.5) to match fast-paced template timings.",
     )
     narrative_action: str | None = pydantic.Field(
-        default=None,
-        description="Specific character or object action for this scene."
+        default=None, description="Specific character or object action for this scene."
     )
     establishment_shot: str | None = pydantic.Field(
         default=None,
-        description="A description of the opening context for the scene (e.g. 'EXT. PARK - DAY')."
+        description="A description of the opening context for the scene (e.g. 'EXT. PARK - DAY').",
     )
 
 
 class VoiceoverGroup(pydantic.BaseModel):
     """Represents a sequence of scenes sharing a single voiceover asset."""
-    model_config = pydantic.ConfigDict(extra='allow')
-    
+
+    model_config = pydantic.ConfigDict(extra="allow")
+
     group_id: str = pydantic.Field(description="Unique ID for this group.")
-    scene_indices: List[int] = pydantic.Field(description="Indices of the scenes included in this group.")
-    total_duration: float = pydantic.Field(description="Total duration of all scenes in this group.")
-    original_scripts: List[str] = pydantic.Field(description="Original script snippets for each scene.")
-    rewritten_script: str = pydantic.Field(default="", description="The LLM-rewritten, flowing script.")
-    audio_asset_id: str = pydantic.Field(default="", description="ID of the generated audio asset.")
-    narrative_block: str = pydantic.Field(description="The narrative block this group belongs to (START, BODY, CTA).")
+    scene_indices: List[int] = pydantic.Field(
+        description="Indices of the scenes included in this group."
+    )
+    total_duration: float = pydantic.Field(
+        description="Total duration of all scenes in this group."
+    )
+    original_scripts: List[str] = pydantic.Field(
+        description="Original script snippets for each scene."
+    )
+    rewritten_script: str = pydantic.Field(
+        default="", description="The LLM-rewritten, flowing script."
+    )
+    audio_asset_id: str = pydantic.Field(
+        default="", description="ID of the generated audio asset."
+    )
+    narrative_block: str = pydantic.Field(
+        description="The narrative block this group belongs to (START, BODY, CTA)."
+    )
 
 
 class Storyboard(pydantic.BaseModel):
     """A structured representation of a MediaGen video storyboard."""
-    model_config = pydantic.ConfigDict(extra='allow')
+
+    model_config = pydantic.ConfigDict(extra="allow")
 
     template_name: str = pydantic.Field(
         default="Custom", description="Name of the template used, if any."
     )
     background_music_prompt: MusicPrompt = pydantic.Field(
-        default_factory=lambda: MusicPrompt(description="A cinematic and inspiring background score for an advertising campaign."),
-        description="Prompt to generate background music for the video."
+        default_factory=lambda: MusicPrompt(
+            description="A cinematic and inspiring background score for an advertising campaign."
+        ),
+        description="Prompt to generate background music for the video.",
     )
     scenes: list[Scene] = pydantic.Field(
         min_length=1,

@@ -25,7 +25,7 @@ from ..templates_model import (
 
 def get_ugc_first_impression() -> AdTemplate:
     """Template: UGC First Impression (32s) - The Discovery"""
-    
+
     return AdTemplate(
         template_name="UGC First Impression",
         industry_type="Social Native",
@@ -59,7 +59,7 @@ def get_ugc_first_impression() -> AdTemplate:
                 ),
                 audio_hints=AudioHints(
                     dialogue_hint="[HOOK: Express excitement about finally seeing the product. If brief mentioned a problem, mention it here. Max 24 words].",
-                    dialogue_tone="Happy, authentic, casual"
+                    dialogue_tone="Happy, authentic, casual",
                 ),
             ),
             # --- SCENE 2: THE REVEAL/INTERACTION (8s) ---
@@ -84,7 +84,7 @@ def get_ugc_first_impression() -> AdTemplate:
                 ),
                 audio_hints=AudioHints(
                     dialogue_hint="[REACTION: Describe the 'Aha!' moment. Mention a primary USP from the brief. Max 24 words].",
-                    dialogue_tone="Genuinely impressed"
+                    dialogue_tone="Genuinely impressed",
                 ),
             ),
             # --- SCENE 3: SENSORY QUALITY (8s) ---
@@ -109,7 +109,7 @@ def get_ugc_first_impression() -> AdTemplate:
                 ),
                 audio_hints=AudioHints(
                     dialogue_hint="[QUALITY: Confirm the premium feel. Mention a technical detail or warranty from the brief. Max 24 words].",
-                    dialogue_tone="Helpful, demonstrating"
+                    dialogue_tone="Helpful, demonstrating",
                 ),
             ),
             # --- SCENE 4: VERDICT (8s) ---
@@ -132,7 +132,7 @@ def get_ugc_first_impression() -> AdTemplate:
                 ),
                 audio_hints=AudioHints(
                     dialogue_hint="[VERDICT: Final summary. Justify price/value. Mention secondary USP (shipping/warranty). Max 24 words].",
-                    dialogue_tone="Friendly, low pressure"
+                    dialogue_tone="Friendly, low pressure",
                 ),
             ),
         ],
@@ -141,7 +141,7 @@ def get_ugc_first_impression() -> AdTemplate:
 
 def get_ugc_honest_opinion() -> AdTemplate:
     """Template: UGC Honest Opinion (32s) - The Trust Builder"""
-    
+
     return AdTemplate(
         template_name="UGC Honest Opinion",
         industry_type="Social Native",
@@ -174,7 +174,7 @@ def get_ugc_honest_opinion() -> AdTemplate:
                 ),
                 audio_hints=AudioHints(
                     dialogue_hint="[HOOK: Establish timeline and admit an initial hesitation or doubt from the brief. Max 24 words].",
-                    dialogue_tone="Direct, honest, conversational"
+                    dialogue_tone="Direct, honest, conversational",
                 ),
             ),
             # --- SCENE 2: THE FEATURE PROOF (8s) ---
@@ -197,7 +197,7 @@ def get_ugc_honest_opinion() -> AdTemplate:
                 ),
                 audio_hints=AudioHints(
                     dialogue_hint="[PROOF: Describe how well it actually works in real life. Use specific brief details. Max 24 words].",
-                    dialogue_tone="Impressed, proving a point"
+                    dialogue_tone="Impressed, proving a point",
                 ),
             ),
             # --- SCENE 3: LIFESTYLE FIT (8s) ---
@@ -220,7 +220,7 @@ def get_ugc_honest_opinion() -> AdTemplate:
                 ),
                 audio_hints=AudioHints(
                     dialogue_hint="[VALUE: Mention the secondary USP or integration into daily life. Confirm if worth the price. Max 24 words].",
-                    dialogue_tone="Confidential, advice"
+                    dialogue_tone="Confidential, advice",
                 ),
             ),
             # --- SCENE 4: CTA (8s) ---
@@ -243,7 +243,7 @@ def get_ugc_honest_opinion() -> AdTemplate:
                 ),
                 audio_hints=AudioHints(
                     dialogue_hint="[CTA: Casual sign-off and recommendation. Catch you in the next one! Max 24 words].",
-                    dialogue_tone="Friendly, sign-off"
+                    dialogue_tone="Friendly, sign-off",
                 ),
             ),
         ],

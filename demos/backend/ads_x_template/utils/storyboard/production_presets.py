@@ -31,7 +31,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
             "high_octane_sports": "High contrast, grit, sweat-sheen, aggressive motion blur, anamorphic flares.",
             "urban_street_luxe": "Raw concrete, metallic silver chrome, high-contrast neon, oversized silhouettes, graffiti-inspired textures.",
             "avant_garde_fashion": "Structural silhouettes, monochromatic black/gold, high-gloss leather, surrealist lighting.",
-            "nostalgic_vintage": "Warm amber tones, film grain, soft lens flares, 70s-style typography, rich filmic saturation."
+            "nostalgic_vintage": "Warm amber tones, film grain, soft lens flares, 70s-style typography, rich filmic saturation.",
         },
         "CHARACTER_DETAILS": {
             "primary_actors": [
@@ -42,7 +42,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "The 'Connoisseur': refined features, calm and deliberate movement, looking at product with admiration",
                 "The 'Dynamic Explorer': weathered skin textures, wind-swept hair, looking towards the horizon",
                 "The 'Creative Radical': bold colored hair, strike makeup, confident artistic posture",
-                "The 'Zen Practitioner': closed eyes, relaxed facial muscles, luminous and hydrated skin"
+                "The 'Zen Practitioner': closed eyes, relaxed facial muscles, luminous and hydrated skin",
             ],
             "attire_styling": [
                 "Textural Luxury: heavy-gauge cashmere, raw silk, bespoke structured wool",
@@ -52,7 +52,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Vintage Filmic: textured corduroy, worn leather, high-waisted tailoring",
                 "Industrial Utility: heavy canvas, technical straps, metallic hardware, matte black finish",
                 "Fluid Ethereal: flowing chiffon, sheer layers, translucent fabrics that catch the light",
-                "Street-Style High-Fashion: oversized hoodies, reflective fabrics, contrast stitching"
+                "Street-Style High-Fashion: oversized hoodies, reflective fabrics, contrast stitching",
             ],
             "visage_grooming": [
                 "Glass Skin: hyper-hydrated, reflective highlights on cheekbones",
@@ -62,8 +62,8 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Saturated Pop: vibrant eyeshadow, bold matte lips, playful color accents",
                 "Sun-kissed Glow: bronzed skin, scattered freckles, wind-tossed hair",
                 "High-Contrast Shadow: dramatic eye-makeup, sharp contours, mysterious gaze",
-                "Dewy Botanical: soft floral tones, luminous highlights, flushed cheeks"
-            ]
+                "Dewy Botanical: soft floral tones, luminous highlights, flushed cheeks",
+            ],
         },
         "PRODUCT_MACRO": {
             "liquid_physics": "Slow-motion condensation beads, viscous pouring (honey/oil), explosive splash (4k droplets)",
@@ -73,7 +73,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
             "metallic_oxidation": "High-detail macro on brushed titanium, shifting light on chrome surfaces, iridescent carbon-fiber",
             "geological_texture": "Raw stone grain, crystalline structures, microscopic dust particles catching the light",
             "organic_macro": "Detailed plant veins, soft botanical fuzz, microscopic pollen, translucent leaves",
-            "cosmetic_viscosity": "Rich cream texture, shimmering micro-particles, smooth applicator gliding through liquid"
+            "cosmetic_viscosity": "Rich cream texture, shimmering micro-particles, smooth applicator gliding through liquid",
         },
         "ENVIRONMENT": {
             "spatial_context": [
@@ -84,7 +84,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Abandoned Luxury Ballroom: peeling gold leaf, dusty chandeliers, shafts of window light",
                 "Pristine Arctic Expanse: white-on-white, blue shadows, distant snowy horizons",
                 "Neon Sky-Bridge: glowing foundations, city-lights below, futuristic glass architecture",
-                "Mediterranean Cliffside: limestone textures, deep blue sea, sun-bleached wood"
+                "Mediterranean Cliffside: limestone textures, deep blue sea, sun-bleached wood",
             ]
         },
         "CINEMATOGRAPHY": {
@@ -96,7 +96,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Tilt-Shift Lens: miniature-effect selective focus, surreal depth perception",
                 "Vintage Kowa Anamorphic: warm flares, high-character distortion, soft edges",
                 "Fisheye 8mm: extreme peripheral distortion, immersive 'center-of-world' feel",
-                "T2.8 Portrait Prime: soft background separation, dreamy bokeh, flattering skin tones"
+                "T2.8 Portrait Prime: soft background separation, dreamy bokeh, flattering skin tones",
             ],
             "dynamic_motion": [
                 "SnorriCam: camera locked to the actor for a disorienting, immersive feel",
@@ -106,8 +106,8 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Slow-Motion Reveal: 120fps dolly-out from a macro detail to full character",
                 "Whip-Pan Transition: fast-paced kinetic blur connecting two different locations",
                 "Steady-Cam Chase: low-angle, smooth tracking behind an athlete",
-                "Handheld Shiver: subtle vibrating movement to evoke intensity or anxiety"
-            ]
+                "Handheld Shiver: subtle vibrating movement to evoke intensity or anxiety",
+            ],
         },
         "ILLUMINATION": {
             "aesthetic_vibe": [
@@ -118,7 +118,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "High-Key Commercial: bright, clean, shadow-less, premium vibe",
                 "Moody Chiaroscuro: high contrast, deep shadows, single theatrical source",
                 "Bioluminescent Glow: soft internal light sources, glowing product features",
-                "Motivated Candle-light: flickering warm tones, soft shadows, intimate feel"
+                "Motivated Candle-light: flickering warm tones, soft shadows, intimate feel",
             ],
             "tonal_highlights": [
                 "Caustic light reflections through water",
@@ -128,8 +128,8 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Subtle prism rainbow flares on the lens edge",
                 "OLED blue screen-glow spill on subject face",
                 "Metallic specular highlights (sparkling micro-points)",
-                "Soft rim-lighting on hair/textures"
-            ]
+                "Soft rim-lighting on hair/textures",
+            ],
         },
         "SONIC_LANDSCAPE": {
             "composition_styles": [
@@ -140,7 +140,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Cyberpunk Synth-wave: high-energy arpeggios, analog distortion, heavy percussion",
                 "Ethereal Ambient: slow-moving pads, shimmering chimes, vast reverb tails",
                 "Aggressive Trap-Hybrid: heavy 808s, distorted vocals, fast-paced hi-hats",
-                "Nostalgic Folk: acoustic guitar, natural environment sounds, warm vocals"
+                "Nostalgic Folk: acoustic guitar, natural environment sounds, warm vocals",
             ]
         },
         "FIDELITY_GUARDS": [
@@ -151,8 +151,8 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
             "Ensure 'Product-as-Hero' logic: the product is always the brightest/sharpest point",
             "No floating objects or gravity-defying hair unless explicitly requested",
             "Temporal consistency: wardrobe must not change between matching scenes",
-            "Lighting direction must remain consistent within a narrative sequence"
-        ]
+            "Lighting direction must remain consistent within a narrative sequence",
+        ],
     },
     "SOCIAL_NATIVE": {
         "BRAND_AESTHETICS": {
@@ -163,7 +163,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
             "tech_influencer": "Multiple monitor glow, desk setup aesthetic, high-quality audio equipment visible.",
             "fitness_native": "Gym environment, high-key overhead light, dynamic movement, high motivation.",
             "culinary_vibe": "Close-up food prep, overhead tripod shots, messy but tasty application, ASMR sounds.",
-            "luxury_lifestyle": "High-end car interior, designer accessories, hotel lobby aesthetic, aspirational but raw."
+            "luxury_lifestyle": "High-end car interior, designer accessories, hotel lobby aesthetic, aspirational but raw.",
         },
         "CHARACTER_DETAILS": {
             "primary_actors": [
@@ -174,7 +174,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "The 'DIY Creator': messy hands, focused gaze on the task",
                 "The 'Busy Professional': multi-tasking, on-the-go, relatable stress",
                 "The 'Fitness Enthusiast': active movement, expressive exertion, high energy",
-                "The 'Tech-Savvy Youth': fast-paced gestures, phone-in-hand, high energy"
+                "The 'Tech-Savvy Youth': fast-paced gestures, phone-in-hand, high energy",
             ],
             "attire_styling": [
                 "Lived-in Casual: comfort-first, standard household textiles",
@@ -184,7 +184,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Professional Uniform: apron, scrubs, or business-casual",
                 "Sleepwear: cozy pajamas, soft robes, morning look",
                 "Traveler Gear: backpack, weatherproof jacket, layered look",
-                "Trendy Lifestyle: high-saturation colors, current fashion trends"
+                "Trendy Lifestyle: high-saturation colors, current fashion trends",
             ],
             "visage_grooming": [
                 "Everyday Natural: minimal makeup, real skin textures",
@@ -194,8 +194,8 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Trending Glam: defined brows, lash extensions, lip gloss",
                 "Relaxed Home-look: messy bun, 'no-care' grooming",
                 "Urbane Grooming: sharp haircut, well-maintained beard",
-                "Playful Color: bright nail polish, fun hair clips, youthful energy"
-            ]
+                "Playful Color: bright nail polish, fun hair clips, youthful energy",
+            ],
         },
         "PRODUCT_MACRO": {
             "unboxing_tactile": "Focus on opening packaging, textured cardstock, satisfied peeling sounds",
@@ -205,7 +205,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
             "swatch_test": "Makeup or color applied to arm, high-detail macro",
             "tech_interaction": "Finger swiping screen, clicking buttons, LED indicators flashing",
             "crunch_snap": "Food being bitten into or broken, macro focus on internal texture",
-            "fabric_feel": "Hand brushing over soft fabric, close-up on weave"
+            "fabric_feel": "Hand brushing over soft fabric, close-up on weave",
         },
         "ENVIRONMENT": {
             "spatial_context": [
@@ -216,7 +216,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Home Gym: yoga mat, dumbbell rack, neutral walls",
                 "Coffee Shop: blurred patrons, steam machine, wooden table",
                 "Cozy Living Room: soft sofa, pillows, television glow",
-                "Modern Home Office: laptop, monitors, coffee mug, bookshelf"
+                "Modern Home Office: laptop, monitors, coffee mug, bookshelf",
             ]
         },
         "CINEMATOGRAPHY": {
@@ -224,7 +224,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Smartphone Vertical 24mm: standard social media perspective",
                 "Front-facing Selfie Cam: authentic distortion, relatable look",
                 "Handheld Main Sensor: sharp detail, wide-angle POV",
-                "Over-the-shoulder POV: immersive user-perspective"
+                "Over-the-shoulder POV: immersive user-perspective",
             ],
             "dynamic_motion": [
                 "Handheld Shake: authentic movement to evoke realness",
@@ -234,8 +234,8 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Circular Hand-Pan: camera rotation to reveal environment",
                 "Camera Drop: mimicking setting the phone down on a table",
                 "Walking Tracking: bobbing motion of a walking creator",
-                "Mirror Reveal: camera move from subject to their reflection"
-            ]
+                "Mirror Reveal: camera move from subject to their reflection",
+            ],
         },
         "ILLUMINATION": {
             "aesthetic_vibe": [
@@ -246,7 +246,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Soft Ring Light: circular reflection in eyes, even beauty lighting",
                 "Harsh Midday Sun: high contrast, authentic feeling",
                 "String/Fairy Lights: soft bokeh background, cozy evening feel",
-                "Dusk Street-light: orange sodium glow, moody urban look"
+                "Dusk Street-light: orange sodium glow, moody urban look",
             ],
             "tonal_highlights": [
                 "Natural sun-flares across the lens",
@@ -254,8 +254,8 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Reflection of the phone screen in a surface",
                 "Soft glow on the creator's face from the window",
                 "Hard shadows from bright indoor light",
-                "Glitter or shimmering product details catching the light"
-            ]
+                "Glitter or shimmering product details catching the light",
+            ],
         },
         "SONIC_LANDSCAPE": {
             "composition_styles": [
@@ -266,7 +266,7 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
                 "Hyper-fast Cuts Audio: rhythmic sync to visual jumps",
                 "Soft Acoustic: intimate, guitar or piano focused",
                 "Synth-Pop: energetic, colorful, youthful energy",
-                "Muted Muffled: high-frequency roll-off to sound like a distant speaker"
+                "Muted Muffled: high-frequency roll-off to sound like a distant speaker",
             ]
         },
         "FIDELITY_GUARDS": [
@@ -277,12 +277,14 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
             "Ensure on-screen text is in social-native fonts/styles",
             "Foley sounds must feel incidental and real (not studio-perfect)",
             "Lighting must match the environment (e.g. no ring light in a forest)",
-            "Clothing should remain consistent for the character"
-        ]
-    }
+            "Clothing should remain consistent for the character",
+        ],
+    },
 }
+
 
 def get_production_encyclopedia_json() -> str:
     """Returns a JSON string of the production encyclopedia for LLM injection."""
     import json
+
     return json.dumps(PRODUCTION_ENCYCLOPEDIA, indent=2)

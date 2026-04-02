@@ -19,22 +19,26 @@ from ...utils.common import common_utils
 from ...utils.parameters.parameters_model import Parameters
 from ...utils.storyboard.storyboard_model import Storyboard
 
+
 def map_strategy_to_metadata(tool_context: ToolContext) -> str:
     """Explicitly maps campaign research into the global storyboard metadata AND enforces least privilege.
-    
+
     This ensures reliability and prevents state leakage in a single atomic tool call.
     """
     import logging
+
     logger = logging.getLogger(__name__)
-    logger.error("⭐⭐⭐ [NATIVE TOOL INVOCATION] `map_strategy_to_metadata` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐")
+    logger.error(
+        "⭐⭐⭐ [NATIVE TOOL INVOCATION] `map_strategy_to_metadata` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
+    )
     state = tool_context.state
     params_dict = state.get(common_utils.PARAMETERS_KEY)
-    
+
     if not params_dict:
         return "No parameters found in state. Skipping mapping."
-        
+
     params = Parameters.model_validate(params_dict)
-    
+
     # 1. Mapping Metadata
     metadata = {
         "campaign_title": params.campaign_name,
@@ -42,19 +46,24 @@ def map_strategy_to_metadata(tool_context: ToolContext) -> str:
         "campaign_tone": params.campaign_tone,
         "global_visual_style": params.global_visual_style,
         "global_setting": params.global_setting,
-        "concept_description": (params.storyline_guidance.narrative_arc if params.storyline_guidance else params.campaign_brief),
-        "key_message": params.key_message or (params.brief_results.primary_hook if params.brief_results else None),
+        "concept_description": (
+            params.storyline_guidance.narrative_arc
+            if params.storyline_guidance
+            else params.campaign_brief
+        ),
+        "key_message": params.key_message
+        or (params.brief_results.primary_hook if params.brief_results else None),
         "target_audience_profile": (
             f"Persona: {params.brief_results.audience.persona} | Pain Points: {', '.join(params.brief_results.audience.pain_points)} | Desires: {', '.join(params.brief_results.audience.desires)}"
             if params.brief_results and params.brief_results.audience
             else params.target_audience
-        )
+        ),
     }
     state["forced_metadata"] = metadata
 
     # 3. Beautify Output for UI
     summary = "Strategy context synchronized.\n"
-    
+
     # 2. Enforcing Least Privilege (Sanitization)
     # If mode is NOT custom, we wipe sensitive storyline_guidance from the state.
     if params.template_name != "Custom":
@@ -62,5 +71,5 @@ def map_strategy_to_metadata(tool_context: ToolContext) -> str:
             del params_dict["storyline_guidance"]
             state[common_utils.PARAMETERS_KEY] = params_dict
             return summary + "\n*(Note: Storyline sanitized for templated mode)*"
-            
+
     return summary

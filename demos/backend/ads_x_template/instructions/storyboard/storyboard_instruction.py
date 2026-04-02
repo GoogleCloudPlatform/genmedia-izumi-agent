@@ -118,32 +118,42 @@ Once you have generated the JSON object, you MUST call the `finalize_and_persist
 def get_ai_director_instruction(ctx: ReadonlyContext) -> str:
     # Safely fetch state securely. State might be a DictProxy, string, or dict.
     import logging
+
     logger = logging.getLogger(__name__)
-    logger.error(f"🚨 [DEEP DEBUG DOWNSTREAM] All keys in ctx.session.state: {list(ctx.session.state.keys())}")
-    
+    logger.error(
+        f"🚨 [DEEP DEBUG DOWNSTREAM] All keys in ctx.session.state: {list(ctx.session.state.keys())}"
+    )
+
     parameters = ctx.session.state.get("parameters", {})
-    logger.warning(f"🚨 [DEEP DEBUG DOWNSTREAM] Extracted parameters type: {type(parameters)}")
-    logger.warning(f"🚨 [DEEP DEBUG DOWNSTREAM] Extracted parameters repr: {repr(parameters)}")
+    logger.warning(
+        f"🚨 [DEEP DEBUG DOWNSTREAM] Extracted parameters type: {type(parameters)}"
+    )
+    logger.warning(
+        f"🚨 [DEEP DEBUG DOWNSTREAM] Extracted parameters repr: {repr(parameters)}"
+    )
 
     if isinstance(parameters, str):
         import json
+
         try:
             parameters = json.loads(parameters)
         except Exception:
             parameters = {}
-            
+
     # Ensure it's safe to call .get()
     if not hasattr(parameters, "get"):
         parameters = {}
-        
+
     target_duration_str = parameters.get("target_duration", "12s")
     try:
         target_secs = float(str(target_duration_str).replace("s", "").strip())
     except ValueError:
         target_secs = 12.0
-        
-    logger.info(f"🎬 [AI DIRECTOR PACING] State target_duration: '{target_duration_str}', Resolved Float: {target_secs}s")
-        
+
+    logger.info(
+        f"🎬 [AI DIRECTOR PACING] State target_duration: '{target_duration_str}', Resolved Float: {target_secs}s"
+    )
+
     # Pre-calculate the exact rigorous pacing array beforehand using Python
     blueprint_array = pacing_blueprints.get_random_blueprint_for_duration(target_secs)
     expected_scene_count = len(blueprint_array)

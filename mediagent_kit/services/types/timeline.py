@@ -77,12 +77,12 @@ class VideoClip:
             "trim": self.trim.to_firestore() if self.trim else None,
             "volume": self.volume,
             "speed": self.speed,
-            "first_frame_asset_id": self.first_frame_asset.id
-            if self.first_frame_asset
-            else None,
-            "last_frame_asset_id": self.last_frame_asset.id
-            if self.last_frame_asset
-            else None,
+            "first_frame_asset_id": (
+                self.first_frame_asset.id if self.first_frame_asset else None
+            ),
+            "last_frame_asset_id": (
+                self.last_frame_asset.id if self.last_frame_asset else None
+            ),
             "placeholder": self.placeholder,
         }
 
@@ -204,12 +204,12 @@ class VideoTimeline:
             "video_clips": [c.to_firestore() for c in self.video_clips],
             "transitions": [t.to_firestore() if t else None for t in self.transitions],
             "audio_clips": [a.to_firestore() for a in self.audio_clips],
-            "transition_in": self.transition_in.to_firestore()
-            if self.transition_in
-            else None,
-            "transition_out": self.transition_out.to_firestore()
-            if self.transition_out
-            else None,
+            "transition_in": (
+                self.transition_in.to_firestore() if self.transition_in else None
+            ),
+            "transition_out": (
+                self.transition_out.to_firestore() if self.transition_out else None
+            ),
         }
 
     @classmethod
@@ -230,10 +230,14 @@ class VideoTimeline:
                 AudioClip.from_firestore(a, asset_service)
                 for a in data.get("audio_clips", [])
             ],
-            transition_in=Transition.from_firestore(data["transition_in"])
-            if data.get("transition_in")
-            else None,
-            transition_out=Transition.from_firestore(data["transition_out"])
-            if data.get("transition_out")
-            else None,
+            transition_in=(
+                Transition.from_firestore(data["transition_in"])
+                if data.get("transition_in")
+                else None
+            ),
+            transition_out=(
+                Transition.from_firestore(data["transition_out"])
+                if data.get("transition_out")
+                else None
+            ),
         )

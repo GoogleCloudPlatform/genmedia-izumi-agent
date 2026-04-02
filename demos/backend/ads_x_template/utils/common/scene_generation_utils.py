@@ -55,21 +55,27 @@ async def generate_scene_first_frame(
         enrichment_data["on_screen_text_hint"] = on_screen_text_hint
 
     # --- ENRICHMENT STEP ---
-    current_prompt_desc, enrichment_asset_id = await enrichment_utils.enrich_prompt_with_llm(
-        user_id,
-        original_prompt_desc,
-        enrichment_data,
-        scene_index=index,
-        prompt_type="image",
-        context=context,
-        is_ugc=is_ugc,
-        reference_image_filenames=reference_asset_names,
+    current_prompt_desc, enrichment_asset_id = (
+        await enrichment_utils.enrich_prompt_with_llm(
+            user_id,
+            original_prompt_desc,
+            enrichment_data,
+            scene_index=index,
+            prompt_type="image",
+            context=context,
+            is_ugc=is_ugc,
+            reference_image_filenames=reference_asset_names,
+        )
     )
     if enrichment_asset_id:
         first_frame_prompt["enrichment_asset_id"] = enrichment_asset_id
 
-    filename = f"scene_{index}_first_frame_{uid}.png" if uid else f"scene_{index}_first_frame.png"
-    
+    filename = (
+        f"scene_{index}_first_frame_{uid}.png"
+        if uid
+        else f"scene_{index}_first_frame.png"
+    )
+
     try:
         generated_asset = await mediagen_service.generate_image_with_gemini(
             user_id=user_id,
@@ -81,7 +87,7 @@ async def generate_scene_first_frame(
         )
 
         first_frame_prompt["asset_id"] = generated_asset.id
-        first_frame_prompt["description"] = current_prompt_desc 
+        first_frame_prompt["description"] = current_prompt_desc
         return generated_asset, current_prompt_desc
 
     except Exception as e:
@@ -105,11 +111,13 @@ async def generate_scene_video(
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
     voiceover_text = scene.get("voiceover", {}).get("text", "")
-    
+
     # Conditional Audio Generation for Veo
     should_generate_audio = False
     if allow_veo_audio:
-        should_generate_audio = bool(voiceover_text or scene.get("audio_hints", {}).get("dialogue_hint"))
+        should_generate_audio = bool(
+            voiceover_text or scene.get("audio_hints", {}).get("dialogue_hint")
+        )
 
     # Gather references for reference_to_video mode
     refs = scene["first_frame_prompt"].get("assets", []).copy()
@@ -135,4 +143,6 @@ async def generate_scene_video(
             )
         except Exception as e:
             logger.error(f"Failed to generate valid video clip for scene {index}: {e}")
-            raise Exception(f"Failed to generate valid video clip for scene {index}: {e}")
+            raise Exception(
+                f"Failed to generate valid video clip for scene {index}: {e}"
+            )

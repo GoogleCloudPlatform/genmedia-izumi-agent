@@ -249,4 +249,3 @@ The creator says: "Hey everyone, today we're making my favorite 5-minute pasta!"
 **Example Output (Character):**
 Warm handheld footage. The creator remains in their established kitchen position, maintaining a genuine, happy smile as they look directly into the lens. They begin to speak naturally, their facial expressions and lip movements perfectly synchronized with the dialogue: "Hey everyone, today we're making my favorite 5-minute pasta!". The camera has a subtle, stable handheld motion that feels authentic to a creator's phone. The lighting is warm and natural, reinforcing the relatable home cooking environment.
 """
-

@@ -69,7 +69,7 @@ def suggest_template(industry: str, vertical: str = None) -> AdTemplate:
         if "first" in v or "impression" in v or "unboxing" in v:
             return social_native.get_ugc_first_impression()
         return social_native.get_ugc_honest_opinion()
-    
+
     if "pet" in v:
         return vertical_specific.get_pet_companion()
     if "apparel" in v or "fashion" in v:

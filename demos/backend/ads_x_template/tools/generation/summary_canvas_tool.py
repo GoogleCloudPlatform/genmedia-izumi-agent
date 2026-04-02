@@ -50,8 +50,11 @@ CSS = """
 async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
     """Generates a visual HTML summary of the campaign and saves it as a Canvas."""
     import logging
+
     logger = logging.getLogger(__name__)
-    logger.error("⭐⭐⭐ [NATIVE TOOL INVOCATION] `create_campaign_summary` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐")
+    logger.error(
+        "⭐⭐⭐ [NATIVE TOOL INVOCATION] `create_campaign_summary` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
+    )
     storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
     if not storyboard:
         return tool_failure("No storyboard found in state.")
@@ -274,19 +277,23 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
     )
 
     tool_context.state["summary_canvas_id"] = canvas.id
-    
+
     # Construct Deep Link
     from utils.adk import get_session_id_from_context
+
     session_id = get_session_id_from_context(tool_context)
-    
+
     # TODO: Replace with the actual deployment URL of your Izumi UI
     import os
+
     IZUMI_BASE_URL = os.environ.get("IZUMI_STUDIO_URL")
     if not IZUMI_BASE_URL:
         # Fallback to backend service URL if in Cloud Run, otherwise Local
-        IZUMI_BASE_URL = os.environ.get("CLOUD_RUN_SERVICE_URL", "http://localhost:5173")
-    
+        IZUMI_BASE_URL = os.environ.get(
+            "CLOUD_RUN_SERVICE_URL", "http://localhost:5173"
+        )
+
     izumi_deep_link = f"{IZUMI_BASE_URL}/studio/#/project/{user_id}/chat/{session_id}?contentTab=canvas&canvasId={canvas.id}"
-    
+
     # Return ONLY the link for cleaner composition
     return tool_success(f"[View Campaign Summary in Izumi Studio]({izumi_deep_link})")

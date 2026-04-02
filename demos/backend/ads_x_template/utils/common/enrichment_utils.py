@@ -23,6 +23,7 @@ from ...instructions.generation import generation_prompts
 
 logger = logging.getLogger(__name__)
 
+
 async def enrich_prompt_with_llm(
     user_id: str,
     description: str,
@@ -57,13 +58,13 @@ async def enrich_prompt_with_llm(
         parts.append(f"Velocity: {val}")
     if val := cinematography.get("mood"):
         parts.append(f"Mood: {', '.join(val)}")
-    
+
     # Re-inject Dialogue into Video Prompts for better synchronization.
     # ONLY for UGC cases where we use the UGC instruction set that supports Dialogue.
     if is_ugc:
         if val := audio.get("dialogue_hint"):
             parts.append(f"Dialogue: {val}")
-    
+
     # Inject Text Overlay Hint for both Image and Video Prompts
     if val := prompt_data.get("on_screen_text_hint"):
         parts.append(f"Text Overlay: {val}")
@@ -99,11 +100,15 @@ async def enrich_prompt_with_llm(
             parts = context.split("**STARTING IMAGE DESCRIPTION")
             strategy_part = parts[0].strip()
             anchor_part = parts[1].strip().lstrip("(VISUAL ANCHOR):").strip()
-            
-            prompt_packet.append(f"### [CREATIVE BRIEF: STRATEGIC ALIGNMENT]\n{strategy_part}")
+
+            prompt_packet.append(
+                f"### [CREATIVE BRIEF: STRATEGIC ALIGNMENT]\n{strategy_part}"
+            )
             prompt_packet.append(f"### [VISUAL ANCHOR: FRAME 0 STATE]\n{anchor_part}")
         else:
-            prompt_packet.append(f"### [CREATIVE BRIEF: STRATEGIC ALIGNMENT]\n{context}")
+            prompt_packet.append(
+                f"### [CREATIVE BRIEF: STRATEGIC ALIGNMENT]\n{context}"
+            )
 
     # 3. TECHNICAL SPECIFICATIONS (CINEMATOGRAPHY)
     tech_specs = f"Camera: {cinematography.get('camera_description', 'Natural')}\n"
@@ -115,17 +120,21 @@ async def enrich_prompt_with_llm(
     # 4. REFERENCE ASSETS (IF ANY)
     if reference_image_filenames:
         if prompt_type == "image":
-            prompt_packet.append("### [PRODUCT VISUAL CONTEXT]\nUse the attached reference images as the GROUND TRUTH for colors, materials, and logos.")
+            prompt_packet.append(
+                "### [PRODUCT VISUAL CONTEXT]\nUse the attached reference images as the GROUND TRUTH for colors, materials, and logos."
+            )
         else:
-            prompt_packet.append("### [VISUAL CONTINUITY REFERENCE]\nUse the attached image as the literal starting frame. Do NOT deviate from its established look.")
+            prompt_packet.append(
+                "### [VISUAL CONTINUITY REFERENCE]\nUse the attached image as the literal starting frame. Do NOT deviate from its established look."
+            )
 
     # 5. AUDIO & PERFORMANCE CONTEXT
     if prompt_type == "video":
         audio_guidance = (
             "The character is a relatable persona recording a message for a social audience. "
             "Prioritize natural talking-to-camera movements and handheld-style micro-expressions."
-            if is_ugc else
-            "The character is a professional visual presence. While expressive and alive, "
+            if is_ugc
+            else "The character is a professional visual presence. While expressive and alive, "
             "prioritize natural model-like micro-expressions and elegant movements. Avoid exaggerated "
             "talking-head mouth movements unless the narrative strictly requires it."
         )
@@ -140,16 +149,22 @@ async def enrich_prompt_with_llm(
     # 7. THE FINAL COMMAND
     mission_commands = [
         "**MISSION:** Synthesize the sections above into a single, high-fidelity cinematic prompt.",
-        "Your output must be a single cohesive paragraph description (Veo/Imagen Formula)."
+        "Your output must be a single cohesive paragraph description (Veo/Imagen Formula).",
     ]
-    
+
     if context:
-        mission_commands.append("You MUST prioritize the [CREATIVE BRIEF] for the overarching visual tone and brand mood.")
-    
-    mission_commands.append("You MUST prioritize the [TECHNICAL SPECIFICATIONS] for camera movement and lighting details.")
-    
+        mission_commands.append(
+            "You MUST prioritize the [CREATIVE BRIEF] for the overarching visual tone and brand mood."
+        )
+
+    mission_commands.append(
+        "You MUST prioritize the [TECHNICAL SPECIFICATIONS] for camera movement and lighting details."
+    )
+
     if "**STARTING IMAGE DESCRIPTION" in context:
-         mission_commands.append("You MUST strictly honor the [VISUAL ANCHOR] state to ensure seamless continuity.")
+        mission_commands.append(
+            "You MUST strictly honor the [VISUAL ANCHOR] state to ensure seamless continuity."
+        )
 
     prompt_packet.append(f"### [FINAL MISSION]\n" + "\n".join(mission_commands))
 
@@ -177,6 +192,7 @@ async def enrich_prompt_with_llm(
     except Exception as e:
         logger.warning(f"Prompt enrichment failed ({e}). Falling back to raw formula.")
         return raw_input.replace("|", "."), None
+
 
 async def shorten_script(text: str, target_duration: float, user_id: str) -> str:
     """Uses an LLM to shorten a script to a target duration."""

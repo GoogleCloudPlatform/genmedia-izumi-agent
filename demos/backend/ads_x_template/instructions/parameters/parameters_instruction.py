@@ -22,7 +22,11 @@ available_templates = [t.template_name for t in template_library.get_all_templat
 templates_list_str = ", ".join([f"'{t}'" for t in available_templates])
 
 # Identify UGC templates that need a virtual creator
-ugc_templates = [t.template_name for t in template_library.get_all_templates() if t.generate_virtual_creator]
+ugc_templates = [
+    t.template_name
+    for t in template_library.get_all_templates()
+    if t.generate_virtual_creator
+]
 ugc_list_str = ", ".join([f"'{t}'" for t in ugc_templates])
 
 AGENT_INSTRUCTION = """

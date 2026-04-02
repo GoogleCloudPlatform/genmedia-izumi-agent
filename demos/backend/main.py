@@ -66,11 +66,14 @@ else:
 eval_sets_manager = LocalEvalSetsManager(agents_dir=agents_dir)
 eval_set_results_manager = LocalEvalSetResultsManager(agents_dir=agents_dir)
 
+
 class FilteredAgentLoader(AgentLoader):
     """Subclass of AgentLoader that ignores non-agent directories like 'utils'."""
+
     def list_agents(self) -> list[str]:
         agents = super().list_agents()
         return [a for a in agents if a not in ["utils"]]
+
 
 # Instantiate the other default services
 agent_loader = FilteredAgentLoader(agents_dir)

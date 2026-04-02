@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 
 MAX_VOICEOVER_ATTEMPTS = 3
 
+
 async def generate_background_music(
     user_id: str, background_music_prompt: dict[str, Any], uid: str = ""
 ) -> Asset | None:
@@ -40,7 +41,7 @@ async def generate_background_music(
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
     music_prompt = background_music_prompt["description"]
     filename = f"background_music_{uid}.mp3" if uid else "background_music.mp3"
-    
+
     try:
         music_asset = await mediagen_service.generate_music_with_lyria(
             user_id=user_id, file_name=filename, prompt=music_prompt
@@ -48,9 +49,12 @@ async def generate_background_music(
         background_music_prompt["asset_id"] = music_asset.id
         return music_asset
     except Exception as e:
-        logger.error(f"Background music generation failed: {e}. Proceeding without music.")
+        logger.error(
+            f"Background music generation failed: {e}. Proceeding without music."
+        )
         background_music_prompt["asset_id"] = None
         return None
+
 
 async def generate_scene_voiceover(
     user_id: str,
@@ -76,43 +80,56 @@ async def generate_scene_voiceover(
 
     current_text = original_text
     voice_name = "Enceladus" if voiceover_prompt.get("gender") == "male" else "Aoede"
-    
+
     best_asset_so_far = None
-    
+
     for attempt in range(MAX_VOICEOVER_ATTEMPTS):
-        filename = f"scene_{index}_voiceover_{uid}_att{attempt}.mp3" if uid else f"scene_{index}_voiceover_att{attempt}.mp3"
+        filename = (
+            f"scene_{index}_voiceover_{uid}_att{attempt}.mp3"
+            if uid
+            else f"scene_{index}_voiceover_att{attempt}.mp3"
+        )
         try:
             voiceover_asset = await mediagen_service.generate_speech_single_speaker(
                 user_id=user_id,
                 file_name=filename,
                 text=current_text,
-                voice_name=voice_name
+                voice_name=voice_name,
             )
             best_asset_so_far = voiceover_asset
-            
+
             actual_duration = voiceover_asset.versions[-1].duration_seconds
-            
+
             if actual_duration <= target_duration:
-                logger.info(f"Voiceover for scene {index} accepted. Duration: {actual_duration:.2f}s (Target: {target_duration}s)")
+                logger.info(
+                    f"Voiceover for scene {index} accepted. Duration: {actual_duration:.2f}s (Target: {target_duration}s)"
+                )
                 voiceover_prompt["asset_id"] = voiceover_asset.id
                 voiceover_prompt["text"] = current_text
                 return voiceover_asset
-            
+
             # Too long, shorten text
-            logger.warning(f"Voiceover too long ({actual_duration}s > {target_duration}s). Shortening text...")
-            current_text = await enrichment_utils.shorten_script(current_text, target_duration * 0.9, user_id)
-            
+            logger.warning(
+                f"Voiceover too long ({actual_duration}s > {target_duration}s). Shortening text..."
+            )
+            current_text = await enrichment_utils.shorten_script(
+                current_text, target_duration * 0.9, user_id
+            )
+
         except Exception as e:
             logger.error(f"Voiceover generation attempt {attempt} failed: {e}")
             break
-            
+
     # Fallback to best effort
     if best_asset_so_far:
-        logger.warning(f"Using best effort voiceover for scene {index} despite duration mismatch.")
+        logger.warning(
+            f"Using best effort voiceover for scene {index} despite duration mismatch."
+        )
         voiceover_prompt["asset_id"] = best_asset_so_far.id
         return best_asset_so_far
 
     return None
+
 
 def build_global_context_string(storyboard: dict, scene: dict) -> str:
     """Builds a structured context string from global campaign fields."""
@@ -124,9 +141,13 @@ def build_global_context_string(storyboard: dict, scene: dict) -> str:
         "Visual Style": storyboard.get("global_visual_style"),
         "Setting": storyboard.get("global_setting"),
         "Target Audience": storyboard.get("target_audience_profile"),
-        "Brand Voice": ", ".join(storyboard.get("brand_voice_keywords", [])) if storyboard.get("brand_voice_keywords") else storyboard.get("campaign_tone")
+        "Brand Voice": (
+            ", ".join(storyboard.get("brand_voice_keywords", []))
+            if storyboard.get("brand_voice_keywords")
+            else storyboard.get("campaign_tone")
+        ),
     }
-    
+
     active_globals = {k: v for k, v in global_fields.items() if v}
     context_string = ""
 
@@ -137,12 +158,13 @@ def build_global_context_string(storyboard: dict, scene: dict) -> str:
         context_string += "-------------------------------\n"
 
     # Add scene-specific Narrative Action or Establishment Shot to the context
-    if (est := scene.get("establishment_shot")):
+    if est := scene.get("establishment_shot"):
         context_string += f"Establishment Shot: {est}\n"
-    if (act := scene.get("narrative_action")):
+    if act := scene.get("narrative_action"):
         context_string += f"Character Action: {act}\n"
-        
+
     return context_string
+
 
 def clamp_duration(seconds: int | float) -> int:
     """Clamps duration to the next HIGHER Veo-supported value to avoid static frames."""

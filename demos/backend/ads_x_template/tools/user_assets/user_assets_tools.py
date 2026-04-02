@@ -36,28 +36,33 @@ tool_failure = common_utils.tool_failure
 async def ingest_assets(tool_context: ToolContext) -> ToolResult:
     """Ingests user-provided assets."""
     user_id = get_user_id_from_context(tool_context)
-    logger.error("⭐⭐⭐ [NATIVE TOOL INVOCATION] `ingest_assets` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐")
+    logger.error(
+        "⭐⭐⭐ [NATIVE TOOL INVOCATION] `ingest_assets` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
+    )
     logger.info(f"Ingesting assets for user_id: {user_id}")
-    
+
     asset_service = mediagent_kit.services.aio.get_asset_service()
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-    
+
     # 1. List all assets for the user
     all_assets = await asset_service.list_assets(user_id=user_id)
     print(f"\n[DEBUG] Total assets found in DB for user {user_id}: {len(all_assets)}")
     for a in all_assets:
         print(f"  - {a.file_name} (ID: {a.id}, MIME: {a.mime_type})")
-        
+
     # 2. Filter for images and identify existing descriptions
-    image_assets = [a for a in all_assets if a.mime_type and a.mime_type.startswith("image/")]
-    description_assets = {a.file_name: a for a in all_assets if a.file_name.endswith("_description.txt")}
-    
+    image_assets = [
+        a for a in all_assets if a.mime_type and a.mime_type.startswith("image/")
+    ]
+    description_assets = {
+        a.file_name: a for a in all_assets if a.file_name.endswith("_description.txt")
+    }
+
     user_assets: dict[str, str] = {}
     assets_to_describe = []
-    
+
     for asset in image_assets:
-        base_name = os.path.basename(asset.file_name)
-        desc_file_name = os.path.splitext(base_name)[0] + "_description.txt"
+        desc_file_name = os.path.splitext(asset.file_name)[0] + "_description.txt"
         if desc_file_name in description_assets:
             # Skip generation, just load existing description
             logger.info(f"Loading existing description for {asset.file_name}")
@@ -70,7 +75,9 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
 
     # 3. Generate descriptions for new assets concurrently
     if assets_to_describe:
-        logger.info(f"Generating descriptions for {len(assets_to_describe)} new assets...")
+        logger.info(
+            f"Generating descriptions for {len(assets_to_describe)} new assets..."
+        )
         asset_tasks = []
         for asset in assets_to_describe:
             # Generate description using multimodal Gemini 3 Pro
@@ -80,14 +87,14 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
             description_task = mediagen_service.generate_text_with_gemini(
                 user_id=user_id,
                 file_name=desc_file_name,
-                model="gemini-3.1-pro-preview", # High-fidelity multimodal description
+                model="gemini-3.1-pro-preview",  # High-fidelity multimodal description
                 prompt=user_assets_instruction.DESCRIPTION_INSTRUCTION,
                 reference_image_filenames=[asset.file_name],
             )
             asset_tasks.append(description_task)
-            
+
         new_descriptions = await asyncio.gather(*asset_tasks, return_exceptions=True)
-        
+
         for asset, description in zip(assets_to_describe, new_descriptions):
             if isinstance(description, BaseException):
                 logger.error(f"Failed to describe {asset.file_name}: {description}")
@@ -103,16 +110,21 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
         return tool_success(f"Ingested {len(user_assets)} user assets (Fallback).")
 
     from ...utils.parameters.parameters_model import Parameters
+
     params = Parameters.model_validate(params_dict)
-    
+
     # Deterministic source of truth: THE PARAMETERS AGENT (Stage 1)
     # This respects both template defaults AND manual user overrides (e.g. from Custom mode)
     should_generate = params.generate_virtual_creator
-    
+
     if should_generate:
-        target_persona = params.brief_results.audience.persona if params.brief_results and params.brief_results.audience else params.target_audience
+        target_persona = (
+            params.brief_results.audience.persona
+            if params.brief_results and params.brief_results.audience
+            else params.target_audience
+        )
         campaign_brief = params.campaign_brief or ""
-        
+
         # STEP 0: Casting (Deduce Demographics)
         casting_prompt = (
             f"Based on the campaign brief: '{campaign_brief}'\n"
@@ -131,6 +143,7 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
         )
         try:
             import uuid
+
             uid = uuid.uuid4().hex[:4]
             casting_filename = f"creator_casting_{uid}.txt"
             logger.info("Starting Casting for virtual creator...")
@@ -139,7 +152,7 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
                 file_name=casting_filename,
                 prompt=casting_prompt,
                 reference_image_filenames=[],
-                model="gemini-2.5-flash", # Upgrade to Gemini 2.5 Flash
+                model="gemini-2.5-flash",  # Upgrade to Gemini 2.5 Flash
             )
             casting_blob = await asset_service.get_asset_blob(demographic_result.id)
             demographics = casting_blob.content.decode().strip()
@@ -152,23 +165,26 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
                 f"Lighting: Even, natural studio lighting. "
                 f"Style: Realistic, high-detail, non-model, authentic person vibe."
             )
-            
+
             import uuid
+
             uid = uuid.uuid4().hex[:4]
             creator_filename = f"virtual_creator_{uid}.png"
-            
+
             logger.info(f"Executing Image Generation for: {creator_filename}")
             creator_asset = await mediagen_service.generate_image_with_gemini(
                 user_id=user_id,
                 file_name=creator_filename,
                 prompt=creator_prompt,
                 reference_image_filenames=[],
-                aspect_ratio="9:16", # Vertical for Social
-                model="gemini-3.1-flash-image-preview", # Upgrade to Gemini 3.1 Flash Image
+                aspect_ratio="9:16",  # Vertical for Social
+                model="gemini-3.1-flash-image-preview",  # Upgrade to Gemini 3.1 Flash Image
             )
-            
-            logger.info(f"Successfully generated virtual creator. Asset ID: {creator_asset.id}")
-            
+
+            logger.info(
+                f"Successfully generated virtual creator. Asset ID: {creator_asset.id}"
+            )
+
             # Safety delay to ensure GCS consistency before next agent/tool looks for it.
             await asyncio.sleep(5)
 
@@ -184,7 +200,11 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
                 "asset_id": creator_filename,
                 "prompt": creator_prompt,
                 "demographics": demographics,
-                "generated_at": str(creator_asset.versions[-1].create_time) if creator_asset.versions else None
+                "generated_at": (
+                    str(creator_asset.versions[-1].create_time)
+                    if creator_asset.versions
+                    else None
+                ),
             }
 
         except Exception as e:

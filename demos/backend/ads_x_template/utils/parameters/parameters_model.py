@@ -21,12 +21,18 @@ from typing import Any
 from ..common import common_utils
 
 
-
 class TargetAudience(pydantic.BaseModel):
     """Structured target audience info."""
-    persona: str = pydantic.Field(default="general audience", description="The primary audience persona.")
-    pain_points: list[str] = pydantic.Field(default_factory=list, description="Top user pain points.")
-    desires: list[str] = pydantic.Field(default_factory=list, description="What the user wants to achieve.")
+
+    persona: str = pydantic.Field(
+        default="general audience", description="The primary audience persona."
+    )
+    pain_points: list[str] = pydantic.Field(
+        default_factory=list, description="Top user pain points."
+    )
+    desires: list[str] = pydantic.Field(
+        default_factory=list, description="What the user wants to achieve."
+    )
 
 
 class BriefResults(pydantic.BaseModel):
@@ -39,25 +45,46 @@ class BriefResults(pydantic.BaseModel):
         if isinstance(data, dict):
             brand_voice = data.get("brand_voice")
             if isinstance(brand_voice, str):
-                data["brand_voice"] = [s.strip() for s in brand_voice.split(",") if s.strip()]
+                data["brand_voice"] = [
+                    s.strip() for s in brand_voice.split(",") if s.strip()
+                ]
         return data
 
-    primary_hook: str = pydantic.Field(default="Premium quality offering", description="The core 'Reason to Buy'.")
-    audience: TargetAudience = pydantic.Field(default_factory=TargetAudience, description="Detailed audience profile.")
-    brand_voice: list[str] = pydantic.Field(default_factory=list, description="Keywords defining the brand's tone.")
+    primary_hook: str = pydantic.Field(
+        default="Premium quality offering", description="The core 'Reason to Buy'."
+    )
+    audience: TargetAudience = pydantic.Field(
+        default_factory=TargetAudience, description="Detailed audience profile."
+    )
+    brand_voice: list[str] = pydantic.Field(
+        default_factory=list, description="Keywords defining the brand's tone."
+    )
 
 
 class SceneGuidance(pydantic.BaseModel):
     """Guidance for a specific scene."""
-    visual_action: str = pydantic.Field(default="Continue the narrative flow.", description="Explicit visual direction.")
-    voiceover_script: str = pydantic.Field(default="", description="The spoken text for this scene.")
-    setting: str | None = pydantic.Field(default=None, description="The environment/weather.")
+
+    visual_action: str = pydantic.Field(
+        default="Continue the narrative flow.", description="Explicit visual direction."
+    )
+    voiceover_script: str = pydantic.Field(
+        default="", description="The spoken text for this scene."
+    )
+    setting: str | None = pydantic.Field(
+        default=None, description="The environment/weather."
+    )
 
 
 class StorylineGuidance(pydantic.BaseModel):
     """Narrative skeleton for creative mode."""
-    narrative_arc: str = pydantic.Field(default="A compelling brand story.", description="Strategic overview of the storyline.")
-    scenes: list[SceneGuidance] = pydantic.Field(default_factory=list, description="Ordered list of scene-by-scene guidance.")
+
+    narrative_arc: str = pydantic.Field(
+        default="A compelling brand story.",
+        description="Strategic overview of the storyline.",
+    )
+    scenes: list[SceneGuidance] = pydantic.Field(
+        default_factory=list, description="Ordered list of scene-by-scene guidance."
+    )
 
 
 class Parameters(pydantic.BaseModel):
@@ -89,9 +116,7 @@ class Parameters(pydantic.BaseModel):
                 or raw_audience.get("pain_points")
                 or []
             )
-            desires = (
-                data.get("audience_desires") or raw_audience.get("desires") or []
-            )
+            desires = data.get("audience_desires") or raw_audience.get("desires") or []
 
             primary_hook = (
                 data.get("primary_hook")
@@ -141,7 +166,7 @@ class Parameters(pydantic.BaseModel):
             data["global_visual_style"] = "Professional Studio Aesthetic"
         if not data.get("global_setting"):
             data["global_setting"] = f"{vertical} Context"
-            
+
         # 3. Clean up empty optionals that have required nested fields
         if "storyline_guidance" in data and not data["storyline_guidance"]:
             data.pop("storyline_guidance")
@@ -190,25 +215,23 @@ class Parameters(pydantic.BaseModel):
     # Strategic Context (Rich Brief)
     campaign_theme: str | None = pydantic.Field(
         default=None,
-        description="The creative/narrative theme of the campaign (e.g., 'Neon Cyberpunk', 'Minimalist Zen')."
+        description="The creative/narrative theme of the campaign (e.g., 'Neon Cyberpunk', 'Minimalist Zen').",
     )
     campaign_tone: str | None = pydantic.Field(
         default=None,
-        description="The emotional vibe (e.g., 'Energetic', 'Empathetic', 'Gritty')."
+        description="The emotional vibe (e.g., 'Energetic', 'Empathetic', 'Gritty').",
     )
     global_visual_style: str | None = pydantic.Field(
-        default=None,
-        description="Cinematic style and aesthetic direction."
+        default=None, description="Cinematic style and aesthetic direction."
     )
     global_setting: str | None = pydantic.Field(
         default=None,
-        description="Physical environment or context (e.g., 'Urban Interior', 'Forest Dusk')."
+        description="Physical environment or context (e.g., 'Urban Interior', 'Forest Dusk').",
     )
-    
 
     key_message: str | None = pydantic.Field(
         default=None,
-        description="The one single sentence the audience should remember (Final takeaway)."
+        description="The one single sentence the audience should remember (Final takeaway).",
     )
 
     # Template Selection

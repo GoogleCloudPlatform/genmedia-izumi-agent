@@ -27,32 +27,40 @@ logger = logging.getLogger(__name__)
 def get_user_id_from_context(context: ReadonlyContext) -> str:
     user_id = None
     try:
-        if context and context._invocation_context and context._invocation_context.session:
+        if (
+            context
+            and context._invocation_context
+            and context._invocation_context.session
+        ):
             user_id = context._invocation_context.session.user_id
     except Exception:
         pass
-        
+
     if user_id is None:
         # Fallback for environments where context is missing
         user_id = "default_user_agent_engine"
         logger.warning(f"user_id not found in context. Using fallback: {user_id}")
-        
+
     return user_id
 
 
 def get_session_id_from_context(context: ReadonlyContext) -> str:
     session_id = None
     try:
-        if context and context._invocation_context and context._invocation_context.session:
+        if (
+            context
+            and context._invocation_context
+            and context._invocation_context.session
+        ):
             session_id = context._invocation_context.session.session_id
     except Exception:
         pass
-        
+
     if session_id is None:
         # Fallback
         session_id = "default_session"
         logger.warning(f"session_id not found in context. Using fallback: {session_id}")
-        
+
     return session_id
 
 
@@ -72,17 +80,17 @@ async def display_asset(tool_context: ToolContext, asset_id: str) -> str:
     try:
         asset_service = mediagent_kit.services.aio.get_asset_service()
         # asset_blob = await asset_service.get_asset_blob(asset_id=asset_id)
-        
+
         # Optimization: Fetch metadata only to get the GCS URI
         asset = await asset_service.get_asset_by_id(asset_id)
         if not asset:
-             return f"Error: Asset {asset_id} not found."
-             
+            return f"Error: Asset {asset_id} not found."
+
         # Use Part.from_uri to avoid loading bytes into memory/payload
         part = genai_types.Part.from_uri(
             file_uri=asset.current.gcs_uri, mime_type=asset.mime_type
         )
-        
+
         await tool_context.save_artifact(filename=asset.file_name, artifact=part)
 
         msg = f"Asset {asset.file_name} is now available as a tool artifact."
@@ -105,7 +113,11 @@ async def blob_interceptor_callback(callback_context, llm_request):
     Execution then continues to the LLM.
     """
     # Initialize campaign state to prevent KeyError in instructions
-    if callback_context and callback_context._invocation_context and callback_context._invocation_context.session:
+    if (
+        callback_context
+        and callback_context._invocation_context
+        and callback_context._invocation_context.session
+    ):
         session = callback_context._invocation_context.session
         if "parameters" not in session.state:
             session.state["parameters"] = {}

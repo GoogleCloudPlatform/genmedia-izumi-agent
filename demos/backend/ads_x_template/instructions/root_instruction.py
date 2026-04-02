@@ -41,11 +41,12 @@ templates_list_str = """
 *   **UGC Honest Opinion** `32s` – *Trust-focused lifestyle review (Creator style).*
 """
 
+
 def get_instruction(ctx: ReadonlyContext) -> str:
     # Safely fetch state
     parameters = ctx.session.state.get("parameters", "[Not Yet Defined]")
     storyboard = ctx.session.state.get("storyboard", "[Not Yet Defined]")
-    
+
     return f"""
 You are the orchestrator for a video creation pipeline.
 
