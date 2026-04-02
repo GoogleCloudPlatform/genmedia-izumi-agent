@@ -32,10 +32,10 @@ def test_e2e_asset_lifecycle(client: TestClient):
     # --- 1. Upload Asset ---
     files = {"file": (file_name, file_content, mime_type)}
     data = {"file_name": file_name, "mime_type": mime_type}
-    
+
     response = client.post(f"/users/{user_id}/assets", files=files, data=data)
     assert response.status_code == 200, f"Upload failed: {response.text}"
-    
+
     asset_data = response.json()
     asset_id = asset_data["id"]
     assert asset_id is not None

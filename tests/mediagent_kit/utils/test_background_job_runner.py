@@ -23,16 +23,18 @@ def test_fastapi_background_job_runner_schedule():
     """Verifies that FastAPIBackgroundJobRunner delegates task to BackgroundTasks."""
     # Create mock BackgroundTasks
     mock_background_tasks = unittest.mock.MagicMock(spec=BackgroundTasks)
-    
+
     # Initialize the runner with the mock
     runner = FastAPIBackgroundJobRunner(mock_background_tasks)
-    
+
     # Define a dummy function to schedule
     def dummy_func(arg1, arg2):
         pass
-        
+
     # Schedule execution
     runner.schedule_job_execution(dummy_func, "value1", arg2="value2")
-    
+
     # Verify add_task was called with correct arguments
-    mock_background_tasks.add_task.assert_called_once_with(dummy_func, "value1", arg2="value2")
+    mock_background_tasks.add_task.assert_called_once_with(
+        dummy_func, "value1", arg2="value2"
+    )

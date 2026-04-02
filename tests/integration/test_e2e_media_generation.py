@@ -33,12 +33,14 @@ def test_e2e_media_generation_polling(client: TestClient):
         "prompt": "A beautiful sunset over a cyberpunk city.",
         "aspect_ratio": "1:1",
         "file_name": file_name,
-        "model": "gemini-2.5-flash-image"
+        "model": "gemini-2.5-flash-image",
     }
-    
-    response = client.post(f"/users/{user_id}/media:generate-image-with-gemini", json=payload)
+
+    response = client.post(
+        f"/users/{user_id}/media:generate-image-with-gemini", json=payload
+    )
     assert response.status_code == 202, f"Submission failed: {response.text}"
-    
+
     job_data = response.json()
     job_id = job_data["id"]
     assert job_id is not None
@@ -53,17 +55,17 @@ def test_e2e_media_generation_polling(client: TestClient):
         response = client.get(f"/users/{user_id}/jobs/{job_id}")
         assert response.status_code == 200
         job_state = response.json()
-        
+
         if job_state["status"] == "COMPLETED":
             completed = True
             break
         elif job_state["status"] == "FAILED":
             pytest.fail(f"Job failed with error: {job_state.get('error_message')}")
-            
+
         time.sleep(delay)
 
     assert completed, f"Job timed out after {max_retries * delay} seconds"
-    
+
     # --- 3. Verify Final Result ---
     job_state = response.json()
     assert job_state["result_asset_id"] is not None

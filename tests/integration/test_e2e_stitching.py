@@ -33,13 +33,13 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
     """
     user_id = "test_user_e2e_stitching"
     canvas_id = f"test_canvas_{uuid.uuid4().hex}"
-    
+
     # --- 1. Upload Dummy Assets ---
-    # We'll use tiny valid-looking text files or binary blobs to simulate videos for stitching if FFmpeg can handle it, 
-    # but since FFmpeg actually runs, we should use tiny valid MP4s if possible. 
-    # For now, let's assume the service can handle empty or tiny files for testing the *API flow*. 
+    # We'll use tiny valid-looking text files or binary blobs to simulate videos for stitching if FFmpeg can handle it,
+    # but since FFmpeg actually runs, we should use tiny valid MP4s if possible.
+    # For now, let's assume the service can handle empty or tiny files for testing the *API flow*.
     # If FFmpeg crashes on bad MP4, we might see FAILED, which is also a valid state to verify (API responds correctly).
-    
+
     uploaded_assets = []
     for i in range(2):
         data = {"file_name": f"clip_{i}.mp4", "mime_type": "video/mp4"}
@@ -56,7 +56,7 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
     # --- 2. Inject Canvas Document ---
     canvas_service = get_canvas_service()
     collection = canvas_service.canvases_collection
-    
+
     # Construct timeline clips
     clips = []
     for asset_id in asset_ids:
@@ -70,14 +70,19 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
             versions=[],
         )
         clips.append(VideoClip(asset=mock_asset))
-        
+
     timeline = VideoTimeline(
         title="Test Stitching Timeline",
         video_clips=clips,
         transitions=[None],  # Length is len(clips) - 1, None represents no transition
     )
-    canvas = Canvas(id=canvas_id, user_id=user_id, title="Test Stitching Canvas", video_timeline=timeline)
-    
+    canvas = Canvas(
+        id=canvas_id,
+        user_id=user_id,
+        title="Test Stitching Canvas",
+        video_timeline=timeline,
+    )
+
     collection.document(canvas_id).set(canvas.to_firestore())
 
     # --- 3. Trigger Stitching ---
@@ -94,17 +99,19 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
         response = client.get(f"/users/{user_id}/jobs/{job_id}")
         assert response.status_code == 200
         job_state = response.json()
-        
+
         if job_state["status"] == "COMPLETED":
             completed = True
             break
         elif job_state["status"] == "FAILED":
             # If FFmpeg fails because our MP4 was fake, that's expected for fake content!
             # But let's see if it fails for API reasons or FFmpeg reasons.
-            print(f"Stitching Job failed as expected for fake binaries: {job_state.get('error_message')}")
-            completed = True # We count FAILED as a termination state we verified!
+            print(
+                f"Stitching Job failed as expected for fake binaries: {job_state.get('error_message')}"
+            )
+            completed = True  # We count FAILED as a termination state we verified!
             break
-            
+
         time.sleep(delay)
 
     assert completed, f"Job timed out after {max_retries * delay} seconds"

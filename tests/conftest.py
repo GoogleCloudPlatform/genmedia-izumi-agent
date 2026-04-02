@@ -21,7 +21,9 @@ os.environ["APP_ENV"] = "test"
 
 # Add workspace root and demos/backend to path to ensure imports work
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../demos/backend")))
+sys.path.append(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../demos/backend"))
+)
 
 import pytest
 from fastapi.testclient import TestClient

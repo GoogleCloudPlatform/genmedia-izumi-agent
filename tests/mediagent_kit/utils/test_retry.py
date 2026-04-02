@@ -119,7 +119,9 @@ def test_retry_on_error_retriable_http_error():
     # Create a mock response with a 503 status
     mock_response = unittest.mock.MagicMock()
     mock_response.status_code = 503
-    http_error = requests.exceptions.HTTPError("Service unavailable", response=mock_response)
+    http_error = requests.exceptions.HTTPError(
+        "Service unavailable", response=mock_response
+    )
 
     mock_func = unittest.mock.MagicMock(
         side_effect=[
