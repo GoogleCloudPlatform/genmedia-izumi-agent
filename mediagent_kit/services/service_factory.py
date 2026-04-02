@@ -118,6 +118,7 @@ class ServiceFactory:
         return JobOrchestratorService(
             background_job_runner=background_runner,
             job_service=self.get_job_service(),
+            canvas_service=self.get_canvas_service(),
             media_generation_service=self.get_media_generation_service(),
             video_stitching_service=self.get_video_stitching_service(),
             config=self.get_config(),

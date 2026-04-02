@@ -15,6 +15,7 @@
 from typing import Any
 
 from mediagent_kit.config import MediagentKitConfig
+from mediagent_kit.services.canvas_service import CanvasService
 from mediagent_kit.services.job_service import JobService
 from mediagent_kit.services.media_generation_service import MediaGenerationService
 from mediagent_kit.services.types.jobs import Job, JobStatus, JobType
@@ -31,12 +32,14 @@ class JobOrchestratorService:
         self,
         background_job_runner: AbstractBackgroundJobRunner,
         job_service: JobService,
+        canvas_service: CanvasService,
         media_generation_service: MediaGenerationService,
         video_stitching_service: VideoStitchingService,
         config: MediagentKitConfig,
     ):
         self._background_job_runner = background_job_runner
         self._job_service = job_service
+        self._canvas_service = canvas_service
         self._media_generation_service = media_generation_service
         self._video_stitching_service = video_stitching_service
         self._config = config
@@ -263,8 +266,17 @@ class JobOrchestratorService:
     ) -> None:
         self._job_service.update_job_status(job_id, JobStatus.RUNNING)
         try:
+            canvas = self._canvas_service.get_canvas(canvas_id)
+            if not canvas:
+                raise ValueError(f"Canvas {canvas_id} not found")
+            if not canvas.video_timeline:
+                raise ValueError(f"Canvas {canvas_id} has no video timeline")
+
+            output_filename = f"{canvas.title or 'stitched_video'}.mp4"
             asset = self._video_stitching_service.stitch_video(
-                user_id=user_id, canvas_id=canvas_id
+                user_id=user_id,
+                timeline=canvas.video_timeline,
+                output_filename=output_filename,
             )
             self._job_service.update_job_result(
                 job_id, JobStatus.COMPLETED, result_asset_id=asset.id
