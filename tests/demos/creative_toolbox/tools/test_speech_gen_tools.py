@@ -4,6 +4,7 @@ import pytest
 
 from google.adk.tools import ToolContext
 
+
 @pytest.fixture
 def mock_tool_context():
     return MagicMock(spec=ToolContext)
@@ -28,7 +29,9 @@ async def test_generate_speech_single_speaker_success(
 
     mock_asset = MagicMock()
     mock_asset.file_name = "test_speech.mp3"
-    mock_media_generation_service.generate_speech_single_speaker.return_value = mock_asset
+    mock_media_generation_service.generate_speech_single_speaker.return_value = (
+        mock_asset
+    )
 
     from creative_toolbox.tools.speech_gen_tools import generate_speech_single_speaker
 
@@ -66,7 +69,9 @@ async def test_generate_speech_single_speaker_fallback(
 
     mock_asset = MagicMock()
     mock_asset.file_name = "test_speech.mp3"
-    mock_media_generation_service.generate_speech_single_speaker.return_value = mock_asset
+    mock_media_generation_service.generate_speech_single_speaker.return_value = (
+        mock_asset
+    )
 
     from creative_toolbox.tools.speech_gen_tools import generate_speech_single_speaker
 
@@ -80,9 +85,15 @@ async def test_generate_speech_single_speaker_fallback(
     )
 
     assert "Speech audio saved as asset with file name: test_speech.mp3" in result
-    assert "Warning: Unsupported model 'invalid_model' was provided. Fell back to default model 'gemini-2.5-flash-tts'." in result
-    assert "Warning: Unsupported voice 'invalid_voice' was provided. Fell back to default voice 'Aoede'." in result
-    
+    assert (
+        "Warning: Unsupported model 'invalid_model' was provided. Fell back to default model 'gemini-2.5-flash-tts'."
+        in result
+    )
+    assert (
+        "Warning: Unsupported voice 'invalid_voice' was provided. Fell back to default voice 'Aoede'."
+        in result
+    )
+
     # Verify it was called with fallbacks (model name reset, voice name kept but warning issued in code logic? Wait, code says if voice not in supported, issue warning but doesn't reset it in the call to service! Let's check code again)
     # Line 107-113: issues warning, but DOES NOT reset voice_name!
     # So it calls service with the invalid voice name, but logs a warning.
@@ -91,8 +102,8 @@ async def test_generate_speech_single_speaker_fallback(
         user_id="user_123",
         prompt="Calm voice",
         text="Hello world",
-        model="gemini-2.5-flash-tts", # Reset
-        voice_name="invalid_voice", # Not reset in code!
+        model="gemini-2.5-flash-tts",  # Reset
+        voice_name="invalid_voice",  # Not reset in code!
         file_name="test_speech.mp3",
     )
 
@@ -111,7 +122,9 @@ async def test_generate_speech_multiple_speaker_success(
 
     mock_asset = MagicMock()
     mock_asset.file_name = "test_multi_speech.mp3"
-    mock_media_generation_service.generate_speech_multiple_speaker.return_value = mock_asset
+    mock_media_generation_service.generate_speech_multiple_speaker.return_value = (
+        mock_asset
+    )
 
     from creative_toolbox.tools.speech_gen_tools import generate_speech_multiple_speaker
 

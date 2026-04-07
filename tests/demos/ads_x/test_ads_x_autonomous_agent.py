@@ -2,6 +2,7 @@ import pytest
 from google.adk.agents import llm_agent
 from google.adk.tools import AgentTool, FunctionTool
 
+
 def test_ads_x_agent_definitions():
     from ads_x.agent import (
         parameters_agent,
@@ -24,7 +25,9 @@ def test_ads_x_agent_definitions():
     assert len(root_agent.tools) == 5
 
     # Verify Root Agent Tools
-    tool_names = [t.name if hasattr(t, 'name') else t.__class__.__name__ for t in root_agent.tools]
+    tool_names = [
+        t.name if hasattr(t, "name") else t.__class__.__name__ for t in root_agent.tools
+    ]
     assert "ingest_assets" in tool_names
     assert "parameters_agent" in tool_names
     assert "storyboard_agent" in tool_names

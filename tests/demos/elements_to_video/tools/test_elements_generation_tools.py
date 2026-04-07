@@ -83,7 +83,9 @@ async def test_generate_images_for_storyboard_success(
     # Mock media generation service
     mock_image_asset = MagicMock()
     mock_image_asset.file_name = "generated.png"
-    mock_media_generation_service.generate_image_with_gemini.return_value = mock_image_asset
+    mock_media_generation_service.generate_image_with_gemini.return_value = (
+        mock_image_asset
+    )
 
     # Mock canvas service
     mock_canvas = MagicMock()
@@ -156,13 +158,13 @@ async def test_generate_videos_and_speech_for_storyboard_success(
     # Mock canvas service to return existing canvas with timeline
     mock_canvas = MagicMock()
     mock_timeline = MagicMock()
-    
+
     mock_clip1 = MagicMock()
     mock_clip1.first_frame_asset = MagicMock(file_name="img1.png")
-    
+
     mock_clip2 = MagicMock()
     mock_clip2.first_frame_asset = MagicMock(file_name="img2.png")
-    
+
     mock_timeline.video_clips = [mock_clip1, mock_clip2]
     mock_timeline.audio_clips = []
     mock_canvas.video_timeline = mock_timeline
@@ -171,13 +173,19 @@ async def test_generate_videos_and_speech_for_storyboard_success(
     # Mock media generation service
     mock_video_asset = MagicMock()
     mock_video_asset.file_name = "vid1.mp4"
-    mock_media_generation_service.generate_video_with_veo.return_value = mock_video_asset
+    mock_media_generation_service.generate_video_with_veo.return_value = (
+        mock_video_asset
+    )
 
     mock_speech_asset = MagicMock()
     mock_speech_asset.file_name = "speech1.mp3"
-    mock_media_generation_service.generate_speech_single_speaker.return_value = mock_speech_asset
+    mock_media_generation_service.generate_speech_single_speaker.return_value = (
+        mock_speech_asset
+    )
 
-    from elements_to_video.tools.generation_tools import generate_videos_and_speech_for_storyboard
+    from elements_to_video.tools.generation_tools import (
+        generate_videos_and_speech_for_storyboard,
+    )
 
     result_str = await generate_videos_and_speech_for_storyboard(mock_tool_context)
     result = json.loads(result_str)
@@ -240,7 +248,9 @@ async def test_regenerate_assets_success(
     # Mock generation
     mock_video_asset = MagicMock()
     mock_video_asset.file_name = "vid1_new.mp4"
-    mock_media_generation_service.generate_video_with_veo.return_value = mock_video_asset
+    mock_media_generation_service.generate_video_with_veo.return_value = (
+        mock_video_asset
+    )
 
     from elements_to_video.tools.generation_tools import regenerate_assets
 
@@ -257,7 +267,7 @@ async def test_regenerate_assets_success(
 async def test_generate_images_for_storyboard_missing_plan(mock_tool_context):
     from elements_to_video.tools.generation_tools import generate_images_for_storyboard
 
-    mock_tool_context.state = {} # Missing storyboard_plan
+    mock_tool_context.state = {}  # Missing storyboard_plan
 
     result_str = await generate_images_for_storyboard(mock_tool_context)
     result = json.loads(result_str)
@@ -310,7 +320,9 @@ async def test_generate_images_for_storyboard_with_consistent_elements(
     mock_image_asset = MagicMock()
     mock_image_asset.file_name = "generated_char.png"
     mock_image_asset.id = "asset_char_1"
-    mock_media_generation_service.generate_image_with_gemini.return_value = mock_image_asset
+    mock_media_generation_service.generate_image_with_gemini.return_value = (
+        mock_image_asset
+    )
 
     # Mock canvas service
     mock_canvas = MagicMock()
@@ -384,8 +396,8 @@ async def test_generate_images_for_storyboard_partial_failure(
 
     # Mock media generation service to fail for one clip and succeed for another
     mock_media_generation_service.generate_image_with_gemini.side_effect = [
-        MagicMock(file_name="success.png"), # Clip 1
-        Exception("Generation failed"), # Clip 2
+        MagicMock(file_name="success.png"),  # Clip 1
+        Exception("Generation failed"),  # Clip 2
     ]
 
     mock_canvas_service.create_canvas.return_value = MagicMock(id="new_canvas_id")
@@ -456,7 +468,9 @@ async def test_generate_images_for_storyboard_with_consistent_elements_and_clips
     # Mock media generation service
     mock_image_asset = MagicMock()
     mock_image_asset.file_name = "generated_clip.png"
-    mock_media_generation_service.generate_image_with_gemini.return_value = mock_image_asset
+    mock_media_generation_service.generate_image_with_gemini.return_value = (
+        mock_image_asset
+    )
 
     mock_canvas_service.create_canvas.return_value = MagicMock(id="new_canvas_id")
 
@@ -467,7 +481,7 @@ async def test_generate_images_for_storyboard_with_consistent_elements_and_clips
 
     assert result["status"] == "success"
     assert mock_media_generation_service.generate_image_with_gemini.call_count == 1
-    
+
     called_args = mock_media_generation_service.generate_image_with_gemini.call_args[1]
     assert "char1.png" in called_args["reference_image_filenames"]
 
@@ -491,9 +505,9 @@ async def test_generate_videos_and_speech_for_storyboard_with_music(
     # Setup state
     mock_tool_context.state["aspect_ratio"] = "16:9"
     mock_tool_context.state["video_timeline_canvas_id"] = "canvas_123"
-    
+
     # We need to mock the storyboard plan as a Pydantic model or dict that can be parsed.
-    # The code uses Parameters.model_validate or similar if it's from state, 
+    # The code uses Parameters.model_validate or similar if it's from state,
     # but here it seems it just use it as a dict or it parses it.
     # Let's see how it's used in generation_tools.py. It uses it as an object if it's parsed, or dict.
     # In test_generate_images_for_storyboard_success it was a dict.
@@ -503,7 +517,7 @@ async def test_generate_videos_and_speech_for_storyboard_with_music(
     # storyboard_plan = Parameters.model_validate(storyboard_plan_dict) ... wait, it might use Pydantic.
     # Let's assume it works like previous tests where it was a dict or we mock it.
     # In test_generate_videos_and_speech_for_storyboard_success it was a dict!
-    
+
     mock_tool_context.state["storyboard_plan"] = {
         "title": "Test Video",
         "aspect_ratio": "16:9",
@@ -530,9 +544,13 @@ async def test_generate_videos_and_speech_for_storyboard_with_music(
 
     mock_music_asset = MagicMock()
     mock_music_asset.file_name = "music1.mp3"
-    mock_media_generation_service.generate_music_with_lyria.return_value = mock_music_asset
+    mock_media_generation_service.generate_music_with_lyria.return_value = (
+        mock_music_asset
+    )
 
-    from elements_to_video.tools.generation_tools import generate_videos_and_speech_for_storyboard
+    from elements_to_video.tools.generation_tools import (
+        generate_videos_and_speech_for_storyboard,
+    )
 
     result_str = await generate_videos_and_speech_for_storyboard(mock_tool_context)
     result = json.loads(result_str)
@@ -596,13 +614,13 @@ async def test_generate_videos_and_speech_for_storyboard_partial_failure(
     # Mock canvas service to return existing canvas with timeline
     mock_canvas = MagicMock()
     mock_timeline = MagicMock()
-    
+
     mock_clip1 = MagicMock()
     mock_clip1.first_frame_asset = MagicMock(file_name="img1.png")
-    
+
     mock_clip2 = MagicMock()
     mock_clip2.first_frame_asset = MagicMock(file_name="img2.png")
-    
+
     mock_timeline.video_clips = [mock_clip1, mock_clip2]
     mock_timeline.audio_clips = []
     mock_canvas.video_timeline = mock_timeline
@@ -613,9 +631,13 @@ async def test_generate_videos_and_speech_for_storyboard_partial_failure(
         MagicMock(file_name="vid1.mp4"),
         Exception("Veo failed"),
     ]
-    mock_media_generation_service.generate_speech_single_speaker.return_value = MagicMock(file_name="speech.mp3")
+    mock_media_generation_service.generate_speech_single_speaker.return_value = (
+        MagicMock(file_name="speech.mp3")
+    )
 
-    from elements_to_video.tools.generation_tools import generate_videos_and_speech_for_storyboard
+    from elements_to_video.tools.generation_tools import (
+        generate_videos_and_speech_for_storyboard,
+    )
 
     result_str = await generate_videos_and_speech_for_storyboard(mock_tool_context)
     result = json.loads(result_str)

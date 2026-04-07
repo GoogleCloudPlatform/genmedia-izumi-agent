@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 from google.adk.tools import ToolContext
 
+
 @pytest.fixture
 def mock_tool_context():
     context = MagicMock(spec=ToolContext)
@@ -60,7 +61,9 @@ async def test_stitch_final_video_success(
 
     assert result["status"] == "success"
     assert result["final_asset_name"] == "My_Awesome_Video.mp4"
-    assert mock_tool_context.state["final_video_asset"] == {"file_name": "My_Awesome_Video.mp4"}
+    assert mock_tool_context.state["final_video_asset"] == {
+        "file_name": "My_Awesome_Video.mp4"
+    }
     assert mock_tool_context.state["generation_stage"] == "STITCHING_VIDEO"
 
 
@@ -94,7 +97,7 @@ async def test_stitch_final_video_canvas_not_found(
 ):
     mock_get_canvas_service.return_value = mock_canvas_service
     mock_tool_context.state["video_timeline_canvas_id"] = "canvas_456"
-    
+
     # Mock get_canvas to return None
     mock_canvas_service.get_canvas.return_value = None
 

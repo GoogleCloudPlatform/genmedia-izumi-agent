@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 from google.adk.tools import ToolContext
 
+
 @pytest.fixture
 def mock_tool_context():
     context = MagicMock(spec=ToolContext)
@@ -90,12 +91,15 @@ async def test_generate_video_with_veo_unsupported_model_fallback(
     )
 
     assert "Video saved as asset with file name: fallback_video.mp4" in result
-    assert "Unsupported model 'unsupported-model'. Fell back to default model 'veo-3.1-generate-001'." in result
+    assert (
+        "Unsupported model 'unsupported-model'. Fell back to default model 'veo-3.1-generate-001'."
+        in result
+    )
     mock_media_generation_service.generate_video_with_veo.assert_called_once_with(
         user_id="user_123",
         prompt="A beautiful sunset",
         file_name="sunset.mp4",
-        model="veo-3.1-generate-001", # Fallback!
+        model="veo-3.1-generate-001",  # Fallback!
         first_frame_filename="",
         last_frame_filename="",
         aspect_ratio="16:9",
@@ -128,7 +132,7 @@ async def test_generate_video_with_veo_missing_first_frame_for_last_frame(
             duration_seconds=5,
             resolution="720p",
             generate_audio=True,
-            last_frame_filename="last.png", # Provided last frame but no first frame!
+            last_frame_filename="last.png",  # Provided last frame but no first frame!
         )
 
 
@@ -145,7 +149,9 @@ async def test_generate_video_with_veo_service_failure(
     mock_get_media_gen_service.return_value = mock_media_generation_service
 
     # Mock service to raise ValueError
-    mock_media_generation_service.generate_video_with_veo.side_effect = ValueError("Service failure")
+    mock_media_generation_service.generate_video_with_veo.side_effect = ValueError(
+        "Service failure"
+    )
 
     from creative_toolbox.tools.video_gen_tools import generate_video_with_veo
 
@@ -191,9 +197,15 @@ async def test_generate_video_with_veo_unsupported_resolution_and_aspect_ratio_f
     )
 
     assert "Video saved as asset with file name: fallback_params.mp4" in result
-    assert "Unsupported resolution 'unsupported-res'. Fell back to default resolution '720p'." in result
-    assert "Unsupported aspect ratio 'unsupported-aspect'. Fell back to default aspect ratio '16:9'." in result
-    
+    assert (
+        "Unsupported resolution 'unsupported-res'. Fell back to default resolution '720p'."
+        in result
+    )
+    assert (
+        "Unsupported aspect ratio 'unsupported-aspect'. Fell back to default aspect ratio '16:9'."
+        in result
+    )
+
     mock_media_generation_service.generate_video_with_veo.assert_called_once_with(
         user_id="user_123",
         prompt="A beautiful sunset",
@@ -239,7 +251,7 @@ async def test_generate_video_with_veo_none_params(
     )
 
     assert "Video saved as asset with file name: none_params.mp4" in result
-    
+
     mock_media_generation_service.generate_video_with_veo.assert_called_once_with(
         user_id="user_123",
         prompt="A beautiful sunset",

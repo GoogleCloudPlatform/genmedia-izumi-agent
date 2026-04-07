@@ -135,8 +135,12 @@ def test_generate_single_scene_success(mock_tool_context):
 
 
 @pytest.mark.asyncio
-@patch("demos.backend.ads_x_template.tools.generation.generation_tools.scene_generation_utils.generate_scene_video")
-@patch("demos.backend.ads_x_template.tools.generation.generation_tools.enrichment_utils.enrich_prompt_with_llm")
+@patch(
+    "demos.backend.ads_x_template.tools.generation.generation_tools.scene_generation_utils.generate_scene_video"
+)
+@patch(
+    "demos.backend.ads_x_template.tools.generation.generation_tools.enrichment_utils.enrich_prompt_with_llm"
+)
 @patch("mediagent_kit.services.aio.get_asset_service")
 @patch("mediagent_kit.services.aio.get_media_generation_service")
 async def test_generate_scene_video_success_internal(
@@ -145,29 +149,31 @@ async def test_generate_scene_video_success_internal(
     mock_enrich,
     mock_generate_scene_video,
 ):
-    from demos.backend.ads_x_template.tools.generation.generation_tools import generate_scene_video
-    
+    from demos.backend.ads_x_template.tools.generation.generation_tools import (
+        generate_scene_video,
+    )
+
     mock_asset_service_inst = AsyncMock()
     mock_get_asset_service.return_value = mock_asset_service_inst
-    
+
     mock_media_gen_inst = AsyncMock()
     mock_get_media_gen_service.return_value = mock_media_gen_inst
-    
+
     mock_enrich.return_value = ("Final prompt", "enrich_id")
-    
+
     mock_video_asset = MagicMock()
     mock_video_asset.id = "vid_123"
     mock_generate_scene_video.return_value = mock_video_asset
-    
+
     scene = {
         "video_prompt": {"description": "A video"},
         "voiceover_prompt": {"text": "Hello"},
     }
-    
+
     first_frame_asset = MagicMock()
     first_frame_asset.file_name = "frame.png"
     first_frame_asset.id = "frame_id"
-    
+
     result = await generate_scene_video(
         user_id="user_123",
         scene=scene,
@@ -175,16 +181,22 @@ async def test_generate_scene_video_success_internal(
         aspect_ratio="16:9",
         first_frame_asset=first_frame_asset,
     )
-    
+
     assert len(result) == 2
     assert result[1].id == "vid_123"
     assert scene["video_prompt"]["asset_id"] == "vid_123"
 
 
 @pytest.mark.asyncio
-@patch("demos.backend.ads_x_template.tools.generation.generation_tools.generate_scene_video")
-@patch("demos.backend.ads_x_template.tools.generation.generation_tools.generation_helpers.generate_scene_voiceover")
-@patch("demos.backend.ads_x_template.tools.generation.generation_tools.scene_generation_utils.generate_scene_first_frame")
+@patch(
+    "demos.backend.ads_x_template.tools.generation.generation_tools.generate_scene_video"
+)
+@patch(
+    "demos.backend.ads_x_template.tools.generation.generation_tools.generation_helpers.generate_scene_voiceover"
+)
+@patch(
+    "demos.backend.ads_x_template.tools.generation.generation_tools.scene_generation_utils.generate_scene_first_frame"
+)
 @patch("mediagent_kit.services.aio.get_asset_service")
 async def test_generate_scene_success_internal(
     mock_get_asset_service,
@@ -192,34 +204,38 @@ async def test_generate_scene_success_internal(
     mock_generate_scene_voiceover,
     mock_generate_scene_video,
 ):
-    from demos.backend.ads_x_template.tools.generation.generation_tools import generate_scene
-    
+    from demos.backend.ads_x_template.tools.generation.generation_tools import (
+        generate_scene,
+    )
+
     mock_asset_service_inst = AsyncMock()
     mock_get_asset_service.return_value = mock_asset_service_inst
-    
+
     mock_first_frame_asset = MagicMock()
     mock_first_frame_asset.id = "frame_id"
-    mock_generate_scene_first_frame.return_value = (mock_first_frame_asset, "Description")
-    
+    mock_generate_scene_first_frame.return_value = (
+        mock_first_frame_asset,
+        "Description",
+    )
+
     mock_generate_scene_voiceover.return_value = MagicMock()
     mock_video_asset = MagicMock()
     mock_generate_scene_video.return_value = [mock_first_frame_asset, mock_video_asset]
-    
+
     scene = {
         "first_frame_prompt": {"description": "First frame"},
         "video_prompt": {"description": "Video"},
         "voiceover_prompt": {"text": "Hello"},
     }
-    
+
     result = await generate_scene(
         user_id="user_123",
         scene=scene,
         index=0,
         aspect_ratio="16:9",
     )
-    
-    assert len(result) == 2 # gather results
+
+    assert len(result) == 2  # gather results
     mock_generate_scene_first_frame.assert_called_once()
     mock_generate_scene_video.assert_called_once()
     mock_generate_scene_voiceover.assert_called_once()
-

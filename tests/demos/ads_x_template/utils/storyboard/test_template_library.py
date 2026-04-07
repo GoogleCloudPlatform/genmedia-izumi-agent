@@ -29,11 +29,11 @@ def test_get_all_templates():
 def test_get_template_by_name():
     templates = get_all_templates()
     first_name = templates[0].template_name
-    
+
     # Success
     t = get_template_by_name(first_name)
     assert t.template_name == first_name
-    
+
     # Fallback
     t_fallback = get_template_by_name("NonExistentTemplate")
     assert t_fallback is not None
@@ -43,7 +43,7 @@ def test_suggest_template_industry_only():
     # Success
     t = suggest_template("social native")
     assert t is not None
-    
+
     t_default = suggest_template("random")
     assert t_default is not None
 
@@ -52,33 +52,33 @@ def test_suggest_template_vertical():
     # UGC
     t = suggest_template("", "tiktok")
     assert t is not None
-    
+
     t_unboxing = suggest_template("", "tiktok unboxing")
     assert t_unboxing is not None
-    
+
     t_impression = suggest_template("", "tiktok impression")
     assert t_impression is not None
-    
+
     # Pet
     t_pet = suggest_template("", "pet")
     assert t_pet.vertical_category == "Pets"
-    
+
     # Apparel
     t_apparel = suggest_template("", "fashion")
     assert t_apparel.vertical_category == "Apparel"
-    
+
     # Beauty
     t_beauty = suggest_template("", "beauty")
     assert t_beauty.vertical_category == "Beauty"
-    
+
     # Home
     t_home = suggest_template("", "home")
     assert t_home.vertical_category == "Home"
-    
+
     # Food
     t_food = suggest_template("", "meal")
     assert t_food.vertical_category == "Food & Beverage"
-    
+
     # Default
     t_default = suggest_template("", "random")
     assert t_default is not None

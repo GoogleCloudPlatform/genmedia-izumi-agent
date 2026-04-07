@@ -4,6 +4,7 @@ import pytest
 
 from google.adk.tools import ToolContext
 
+
 @pytest.fixture
 def mock_tool_context():
     return MagicMock(spec=ToolContext)
@@ -77,9 +78,15 @@ async def test_generate_image_with_imagen_fallback(
     )
 
     assert "Image saved as asset with file name: test_image.png" in result
-    assert "Warning: Unsupported model 'invalid_model' was provided. Fell back to default model 'imagen-4.0-generate-001'." in result
-    assert "Unsupported aspect ratio 'invalid_ratio' was provided. Fell back to default aspect ratio '1:1'." in result
-    
+    assert (
+        "Warning: Unsupported model 'invalid_model' was provided. Fell back to default model 'imagen-4.0-generate-001'."
+        in result
+    )
+    assert (
+        "Unsupported aspect ratio 'invalid_ratio' was provided. Fell back to default aspect ratio '1:1'."
+        in result
+    )
+
     # Verify it was called with fallbacks
     mock_media_generation_service.generate_image_with_imagen.assert_called_once_with(
         user_id="user_123",

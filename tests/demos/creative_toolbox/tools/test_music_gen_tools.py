@@ -70,7 +70,10 @@ async def test_generate_music_with_lyria_unsupported_model_fallback(
     from creative_toolbox.tools.music_gen_tools import generate_music_with_lyria
 
     result = await generate_music_with_lyria(
-        mock_tool_context, prompt="rock", file_name="rock.wav", model="unsupported-model"
+        mock_tool_context,
+        prompt="rock",
+        file_name="rock.wav",
+        model="unsupported-model",
     )
 
     assert "Music saved as asset with file name: fallback_music.wav" in result

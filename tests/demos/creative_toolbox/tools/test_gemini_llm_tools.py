@@ -114,7 +114,9 @@ async def test_creative_writer_with_gemini_failure(
     # Mock GenAI Client to raise exception
     mock_client = MagicMock()
     mock_genai_client_class.return_value = mock_client
-    mock_client.aio.models.generate_content = AsyncMock(side_effect=Exception("API Error"))
+    mock_client.aio.models.generate_content = AsyncMock(
+        side_effect=Exception("API Error")
+    )
 
     from creative_toolbox.tools.gemini_llm_tools import creative_writer_with_gemini
 

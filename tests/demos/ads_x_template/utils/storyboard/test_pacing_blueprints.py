@@ -8,6 +8,7 @@ from demos.backend.ads_x_template.utils.storyboard.pacing_blueprints import (
     PACING_PRESETS,
 )
 
+
 def test_get_pacing_options_json():
     json_str = get_pacing_options_json()
     assert "12s" in json_str

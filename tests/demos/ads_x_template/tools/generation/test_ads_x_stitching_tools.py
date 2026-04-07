@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 
 from google.adk.tools import ToolContext
 
+
 @pytest.fixture
 def mock_tool_context():
     context = MagicMock(spec=ToolContext)
@@ -13,14 +14,12 @@ def mock_tool_context():
                     "first_frame_prompt": {"asset_id": "asset_img_1"},
                     "video_prompt": {"asset_id": "asset_vid_1", "duration_seconds": 5},
                     "voiceover_prompt": {"asset_id": "asset_vo_1"},
-                    "topic": "Scene 1"
+                    "topic": "Scene 1",
                 }
             ],
-            "background_music_prompt": {"asset_id": "asset_bgm_1"}
+            "background_music_prompt": {"asset_id": "asset_bgm_1"},
         },
-        "parameters": {
-            "template_name": "Custom"
-        }
+        "parameters": {"template_name": "Custom"},
     }
     return context
 
@@ -63,7 +62,9 @@ def mock_canvas_service():
 @patch("mediagent_kit.services.aio.get_video_stitching_service")
 @patch("mediagent_kit.services.aio.get_canvas_service")
 @patch("ads_x_template.tools.generation.stitching_tools.display_asset")
-@patch("ads_x_template.tools.generation.stitching_tools.template_library.get_template_by_name")
+@patch(
+    "ads_x_template.tools.generation.stitching_tools.template_library.get_template_by_name"
+)
 async def test_stitch_final_video_success(
     mock_get_template,
     mock_display_asset,
@@ -82,7 +83,7 @@ async def test_stitch_final_video_success(
     mock_get_asset_service.return_value = mock_asset_service
     mock_get_stitching_service.return_value = mock_stitching_service
     mock_get_canvas_service.return_value = mock_canvas_service
-    
+
     # Mock template
     mock_template = MagicMock()
     mock_template.industry_type = "Standard"
@@ -108,7 +109,7 @@ async def test_stitch_final_video_missing_storyboard(
     mock_get_user_id,
     mock_tool_context,
 ):
-    mock_tool_context.state = {} # Empty state
+    mock_tool_context.state = {}  # Empty state
 
     from ads_x_template.tools.generation.stitching_tools import stitch_final_video
 
@@ -125,7 +126,9 @@ async def test_stitch_final_video_missing_storyboard(
 @patch("mediagent_kit.services.aio.get_video_stitching_service")
 @patch("mediagent_kit.services.aio.get_canvas_service")
 @patch("ads_x_template.tools.generation.stitching_tools.display_asset")
-@patch("ads_x_template.tools.generation.stitching_tools.template_library.get_template_by_name")
+@patch(
+    "ads_x_template.tools.generation.stitching_tools.template_library.get_template_by_name"
+)
 async def test_stitch_final_video_ugc_logic(
     mock_get_template,
     mock_display_asset,
@@ -144,7 +147,7 @@ async def test_stitch_final_video_ugc_logic(
     mock_get_asset_service.return_value = mock_asset_service
     mock_get_stitching_service.return_value = mock_stitching_service
     mock_get_canvas_service.return_value = mock_canvas_service
-    
+
     # Mock template as Social Native (UGC)
     mock_template = MagicMock()
     mock_template.industry_type = "Social Native"
@@ -161,5 +164,5 @@ async def test_stitch_final_video_ugc_logic(
     # In UGC mode, it should log "Using Per-Scene Voiceover Strategy"
     # We can check if audio clips were added correctly (mock timeline call parameters)
     # The timeline is passed to stitch_video, we can inspect it.
-    called_timeline = mock_stitching_service.stitch_video.call_args[1]['timeline']
-    assert len(called_timeline.audio_clips) > 0 # Should have audio clips
+    called_timeline = mock_stitching_service.stitch_video.call_args[1]["timeline"]
+    assert len(called_timeline.audio_clips) > 0  # Should have audio clips

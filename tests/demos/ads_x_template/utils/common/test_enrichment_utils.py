@@ -1,6 +1,10 @@
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
-from demos.backend.ads_x_template.utils.common.enrichment_utils import enrich_prompt_with_llm, shorten_script
+from demos.backend.ads_x_template.utils.common.enrichment_utils import (
+    enrich_prompt_with_llm,
+    shorten_script,
+)
+
 
 @pytest.mark.asyncio
 @patch("mediagent_kit.services.aio.get_media_generation_service")
@@ -31,12 +35,10 @@ async def test_enrich_prompt_with_llm_success(
             "lens_specification": "50mm",
             "lighting_description": "Daylight",
             "velocity_hint": "Slow",
-            "mood": ["Dramatic"]
+            "mood": ["Dramatic"],
         },
-        "audio": {
-            "dialogue_hint": "Hello"
-        },
-        "on_screen_text_hint": "Buy now"
+        "audio": {"dialogue_hint": "Hello"},
+        "on_screen_text_hint": "Buy now",
     }
 
     enriched_text, asset_id = await enrich_prompt_with_llm(
@@ -46,7 +48,7 @@ async def test_enrich_prompt_with_llm_success(
         scene_index=0,
         prompt_type="video",
         context="Some context",
-        is_ugc=True
+        is_ugc=True,
     )
 
     assert enriched_text == "Enriched prompt text"
@@ -79,7 +81,7 @@ async def test_enrich_prompt_with_llm_failure_fallback(
         scene_index=0,
         prompt_type="image",
         context="Some context",
-        is_ugc=False
+        is_ugc=False,
     )
 
     # Fallback should be used

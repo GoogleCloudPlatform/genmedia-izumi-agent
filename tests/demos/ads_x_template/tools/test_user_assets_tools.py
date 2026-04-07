@@ -118,6 +118,7 @@ def test_ingest_assets_generate_descriptions(
 
             assert "user_upload/image2.jpg" in mock_tool_context.state[USER_ASSETS_KEY]
 
+
 def test_ingest_assets_generate_virtual_creator(
     mock_tool_context, mock_asset_service, mock_media_gen_service
 ):
@@ -163,7 +164,9 @@ def test_ingest_assets_generate_virtual_creator(
                     )
 
                     mock_casting_blob = MagicMock()
-                    mock_casting_blob.content = b"A 25-year-old female, enthusiastic and energetic look."
+                    mock_casting_blob.content = (
+                        b"A 25-year-old female, enthusiastic and energetic look."
+                    )
                     mock_asset_service.get_asset_blob.return_value = mock_casting_blob
 
                     # Setup mock for image generation

@@ -7,6 +7,7 @@ from google.adk.tools import ToolContext
 # We use patch.dict to mock sys.modules if needed, or just patch the imports.
 # Since we are in Execution mode, we can just write the tests.
 
+
 @pytest.fixture
 def mock_tool_context():
     context = MagicMock(spec=ToolContext)
@@ -97,7 +98,7 @@ async def test_create_html_canvas_with_assets(
 
     assert "HTML canvas 'My Canvas' saved with ID: canvas_789" in result
     assert "Warning: The following assets were not found: image2.png" in result
-    
+
     # Verify create_canvas was called with resolved asset_ids
     called_args, called_kwargs = mock_canvas_service.create_canvas.call_args
     assert "html" in called_kwargs

@@ -110,35 +110,37 @@ async def test_create_storyboard_success(
     mock_tool_context,
 ):
     mock_get_user_id.return_value = "user_123"
-    
+
     # Mock GenAI Client
     mock_client = MagicMock()
     mock_genai_client_class.return_value = mock_client
-    
+
     # Mock response
     mock_response = MagicMock()
-    mock_response.text = json.dumps({
-        "title": "Title",
-        "voice_gender": "Female",
-        "voice_name": "Aoede",
-        "aspect_ratio": "16:9",
-        "video_clips": [
-            {
-                "clip_number": 1,
-                "description": "Clip 1",
-                "duration_seconds": 5.0,
-                "image_prompt": "Image prompt",
-                "video_prompt": "Video prompt",
-                "image_file_name": "img1.png",
-                "video_file_name": "vid1.mp4",
-                "elements": [],
-            }
-        ],
-        "consistent_elements": [],
-        "transitions": [],
-        "background_music_clips": [],
-    })
-    
+    mock_response.text = json.dumps(
+        {
+            "title": "Title",
+            "voice_gender": "Female",
+            "voice_name": "Aoede",
+            "aspect_ratio": "16:9",
+            "video_clips": [
+                {
+                    "clip_number": 1,
+                    "description": "Clip 1",
+                    "duration_seconds": 5.0,
+                    "image_prompt": "Image prompt",
+                    "video_prompt": "Video prompt",
+                    "image_file_name": "img1.png",
+                    "video_file_name": "vid1.mp4",
+                    "elements": [],
+                }
+            ],
+            "consistent_elements": [],
+            "transitions": [],
+            "background_music_clips": [],
+        }
+    )
+
     # asyncio.to_thread is used, so we mock the blocking call
     mock_client.models.generate_content.return_value = mock_response
 
@@ -186,7 +188,7 @@ async def test_create_storyboard_with_asset_references(
     mock_tool_context,
 ):
     mock_get_user_id.return_value = "user_123"
-    
+
     mock_asset_service = AsyncMock()
     mock_get_asset_service_factory.return_value = mock_asset_service
 
@@ -203,18 +205,20 @@ async def test_create_storyboard_with_asset_references(
     # Mock GenAI Client
     mock_client = MagicMock()
     mock_genai_client_class.return_value = mock_client
-    
+
     mock_response = MagicMock()
-    mock_response.text = json.dumps({
-        "title": "Title",
-        "voice_gender": "Female",
-        "voice_name": "Aoede",
-        "aspect_ratio": "16:9",
-        "video_clips": [],
-        "consistent_elements": [],
-        "transitions": [],
-        "background_music_clips": [],
-    })
+    mock_response.text = json.dumps(
+        {
+            "title": "Title",
+            "voice_gender": "Female",
+            "voice_name": "Aoede",
+            "aspect_ratio": "16:9",
+            "video_clips": [],
+            "consistent_elements": [],
+            "transitions": [],
+            "background_music_clips": [],
+        }
+    )
     mock_client.models.generate_content.return_value = mock_response
 
     from elements_to_video.tools.storyboard_tool import create_storyboard

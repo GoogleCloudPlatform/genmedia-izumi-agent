@@ -8,6 +8,7 @@ from demos.backend.ads_x_template.utils.generation.generation_helpers import (
 )
 from mediagent_kit.services.types import Asset
 
+
 @pytest.mark.asyncio
 @patch("mediagent_kit.services.aio.get_media_generation_service")
 @patch("mediagent_kit.services.aio.get_asset_service")
@@ -73,7 +74,10 @@ async def test_generate_scene_voiceover_success(
 
 @pytest.mark.asyncio
 @patch("mediagent_kit.services.aio.get_media_generation_service")
-@patch("demos.backend.ads_x_template.utils.common.enrichment_utils.shorten_script", new_callable=AsyncMock)
+@patch(
+    "demos.backend.ads_x_template.utils.common.enrichment_utils.shorten_script",
+    new_callable=AsyncMock,
+)
 async def test_generate_scene_voiceover_too_long_shorten(
     mock_shorten_script,
     mock_get_media_gen_service,
@@ -94,11 +98,16 @@ async def test_generate_scene_voiceover_too_long_shorten(
     mock_asset_short.versions = [mock_version_short]
 
     # First call returns long asset, second returns short asset
-    mock_mediagen.generate_speech_single_speaker.side_effect = [mock_asset_long, mock_asset_short]
+    mock_mediagen.generate_speech_single_speaker.side_effect = [
+        mock_asset_long,
+        mock_asset_short,
+    ]
     mock_shorten_script.return_value = "Short text"
 
     voice_prompt = {"text": "Very long text", "gender": "female"}
-    result = await generate_scene_voiceover("user1", voice_prompt, index=0, target_duration=4.0)
+    result = await generate_scene_voiceover(
+        "user1", voice_prompt, index=0, target_duration=4.0
+    )
 
     assert result == mock_asset_short
     assert voice_prompt["asset_id"] == "voice_short"
@@ -115,12 +124,9 @@ def test_build_global_context_string():
         "global_visual_style": "Bright",
         "global_setting": "Beach",
         "target_audience_profile": "All",
-        "brand_voice_keywords": ["Fast", "Fun"]
+        "brand_voice_keywords": ["Fast", "Fun"],
     }
-    scene = {
-        "establishment_shot": "Wide beach",
-        "narrative_action": "People running"
-    }
+    scene = {"establishment_shot": "Wide beach", "narrative_action": "People running"}
 
     result = build_global_context_string(storyboard, scene)
 

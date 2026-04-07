@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch, MagicMock
 from google.adk.tools import ToolContext
 from google.genai import types
 
+
 @pytest.fixture
 def mock_tool_context():
     context = MagicMock(spec=ToolContext)
@@ -108,7 +109,9 @@ async def test_load_asset_and_save_as_artifact_with_version(
     )
 
     assert "Asset loaded as session artifact: image_v2.png" in result
-    mock_asset_service.get_asset_blob.assert_called_once_with(asset_id="asset_1", version=2)
+    mock_asset_service.get_asset_blob.assert_called_once_with(
+        asset_id="asset_1", version=2
+    )
 
 
 @pytest.mark.asyncio

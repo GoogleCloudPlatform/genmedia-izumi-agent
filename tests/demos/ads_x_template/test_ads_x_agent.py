@@ -1,6 +1,7 @@
 import pytest
 from google.adk.agents import llm_agent, sequential_agent
 
+
 def test_ads_x_agent_definitions():
     from ads_x_template.agent import (
         parameters_agent,
@@ -38,6 +39,7 @@ def test_ads_x_agent_definitions():
 
     # Verify Storyboard Router
     from google.adk.tools import AgentTool
+
     assert isinstance(storyboard_router.tools[0], AgentTool)
 
     # Verify Generation Agent
