@@ -106,7 +106,7 @@ def test_update_canvas_success(client, mock_canvas_service):
     mock_canvas = MagicMock()
     mock_canvas.user_id = "user_1"
     mock_canvas_service.get_canvas.return_value = mock_canvas
-    
+
     updated_canvas = MagicMock()
     updated_canvas.id = "canvas_1"
     updated_canvas.title = "Updated Title"
@@ -128,7 +128,9 @@ def test_view_canvas_success(client, mock_canvas_service, mock_asset_service):
 
     mock_canvas = MagicMock()
     mock_canvas.user_id = "user_1"
-    mock_canvas.html = Html(content='<img src="asset://test.png" />', asset_ids=["asset_1"])
+    mock_canvas.html = Html(
+        content='<img src="asset://test.png" />', asset_ids=["asset_1"]
+    )
     mock_canvas_service.get_canvas.return_value = mock_canvas
 
     mock_asset = MagicMock()

@@ -47,14 +47,14 @@ def client(mock_asset_service, mock_async_asset_service):
 def test_list_assets_success(client, mock_asset_service):
     # Using a real Asset model for return value
     from mediagent_kit.api.types import Asset
-    
+
     asset = Asset(
         id="asset_1",
         user_id="user_1",
         mime_type="image/png",
         file_name="test.png",
         current_version=1,
-        versions=[]
+        versions=[],
     )
     mock_asset_service.list_assets.return_value = [asset]
 
@@ -82,7 +82,9 @@ def test_update_asset_success(client, mock_asset_service):
     )
     mock_asset_service.update_asset.return_value = updated_mock_asset
 
-    response = client.patch("/users/user_1/assets/asset_1", json={"file_name": "updated.png"})
+    response = client.patch(
+        "/users/user_1/assets/asset_1", json={"file_name": "updated.png"}
+    )
     assert response.status_code == 200
 
 
@@ -115,14 +117,14 @@ def test_view_asset_redirect(client, mock_asset_service):
 
 def test_get_asset_success(client, mock_asset_service):
     from mediagent_kit.api.types import Asset
-    
+
     asset = Asset(
         id="asset_1",
         user_id="user_1",
         mime_type="image/png",
         file_name="test.png",
         current_version=1,
-        versions=[]
+        versions=[],
     )
     mock_asset_service.get_asset_by_id.return_value = asset
 
@@ -141,21 +143,21 @@ def test_get_asset_not_found(client, mock_asset_service):
 
 def test_create_asset_success(client, mock_async_asset_service):
     from mediagent_kit.api.types import Asset
-    
+
     asset = Asset(
         id="asset_1",
         user_id="user_1",
         mime_type="image/png",
         file_name="test.png",
         current_version=1,
-        versions=[]
+        versions=[],
     )
     mock_async_asset_service.save_asset.return_value = asset
 
     # Test file upload
     files = {"file": ("test.png", b"fake content", "image/png")}
     data = {"file_name": "test.png", "mime_type": "image/png"}
-    
+
     response = client.post("/users/user_1/assets", files=files, data=data)
     assert response.status_code == 200
     data = response.json()
@@ -170,5 +172,3 @@ def test_delete_asset_success(client, mock_asset_service):
     response = client.delete("/users/user_1/assets/asset_1")
     assert response.status_code == 204
     mock_asset_service.delete_asset.assert_called_once_with("asset_1")
-
-

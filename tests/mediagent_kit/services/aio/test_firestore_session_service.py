@@ -6,6 +6,7 @@ from google.adk.events.event import Event
 
 from mediagent_kit.config import MediagentKitConfig
 
+
 @pytest.fixture
 def mock_firestore_client():
     client = MagicMock()
@@ -30,7 +31,9 @@ async def test_create_session_success(
     mock_asset_service,
     mock_config,
 ):
-    from mediagent_kit.services.aio.firestore_session_service import FirestoreSessionService
+    from mediagent_kit.services.aio.firestore_session_service import (
+        FirestoreSessionService,
+    )
 
     # Setup mock firestore client
     mock_collection = MagicMock()
@@ -46,34 +49,32 @@ async def test_create_session_success(
     # Mock doc.to_dict() for the get() after set()
     mock_created_snapshot = MagicMock()
     mock_created_snapshot.exists = True
-    mock_created_snapshot.to_dict.return_value = {
-        "last_update_time": datetime.utcnow()
-    }
-    
+    mock_created_snapshot.to_dict.return_value = {"last_update_time": datetime.utcnow()}
+
     # Mock app state and user state (non-existent in this test)
     mock_app_snapshot = MagicMock()
     mock_app_snapshot.exists = False
     mock_user_snapshot = MagicMock()
     mock_user_snapshot.exists = False
 
-    # Chain get() calls: 
+    # Chain get() calls:
     # 1. session check exists
     # 2. session get after set
     # 3. app state get
     # 4. user state get
     mock_document.get.side_effect = [
-        mock_doc_snapshot, 
-        mock_created_snapshot, 
-        mock_app_snapshot, 
-        mock_user_snapshot
+        mock_doc_snapshot,
+        mock_created_snapshot,
+        mock_app_snapshot,
+        mock_user_snapshot,
     ]
 
-    service = FirestoreSessionService(db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config)
+    service = FirestoreSessionService(
+        db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config
+    )
 
     session = await service.create_session(
-        app_name="test_app",
-        user_id="user_123",
-        state={"key": "value"}
+        app_name="test_app", user_id="user_123", state={"key": "value"}
     )
 
     assert session.id is not None
@@ -91,7 +92,9 @@ async def test_get_session_not_found(
     mock_asset_service,
     mock_config,
 ):
-    from mediagent_kit.services.aio.firestore_session_service import FirestoreSessionService
+    from mediagent_kit.services.aio.firestore_session_service import (
+        FirestoreSessionService,
+    )
 
     mock_collection = MagicMock()
     mock_document = MagicMock()
@@ -102,12 +105,12 @@ async def test_get_session_not_found(
     mock_doc_snapshot.exists = False
     mock_document.get.return_value = mock_doc_snapshot
 
-    service = FirestoreSessionService(db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config)
+    service = FirestoreSessionService(
+        db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config
+    )
 
     session = await service.get_session(
-        app_name="test_app",
-        user_id="user_123",
-        session_id="session_123"
+        app_name="test_app", user_id="user_123", session_id="session_123"
     )
 
     assert session is None
@@ -121,7 +124,9 @@ async def test_get_session_success_no_events(
     mock_asset_service,
     mock_config,
 ):
-    from mediagent_kit.services.aio.firestore_session_service import FirestoreSessionService
+    from mediagent_kit.services.aio.firestore_session_service import (
+        FirestoreSessionService,
+    )
 
     mock_collection = MagicMock()
     mock_document = MagicMock()
@@ -134,10 +139,10 @@ async def test_get_session_success_no_events(
     session_data = {
         "user_id": "user_123",
         "state": {"session_key": "session_val"},
-        "last_update_time": datetime.utcnow()
+        "last_update_time": datetime.utcnow(),
     }
     mock_session_snapshot.to_dict.return_value = session_data
-    
+
     # Mock app state and user state docs
     mock_app_snapshot = MagicMock()
     mock_app_snapshot.exists = False
@@ -145,7 +150,11 @@ async def test_get_session_success_no_events(
     mock_user_snapshot.exists = False
 
     # document.get side effects: 1. session_doc, 2. app_state_doc, 3. user_state_doc
-    mock_document.get.side_effect = [mock_session_snapshot, mock_app_snapshot, mock_user_snapshot]
+    mock_document.get.side_effect = [
+        mock_session_snapshot,
+        mock_app_snapshot,
+        mock_user_snapshot,
+    ]
 
     # Mock events stream (empty)
     mock_events_collection = MagicMock()
@@ -153,12 +162,12 @@ async def test_get_session_success_no_events(
     mock_events_collection.order_by.return_value = mock_events_collection
     mock_events_collection.stream.return_value = []
 
-    service = FirestoreSessionService(db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config)
+    service = FirestoreSessionService(
+        db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config
+    )
 
     session = await service.get_session(
-        app_name="test_app",
-        user_id="user_123",
-        session_id="session_123"
+        app_name="test_app", user_id="user_123", session_id="session_123"
     )
 
     assert session is not None
@@ -175,7 +184,9 @@ async def test_append_event_success(
     mock_asset_service,
     mock_config,
 ):
-    from mediagent_kit.services.aio.firestore_session_service import FirestoreSessionService
+    from mediagent_kit.services.aio.firestore_session_service import (
+        FirestoreSessionService,
+    )
 
     # Bypass the transactional decorator
     mock_firestore_module.transactional.side_effect = lambda x: x
@@ -189,11 +200,10 @@ async def test_append_event_success(
     mock_session_snapshot = MagicMock()
     mock_session_snapshot.exists = True
     from datetime import datetime
+
     fixed_time = datetime(2026, 1, 1)
-    mock_session_snapshot.to_dict.return_value = {
-        "last_update_time": fixed_time
-    }
-    
+    mock_session_snapshot.to_dict.return_value = {"last_update_time": fixed_time}
+
     # Mock transaction.get to return a generator/iterator
     mock_transaction = MagicMock()
     mock_firestore_client.transaction.return_value = mock_transaction
@@ -204,7 +214,9 @@ async def test_append_event_success(
     mock_event_doc = MagicMock()
     mock_events_collection.document.return_value = mock_event_doc
 
-    service = FirestoreSessionService(db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config)
+    service = FirestoreSessionService(
+        db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config
+    )
 
     mock_session = MagicMock()
     mock_session.app_name = "test_app"
@@ -217,13 +229,13 @@ async def test_append_event_success(
     mock_event.author = "bot"
     mock_event.content = None
     mock_event.timestamp = fixed_time.timestamp()
-    
+
     # model_dump should return a dict that can be validated back to Event
     mock_event.model_dump.return_value = {
         "author": "bot",
         "timestamp": fixed_time.timestamp(),
         "id": "event_1",
-        "partial": False
+        "partial": False,
     }
     mock_event.id = "event_1"
     mock_event.actions.state_delta = {"session.key": "value"}
@@ -241,7 +253,9 @@ async def test_list_sessions_success(
     mock_asset_service,
     mock_config,
 ):
-    from mediagent_kit.services.aio.firestore_session_service import FirestoreSessionService
+    from mediagent_kit.services.aio.firestore_session_service import (
+        FirestoreSessionService,
+    )
 
     mock_collection = MagicMock()
     mock_firestore_client.collection.return_value = mock_collection
@@ -253,17 +267,20 @@ async def test_list_sessions_success(
 
     mock_doc = MagicMock()
     from datetime import datetime
+
     fixed_time = datetime(2026, 1, 1)
     mock_doc.to_dict.return_value = {
         "session_id": "session_123",
         "app_name": "test_app",
         "user_id": "user_123",
         "state": {"key": "value"},
-        "last_update_time": fixed_time
+        "last_update_time": fixed_time,
     }
     mock_query.stream.return_value = [mock_doc]
 
-    service = FirestoreSessionService(db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config)
+    service = FirestoreSessionService(
+        db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config
+    )
 
     response = await service.list_sessions(app_name="test_app", user_id="user_123")
 
@@ -281,7 +298,9 @@ async def test_create_session_success_with_state_deltas(
     mock_asset_service,
     mock_config,
 ):
-    from mediagent_kit.services.aio.firestore_session_service import FirestoreSessionService
+    from mediagent_kit.services.aio.firestore_session_service import (
+        FirestoreSessionService,
+    )
 
     mock_collection = MagicMock()
     mock_document = MagicMock()
@@ -291,38 +310,43 @@ async def test_create_session_success_with_state_deltas(
     # Mock doc.get() to simulate non-existing session
     mock_doc_snapshot = MagicMock()
     mock_doc_snapshot.exists = False
-    
+
     # Mock doc.to_dict() for the get() after set()
     mock_created_snapshot = MagicMock()
     mock_created_snapshot.exists = True
     from datetime import datetime
-    mock_created_snapshot.to_dict.return_value = {
-        "last_update_time": datetime.utcnow()
-    }
-    
+
+    mock_created_snapshot.to_dict.return_value = {"last_update_time": datetime.utcnow()}
+
     # Mock app state and user state (existent in this test to verify merge)
     mock_app_snapshot = MagicMock()
     mock_app_snapshot.exists = True
     mock_app_snapshot.to_dict.return_value = {"state": {"app_key": "app_val"}}
-    
+
     mock_user_snapshot = MagicMock()
     mock_user_snapshot.exists = True
     mock_user_snapshot.to_dict.return_value = {"state": {"user_key": "user_val"}}
 
     # Chain get() calls
     mock_document.get.side_effect = [
-        mock_doc_snapshot, 
-        mock_created_snapshot, 
-        mock_app_snapshot, 
-        mock_user_snapshot
+        mock_doc_snapshot,
+        mock_created_snapshot,
+        mock_app_snapshot,
+        mock_user_snapshot,
     ]
 
-    service = FirestoreSessionService(db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config)
+    service = FirestoreSessionService(
+        db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config
+    )
 
     session = await service.create_session(
         app_name="test_app",
         user_id="user_123",
-        state={"app.new_app_key": "new_app_val", "user.new_user_key": "new_user_val", "session_key": "session_val"}
+        state={
+            "app.new_app_key": "new_app_val",
+            "user.new_user_key": "new_user_val",
+            "session_key": "session_val",
+        },
     )
 
     assert session.id is not None
@@ -337,9 +361,9 @@ async def test_create_session_success_with_state_deltas(
     assert session.state == {
         "session_key": "session_val",
         "app.app_key": "app_val",
-        "user.user_key": "user_val"
+        "user.user_key": "user_val",
     }
-    
+
     assert mock_document.set.call_count == 3
 
 
@@ -351,7 +375,9 @@ async def test_append_event_with_inline_data(
     mock_asset_service,
     mock_config,
 ):
-    from mediagent_kit.services.aio.firestore_session_service import FirestoreSessionService
+    from mediagent_kit.services.aio.firestore_session_service import (
+        FirestoreSessionService,
+    )
     from google.genai import types as genai_types
     import uuid
 
@@ -367,10 +393,8 @@ async def test_append_event_with_inline_data(
     mock_session_snapshot = MagicMock()
     mock_session_snapshot.exists = True
     fixed_time = datetime(2026, 1, 1)
-    mock_session_snapshot.to_dict.return_value = {
-        "last_update_time": fixed_time
-    }
-    
+    mock_session_snapshot.to_dict.return_value = {"last_update_time": fixed_time}
+
     mock_transaction = MagicMock()
     mock_firestore_client.transaction.return_value = mock_transaction
     mock_transaction.get.return_value = iter([mock_session_snapshot])
@@ -380,7 +404,9 @@ async def test_append_event_with_inline_data(
     mock_event_doc = MagicMock()
     mock_events_collection.document.return_value = mock_event_doc
 
-    service = FirestoreSessionService(db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config)
+    service = FirestoreSessionService(
+        db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config
+    )
 
     mock_session = MagicMock()
     mock_session.app_name = "test_app"
@@ -394,10 +420,10 @@ async def test_append_event_with_inline_data(
     mock_blob.data = b"image_bytes"
     # Set display_name to ensure a predictable filename
     setattr(mock_blob, "display_name", "test_file.png")
-    
+
     mock_part = MagicMock()
     mock_part.inline_data = mock_blob
-    
+
     mock_content = MagicMock()
     mock_content.parts = [mock_part]
     mock_content.role = "user"
@@ -409,7 +435,7 @@ async def test_append_event_with_inline_data(
     mock_event.timestamp = fixed_time.timestamp()
     mock_event.actions.state_delta = {}
     mock_event.id = "event_1"
-    
+
     # model_dump side effect to simulate the serialization with modified content
     def mock_model_dump(**kwargs):
         # By the time model_dump is called, event.content should have been modified
@@ -420,9 +446,10 @@ async def test_append_event_with_inline_data(
             "partial": False,
             "content": {
                 "role": "user",
-                "parts": [{"text": f"<asset://test_file.png>"}]
-            }
+                "parts": [{"text": f"<asset://test_file.png>"}],
+            },
         }
+
     mock_event.model_dump.side_effect = mock_model_dump
 
     await service.append_event(session=mock_session, event=mock_event)
@@ -447,7 +474,9 @@ async def test_get_session_with_asset_references(
     mock_asset_service,
     mock_config,
 ):
-    from mediagent_kit.services.aio.firestore_session_service import FirestoreSessionService
+    from mediagent_kit.services.aio.firestore_session_service import (
+        FirestoreSessionService,
+    )
     from google.genai import types as genai_types
 
     mock_collection = MagicMock()
@@ -461,34 +490,35 @@ async def test_get_session_with_asset_references(
     session_data = {
         "user_id": "user_123",
         "state": {},
-        "last_update_time": datetime.utcnow()
+        "last_update_time": datetime.utcnow(),
     }
     mock_session_snapshot.to_dict.return_value = session_data
-    
+
     # Mock app state and user state docs
     mock_app_snapshot = MagicMock()
     mock_app_snapshot.exists = False
     mock_user_snapshot = MagicMock()
     mock_user_snapshot.exists = False
 
-    mock_document.get.side_effect = [mock_session_snapshot, mock_app_snapshot, mock_user_snapshot]
+    mock_document.get.side_effect = [
+        mock_session_snapshot,
+        mock_app_snapshot,
+        mock_user_snapshot,
+    ]
 
     # Mock events stream with one event containing <asset://...>
     mock_events_collection = MagicMock()
     mock_document.collection.return_value = mock_events_collection
     mock_events_collection.order_by.return_value = mock_events_collection
-    
+
     mock_event_snapshot = MagicMock()
     mock_event_snapshot.id = "event_1"
-    
+
     event_data = {
         "author": "user",
         "timestamp": datetime.utcnow().timestamp(),
         "partial": False,
-        "content": {
-            "role": "user",
-            "parts": [{"text": "<asset://image.png>"}]
-        }
+        "content": {"role": "user", "parts": [{"text": "<asset://image.png>"}]},
     }
     mock_event_snapshot.to_dict.return_value = event_data
     mock_events_collection.stream.return_value = [mock_event_snapshot]
@@ -503,19 +533,18 @@ async def test_get_session_with_asset_references(
     mock_blob.mime_type = "image/png"
     mock_asset_service.get_asset_blob.return_value = mock_blob
 
-    service = FirestoreSessionService(db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config)
+    service = FirestoreSessionService(
+        db=mock_firestore_client, asset_service=mock_asset_service, config=mock_config
+    )
 
     session = await service.get_session(
-        app_name="test_app",
-        user_id="user_123",
-        session_id="session_123"
+        app_name="test_app", user_id="user_123", session_id="session_123"
     )
 
     assert session is not None
     assert len(session.events) == 1
-    
+
     mock_asset_service.get_asset_by_file_name.assert_called_once_with(
         user_id="user_123", file_name="image.png"
     )
     mock_asset_service.get_asset_blob.assert_called_once_with(asset_id="asset_456")
-

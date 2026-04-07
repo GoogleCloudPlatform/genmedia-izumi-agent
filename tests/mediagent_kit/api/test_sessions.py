@@ -41,13 +41,13 @@ def test_list_sessions_success(client, mock_session_service):
     # We mock the response of list_sessions which should have a .sessions attribute
     # Since we don't know the exact structure of Session, we use a MagicMock
     # and hope FastAPI can serialize it or we might need to adjust based on failures.
-    
+
     mock_session = MagicMock()
     mock_session.id = "session_1"
     mock_session.appName = "test_app"
     mock_session.userId = "user_1"
     mock_session.state = {}
-    
+
     mock_eval_session = MagicMock()
     mock_eval_session.id = "___eval___session___1"
     mock_eval_session.appName = "test_app"

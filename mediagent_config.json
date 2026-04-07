@@ -1,0 +1,60 @@
+{
+  "models": {
+    "text": {
+      "default": "gemini-2.5-flash",
+      "repair": "gemini-2.5-flash",
+      "enrichment": "gemini-3.1-flash-preview",
+      "_compatible_models": [
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-3.1-flash-preview",
+        "gemini-3.1-pro-preview"
+      ]
+    },
+    "image_imagen": {
+      "default": "imagen-4.0-generate-001",
+      "_compatible_models": [
+        "imagen-4.0-fast-generate-001",
+        "imagen-4.0-generate-001",
+        "imagen-4.0-ultra-generate-001"
+      ]
+    },
+    "image_gemini": {
+      "default": "gemini-3.1-flash-image-preview",
+      "_compatible_models": [
+        "gemini-2.5-flash-image",
+        "gemini-3-pro-image-preview",
+        "gemini-3.1-flash-image-preview"
+      ]
+    },
+    "video": {
+      "default": "veo-3.1-generate-001",
+      "_compatible_models": [
+        "veo-3.0-fast-generate-001",
+        "veo-3.0-generate-001",
+        "veo-3.1-fast-generate-preview",
+        "veo-3.1-generate-001",
+        "veo-3.1-generate-preview",
+        "veo-3.1-lite-generate-preview"
+      ]
+    },
+    "music": {
+      "default": "lyria-002",
+      "_compatible_models": [
+        "lyria-002",
+        "lyria-3-clip-preview",
+        "lyria-3-pro-preview"
+      ]
+    },
+    "tts": {
+      "default": "gemini-2.5-pro-tts",
+      "_compatible_models": [
+        "gemini-2.5-flash-preview-tts",
+        "gemini-2.5-pro-preview-tts",
+        "gemini-2.5-pro-tts"
+      ]
+    }
+  }
+}

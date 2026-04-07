@@ -13,6 +13,8 @@
 # limitations under the License.
 
 import dataclasses
+import json
+import os
 
 
 @dataclasses.dataclass
@@ -23,3 +25,35 @@ class MediagentKitConfig:
     google_cloud_location: str | None = None
     asset_service_gcs_bucket: str | None = None
     firestore_database_id: str | None = None
+    models: dict = dataclasses.field(default_factory=dict)
+
+    def __post_init__(self):
+        # Hardcoded defaults as fallback
+        self.models = {
+            "text": {
+                "default": "gemini-2.5-flash",
+                "repair": "gemini-2.5-flash",
+                "enrichment": "gemini-3.1-flash-preview",
+            },
+            "image_imagen": {"default": "imagen-4.0-generate-001"},
+            "image_gemini": {"default": "gemini-3.1-flash-image-preview"},
+            "video": {"default": "veo-3.1-generate-001"},
+            "music": {"default": "lyria-002"},
+            "tts": {"default": "gemini-2.5-pro-tts"},
+        }
+
+        config_path = "mediagent_config.json"
+        if os.path.exists(config_path):
+            try:
+                with open(config_path, "r") as f:
+                    data = json.load(f)
+                    file_models = data.get("models", {})
+                    # Merge file models into defaults
+                    for key, value in file_models.items():
+                        if isinstance(value, dict) and key in self.models:
+                            self.models[key].update(value)
+                        else:
+                            self.models[key] = value
+                print(f"[MediagentKitConfig] Loaded models from {config_path}")
+            except Exception as e:
+                print(f"[MediagentKitConfig] Error loading {config_path}: {e}")

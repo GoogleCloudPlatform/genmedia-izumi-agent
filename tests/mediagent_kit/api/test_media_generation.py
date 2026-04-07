@@ -173,7 +173,9 @@ def test_generate_speech_single_speaker_success(client, mock_orchestrator):
         created_at=datetime.now(),
         updated_at=datetime.now(),
     )
-    mock_orchestrator.submit_speech_single_speaker_generation_job.return_value = mock_job
+    mock_orchestrator.submit_speech_single_speaker_generation_job.return_value = (
+        mock_job
+    )
 
     response = client.post(
         "/users/user_1/media:generate-speech-single-speaker",

@@ -41,29 +41,19 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
 
-GEMINI_TEXT_MODELS = Literal[
-    "gemini-2.5-flash",
-    "gemini-2.5-pro",
-    "gemini-3.1-flash-preview",
-    "gemini-3.1-pro-preview",
-]
 GEMINI_TEXT_MODEL: Final = "gemini-2.5-flash"
 
-GEMINI_IMAGE_MODELS = Literal[
-    "gemini-2.5-flash-image",
-    "gemini-3-pro-image-preview",
-    "gemini-3.1-flash-image-preview",
-]
+
 GEMINI_IMAGE_MODEL: Final = "gemini-3.1-flash-image-preview"
 GEMINI_IMAGE_ASPECT_RATIOS = Literal[
     "1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"
 ]
 GEMINI_IMAGE_ASPECT_RATIO: Final = "16:9"
 
-LYRIA_MODELS = Literal["lyria-002"]
+
 LYRIA_MODEL: Final = "lyria-002"
 
-TTS_MODELS = Literal["gemini-2.5-flash-tts", "gemini-2.5-pro-tts"]
+
 TTS_MODEL: Final = "gemini-2.5-pro-tts"
 TTS_VOICES = Literal[
     "Achernar",
@@ -98,23 +88,14 @@ TTS_VOICES = Literal[
     "Zubenelgenubi",
 ]
 
-IMAGEN_MODELS = Literal[
-    "imagen-4.0-fast-generate-001",
-    "imagen-4.0-generate-001",
-    "imagen-4.0-ultra-generate-001",
-]
+
 IMAGEN_MODEL: Final = "imagen-4.0-generate-001"
 IMAGEN_ASPECT_RATIOS = Literal["1:1", "3:4", "4:3", "9:16", "16:9"]
 IMAGEN_ASPECT_RATIO: Final = "16:9"
 IMAGEN_SIZES = Literal["1K", "2K"]
 IMAGEN_SIZE: Final = "1K"
 
-VEO_MODELS = Literal[
-    "veo-3.0-generate-001",
-    "veo-3.0-fast-generate-001",
-    "veo-3.1-generate-001",
-    "veo-3.1-fast-generate-001",
-]
+
 VEO_MODEL: Final = "veo-3.1-generate-001"
 VEO_R2V_MODEL: Final = "veo-3.1-generate-preview"
 VEO_DURATIONS = Literal[4, 6, 8]
@@ -225,9 +206,17 @@ class MediaGenerationService:
         file_name: str,
         prompt: str,
         negative_prompt: str | None = None,
-        model: LYRIA_MODELS = LYRIA_MODEL,
+        purpose: str | None = None,
+        model: str | None = None,
     ) -> asset_types.Asset:
         """Generates music using Lyria and saves it as a user-scoped asset."""
+        if model is None:
+            config = self._config.models.get("music", {})
+            if purpose and purpose in config:
+                model = config[purpose]
+            else:
+                model = config.get("default", LYRIA_MODEL)
+
         logger.info(
             json.dumps(
                 {
@@ -235,6 +224,7 @@ class MediaGenerationService:
                     "prompt": prompt,
                     "model": model,
                     "file_name": file_name,
+                    "purpose": purpose,
                 }
             )
         )
@@ -272,9 +262,17 @@ class MediaGenerationService:
         prompt: str,
         aspect_ratio: IMAGEN_ASPECT_RATIOS = IMAGEN_ASPECT_RATIO,
         image_size: IMAGEN_SIZES = IMAGEN_SIZE,
-        model: IMAGEN_MODELS = IMAGEN_MODEL,
+        purpose: str | None = None,
+        model: str | None = None,
     ) -> asset_types.Asset:
         """Generates an image using Imagen and saves it as a user-scoped asset."""
+        if model is None:
+            config = self._config.models.get("image_imagen", {})
+            if purpose and purpose in config:
+                model = config[purpose]
+            else:
+                model = config.get("default", IMAGEN_MODEL)
+
         logger.info(
             json.dumps(
                 {
@@ -283,6 +281,7 @@ class MediaGenerationService:
                     "aspect_ratio": aspect_ratio,
                     "model": model,
                     "file_name": file_name,
+                    "purpose": purpose,
                 }
             )
         )
@@ -385,10 +384,18 @@ class MediaGenerationService:
         user_id: str,
         file_name: str,
         prompt: str,
-        reference_image_filenames: list[str],
-        model: GEMINI_TEXT_MODELS = GEMINI_TEXT_MODEL,
+        reference_image_filenames: list[str] = [],
+        purpose: str | None = None,
+        model: str | None = None,
     ) -> asset_types.Asset:
         """Generates text using Gemini, with an optional set of reference images."""
+        if model is None:
+            text_config = self._config.models.get("text", {})
+            if purpose and purpose in text_config:
+                model = text_config[purpose]
+            else:
+                model = text_config.get("default", GEMINI_TEXT_MODEL)
+
         logger.info(
             json.dumps(
                 {
@@ -397,6 +404,7 @@ class MediaGenerationService:
                     "model": model,
                     "prompt": prompt,
                     "reference_files": reference_image_filenames,
+                    "purpose": purpose,
                 }
             )
         )
@@ -462,11 +470,19 @@ class MediaGenerationService:
         user_id: str,
         file_name: str,
         prompt: str,
-        reference_image_filenames: list[str],
+        reference_image_filenames: list[str] = [],
         aspect_ratio: GEMINI_IMAGE_ASPECT_RATIOS = GEMINI_IMAGE_ASPECT_RATIO,
-        model: GEMINI_IMAGE_MODELS = GEMINI_IMAGE_MODEL,
+        purpose: str | None = None,
+        model: str | None = None,
     ) -> asset_types.Asset:
         """Generates an image using Gemini Image, with an optional set of reference images."""
+        if model is None:
+            config = self._config.models.get("image_gemini", {})
+            if purpose and purpose in config:
+                model = config[purpose]
+            else:
+                model = config.get("default", GEMINI_IMAGE_MODEL)
+
         logger.info(
             json.dumps(
                 {
@@ -475,6 +491,8 @@ class MediaGenerationService:
                     "aspect_ratio": aspect_ratio,
                     "file_name": file_name,
                     "reference_files": reference_image_filenames,
+                    "purpose": purpose,
+                    "model": model,
                 }
             )
         )
@@ -551,9 +569,17 @@ class MediaGenerationService:
         voice_name: TTS_VOICES,
         language_code: str = "en-US",
         prompt: str = "",
-        model: TTS_MODELS = TTS_MODEL,
+        purpose: str | None = None,
+        model: str | None = None,
     ) -> asset_types.Asset:
         """Generates speech from text with a single speaker and saves it as a user-scoped asset."""
+        if model is None:
+            config = self._config.models.get("tts", {})
+            if purpose and purpose in config:
+                model = config[purpose]
+            else:
+                model = config.get("default", TTS_MODEL)
+
         logger.info(
             json.dumps(
                 {
@@ -562,6 +588,7 @@ class MediaGenerationService:
                     "voice_name": voice_name,
                     "language_code": language_code,
                     "file_name": file_name,
+                    "purpose": purpose,
                 }
             )
         )
@@ -680,9 +707,16 @@ class MediaGenerationService:
         last_frame_filename: str | None = None,
         reference_image_filenames: list[str] | None = None,
         method: Literal["image_to_video", "reference_to_video"] = "image_to_video",
-        model: VEO_MODELS | str = VEO_MODEL,
+        purpose: str | None = None,
+        model: str | None = None,
     ) -> asset_types.Asset:
         """Generates a video using Veo and saves it as a user-scoped asset."""
+        if model is None:
+            config = self._config.models.get("video", {})
+            if purpose and purpose in config:
+                model = config[purpose]
+            else:
+                model = config.get("default", VEO_MODEL)
 
         # Use preview model for reference-based generation
         if method == "reference_to_video" and model == VEO_MODEL:
