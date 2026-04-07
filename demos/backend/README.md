@@ -1,6 +1,11 @@
 <div align="center">
   <h1>Izumi Backend Engine ⚙️</h1>
   <p><strong>The Intelligence Layer of the Izumi Automated Ad Generation Platform</strong></p>
+  <p align="center">
+    <img src="https://img.shields.io/badge/🐍Python-3.12-00d9ff?style=for-the-badge&logo=python&logoColor=white&labelColor=1a1a2e">
+    <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white">
+    <img src="https://img.shields.io/badge/Vertex AI-ADK-blue?style=for-the-badge">
+  </p>
 </div>
 
 ---
@@ -11,23 +16,18 @@ The `backend` directory houses the core intelligence and orchestration pipelines
 
 It acts as a headless REST API that effortlessly interfaces with the standalone Vite React frontend or executes natively inside Google Cloud's Agent Engines.
 
-## 🧩 The Agency
+## 🧩 The Specialized Agents
 
-Izumi isn't a single monolithic script—it's a distributed suite of specialized AI Agents. This repository contains four discrete AI workspaces, each tuned for a specific creative workflow:
+Izumi isn't a single monolithic script—it's a distributed suite of specialized AI Agents. Here is a quick comparison to help you choose the right agent for your workflow:
 
-### 1. 🎬 [Ads-X Template](./ads_x_template) *(Flagship)*
-Our most powerful enterprise orchestrator. `Ads-X Template` gives brands granular control over the timing, pacing, and visual progression of an ad. It operates in two modes:
-- **Template Mode:** Adheres strictly to a pre-defined JSON skeleton (dictating exact clip lengths and transitions).
-- **AI Director Mode:** Autonomously devises narrative pacing while enforcing brand guidelines.
+| Agent | Best For | Control Level | Key Tech |
+| :--- | :--- | :--- | :--- |
+| **🎬 [Ads-X Template](./ads_x_template)** | Enterprise ads with strict timing and brand guidelines. | High (Template-driven) | Gemini, Imagen, Veo |
+| **🚀 [Ads-X (Autonomous)](./ads_x)** | Quick ideation and full automation from a brief. | Low (Fully Autonomous) | Gemini, Imagen, Veo |
+| **🧬 [Elements to Video](./elements_to_video)** | Maintaining character or product consistency across shots. | Medium | Gemini, Imagen, Veo |
+| **🎨 [Creative Toolbox](./creative_toolbox)** | One-off asset generation and experimentation. | Manual/Chat | Gemini, Imagen, Veo |
 
-### 2. 🚀 [Ads-X (Autonomous)](./ads_x)
-The original fully-autonomous agent. Provide it a brand brief and a target demographic, and `Ads-X` handles the ideation, scriptwriting, storyboarding, and final rendering entirely on its own.
-
-### 3. 🧬 [Elements to Video](./elements_to_video)
-A specialized narrative chain workflow built explicitly to solve the "character consistency" problem in AI video. It anchors generation around persistent subjects (like a mascot or hero product) and drags them seamlessly through multiple generated clips and actions.
-
-### 4. 🎨 [Creative Toolbox](./creative_toolbox)
-An unstructured, conversational sandbox. When you don't need a full campaign, deploy the Creative Toolbox to chat naturally with the suite of Vertex AI models to generate one-off concept art, temporary voiceovers, or standalone Veo animations.
+For more details on each agent, click on their links above to visit their specific directories.
 
 ## ⚙️ Core Architecture
 
@@ -44,9 +44,34 @@ The backend leverages a standardized toolchain provided by the `mediagent_kit` w
 
 ## 🚀 Quick Start (Local Development)
 
-1. Ensure your `.env.dev` is configured with your Google Cloud credentials.
-2. From the monorepo root, execute the backend startup script:
-```bash
-./scripts/start-local-server.sh
-```
-3. The API will spin up on `http://localhost:8000`. You can test endpoints natively using the FastAPI Swagger UI at `http://localhost:8000/docs`.
+1. **Prerequisites**: Ensure you have configured your `.env.dev` or `.env.local` file with your Google Cloud credentials and project details.
+2. **Launch Server**: From the monorepo root, execute the backend startup script:
+   ```bash
+   ./scripts/start-local-server.sh
+   ```
+3. **Explore APIs**: The API will spin up on `http://localhost:8000`. You can test endpoints interactively using the FastAPI Swagger UI at [http://localhost:8000/docs](http://localhost:8000/docs).
+
+## ➕ Adding a New Agent
+
+To add a new specialized agent to the ecosystem, follow these detailed steps:
+
+1. **Create the Agent Directory**: 
+   Create a new directory under `demos/backend/` (e.g., `demos/backend/my_new_agent`). We recommend following the pattern established by `ads_x_template`:
+   ```text
+   my_new_agent/
+   ├── __init__.py
+   ├── agent.py          # Main agent logic and orchestration
+   ├── tools/             # Custom tools specific to this agent
+   └── instructions/      # Prompts and instructions for the agent
+   ```
+
+2. **Implement Agent Logic**:
+   - Leverage `mediagent_kit` services (via `ServiceFactory`) for tasks like media generation, asset management, and job orchestration.
+   - Utilize the centralized model configuration by passing a `purpose` parameter to media generation methods to fetch the appropriate model from `mediagent_config.json`.
+
+3. **Expose REST Endpoints**:
+   - Define a FastAPI `APIRouter` in your agent directory to expose its capabilities (e.g., triggering a run).
+   - Mount your router in `demos/backend/main.py`.
+
+4. **Add Tests**:
+   - Add corresponding unit and integration tests in a new directory under `tests/` (e.g., `tests/demos/my_new_agent/`).
