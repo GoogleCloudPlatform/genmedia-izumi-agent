@@ -264,6 +264,19 @@ For the frontend in `demos/frontend/.env`:
 VITE_API_BASE_URL=http://localhost:8000
 ```
 
+
+## 💡 Troubleshooting
+
+### mTLS / Certificate Errors
+If you encounter an error like `a bytes-like object is required, not 'NoneType'` originating from `mtls.py`, or other mTLS connection failures:
+1. Open `demos/backend/.env.local`.
+2. Add the following lines to bypass the Mutual TLS check:
+   ```env
+   GOOGLE_API_USE_MTLS=never
+   GOOGLE_API_USE_CLIENT_CERTIFICATE=false
+   ```
+3. Restart the application.
+
 ---
 
 ## 🧬 Code Styling & Guidelines
