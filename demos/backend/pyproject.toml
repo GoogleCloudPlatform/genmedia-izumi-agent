@@ -25,7 +25,8 @@ authors = [
 dependencies = [
     "beautifulsoup4",
     "fastapi",
-    "google-adk==1.20.0",
+    "google-adk==1.29.0",
+
     "google-cloud-aiplatform[adk,agent-engines]>=1.132.0",
     "genmedia-izumi-agent",
     "moviepy",
@@ -33,7 +34,9 @@ dependencies = [
     "python-dotenv",
     "requests",
     "uvicorn",
+    "pyopenssl",
 ]
+
 
 requires-python = ">=3.11,<3.14"
 
