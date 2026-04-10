@@ -187,7 +187,19 @@ The backend leverages a standardized toolchain provided by the `mediagent_kit` w
 
 ## 🚀 Quick Start
 
-### 🖥️ Steps to Local Development Workspace
+### 🖥️ 1. Mandatory Prerequisites
+
+You **must** install `uv` to manage dependencies and run the workspace.
+
+```bash
+# 1. Install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 2. Add it to your PATH immediately for this session
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+### 🖥️ 2. Setup Development Workspace
 
 1.  **Authentication**
     Configure your local environment with ambient cloud application credentials:
@@ -195,16 +207,19 @@ The backend leverages a standardized toolchain provided by the `mediagent_kit` w
     gcloud auth login
     gcloud auth application-default login
     ```
-2.  **Sync Workspace Tree Dependencies**
-    We use `uv` for blazing fast, deterministic python environments. This creates a unified virtual environment holding both library and agent dependencies:
+
+2.  **Sync Workspace Dependencies**
+    Instantly resolve and install all project packages:
     ```bash
     uv sync
     ```
+
 3.  **Setup Environment Manifests**
-    Run the declarative Python setup helper to provision standard `.env.local` bindings pointing to your sandbox GCS buckets and Vertex AI projects:
+    Provision standard `.env.local` bindings for GCP:
     ```bash
     uv run scripts/setup_gcp_project.py --app_env local
     ```
+
 
 ### 🎯 Launching the Workspace
 
