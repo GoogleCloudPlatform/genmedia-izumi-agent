@@ -50,10 +50,6 @@ vi.mock('./content/CanvasView', () => ({
   default: () => <div data-testid="canvas-view">Canvas View</div>,
 }));
 
-vi.mock('./content/WorkflowView', () => ({
-  default: () => <div data-testid="workflow-view">Workflow View</div>,
-}));
-
 describe('MainContent', () => {
   const mockAssets: ProjectAsset[] = [
     {
@@ -111,11 +107,6 @@ describe('MainContent', () => {
   it('renders CanvasView when contentTab is "canvas"', () => {
     renderComponent({ contentTab: 'canvas' });
     expect(screen.getByTestId('canvas-view')).toBeInTheDocument();
-  });
-
-  it('renders WorkflowView when contentTab is "workflow"', () => {
-    renderComponent({ contentTab: 'workflow' });
-    expect(screen.getByTestId('workflow-view')).toBeInTheDocument();
   });
 
   it('combines assets and pending jobs in AssetsView', () => {

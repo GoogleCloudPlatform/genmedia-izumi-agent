@@ -39,7 +39,6 @@ import type { ProjectAsset, Canvas, Job } from '../../data/types';
 import { JobStatus } from '../../data/types';
 import AssetsView from './content/AssetsView';
 import CanvasView from './content/CanvasView';
-import WorkflowView from './content/WorkflowView';
 
 interface MainContentProps {
   onGenerateClick: () => void;
@@ -69,8 +68,7 @@ export default function MainContent({
 }: MainContentProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const activeTab =
-    contentTab === 'canvas' ? 1 : contentTab === 'workflow' ? 2 : 0;
+  const activeTab = contentTab === 'canvas' ? 1 : 0;
 
   const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 
@@ -206,8 +204,7 @@ export default function MainContent({
   const modalOpen = !!selectedAsset;
 
   const handleChange = (_: React.SyntheticEvent, newValue: number) => {
-    const tabName =
-      newValue === 0 ? 'assets' : newValue === 1 ? 'canvas' : 'workflow';
+    const tabName = newValue === 0 ? 'assets' : 'canvas';
     navigate(`${location.pathname}?contentTab=${tabName}`);
   };
 
@@ -305,7 +302,6 @@ export default function MainContent({
         >
           <Tab label="Assets" />
           <Tab label="Canvas" />
-          <Tab label="Workflow" />
         </Tabs>
 
         {(activeTab === 0 || activeTab === 1) && (
@@ -495,7 +491,6 @@ export default function MainContent({
             onBackToCanvasList={handleBackToCanvasList}
           />
         )}
-        {activeTab === 2 && <WorkflowView />}
       </Box>
       <AssetModal
         open={modalOpen}
