@@ -105,10 +105,6 @@ Izumi isn't a single monolithic script—it's a distributed suite of specialized
 - **Template Mode:** Adheres strictly to a pre-defined JSON skeleton (dictating exact clip lengths and transitions).
 - **AI Director Mode:** Autonomously devises narrative pacing while enforcing brand guidelines.
 
-**🚀 Ads-X (Autonomous)**
-- The original fully-autonomous agent.
-- Provide it a brand brief and a target demographic, and `Ads-X` handles the ideation, scriptwriting, storyboarding, and final rendering entirely on its own.
-
 **🧬 Elements to Video**
 - A specialized narrative chain workflow built explicitly to solve the "character consistency" problem in AI video.
 - Anchors generation around persistent subjects (like a mascot or hero product) and drags them seamlessly through multiple generated clips and actions.
@@ -144,7 +140,7 @@ Izumi is a multi-agent video framework that enables automated multi-shot video g
     <tr>
       <td align="center" style="padding: 12px; background: linear-gradient(135deg, #3742fa 0%, #2f3542 100%); border-radius: 10px; color: white; width: 50%;">
         🤖 Specialized Agents<br/>
-        <small>ads_x • ads_x_template • creative_toolbox • elements_to_video</small>
+        <small>ads_x_template • creative_toolbox • elements_to_video</small>
       </td>
       <td width="10"></td>
       <td align="center" style="padding: 12px; background: linear-gradient(135deg, #8c7ae6 0%, #9c88ff 100%); border-radius: 10px; color: white; width: 50%;">

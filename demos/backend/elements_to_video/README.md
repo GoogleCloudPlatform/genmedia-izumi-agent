@@ -13,7 +13,7 @@ It is constructed to perfectly maintain the identity of a specific character, ma
 
 ## 🚀 The Pipeline Flow
 
-Unlike the traditional `ads_x` pipeline which generates independent scenes based off a conceptual brief, this module uses a heavy "Reference-to-Video" pipeline locked to a user's defined subject.
+Unlike the traditional campaign pipelines which generate independent scenes based off a conceptual brief, this module uses a heavy "Reference-to-Video" pipeline locked to a user's defined subject.
 
 ### 1. Consistent Elements Definition
 The user explicitly defines or uploads a set of core assets dictating the anchor (e.g., an uploaded headshot, a 3D model, or a descriptive prompt like "A 3D stylized golden retriever with a red collar").

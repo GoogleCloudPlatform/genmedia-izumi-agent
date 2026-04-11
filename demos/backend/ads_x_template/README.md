@@ -7,7 +7,7 @@
 
 ## 📖 What is the Template Agent?
 
-The `ads_x_template` is Izumi's flagship, production-grade video orchestrator. It trades the complete autonomy of the base `ads_x` agent for granular, enterprise-level pacing and structural constraints.
+The `ads_x_template` is Izumi's flagship, production-grade video orchestrator providing granular, enterprise-level pacing and structural constraints.
 
 The defining characteristic of this agent is its capacity to run in two distinct operational profiles tailored for different marketing needs: **Template Mode** and **AI Director Mode**.
 

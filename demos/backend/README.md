@@ -23,7 +23,6 @@ Izumi isn't a single monolithic script—it's a distributed suite of specialized
 | Agent | Best For | Control Level | Key Tech |
 | :--- | :--- | :--- | :--- |
 | **🎬 [Ads-X Template](./ads_x_template)** | Enterprise ads with strict timing and brand guidelines. | High (Template-driven) | Gemini, Imagen, Veo |
-| **🚀 [Ads-X (Autonomous)](./ads_x)** | Quick ideation and full automation from a brief. | Low (Fully Autonomous) | Gemini, Imagen, Veo |
 | **🧬 [Elements to Video](./elements_to_video)** | Maintaining character or product consistency across shots. | Medium | Gemini, Imagen, Veo |
 | **🎨 [Creative Toolbox](./creative_toolbox)** | One-off asset generation and experimentation. | Manual/Chat | Gemini, Imagen, Veo |
 

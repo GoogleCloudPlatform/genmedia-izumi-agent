@@ -9,7 +9,7 @@
 
 The **Creative Toolbox** is an agnostic, sandbox assistant designed for freeform media generation. 
 
-Unlike the highly structured `ads_x` templates which orchestrate rigid, end-to-end commercial campaigns, the Creative Toolbox operates as a flexible utility workbench. It intentionally lacks an overarching storyboard or timeline, allowing developers and creatives to trigger discrete generation events on the fly.
+Unlike the highly structured templates which orchestrate rigid, end-to-end commercial campaigns, the Creative Toolbox operates as a flexible utility workbench. It intentionally lacks an overarching storyboard or timeline, allowing developers and creatives to trigger discrete generation events on the fly.
 
 ## 🚀 Features
 
@@ -23,7 +23,7 @@ Unlike the highly structured `ads_x` templates which orchestrate rigid, end-to-e
 
 ## 🧩 Architectural Role
 
-- **When to invoke `ads_x`**: Use for end-to-end, multi-scene marketing campaign orchestration.
+- **When to invoke `ads_x_template`**: Use for end-to-end, multi-scene marketing campaign orchestration.
 - **When to invoke `creative_toolbox`**: Use for rapid prototyping, generating single creative assets on demand, iterating a flawed concept, or experimenting with prompt engineering semantics before placing assets on a timeline.
 
 ## 🛠️ The Tools
