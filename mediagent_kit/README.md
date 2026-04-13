@@ -56,6 +56,19 @@ The `mediagent_kit` is organized into focused submodules to ensure a strict sepa
 | **[`/frontend`](frontend/)** | **Static Debugger**: Lightweight vanilla JS pages to trace API states without full React build. | `index.html` |
 | **`/utils`** | **Execution Abstractions**: Polling wrappers, background workers, and retry logic. | `retry.py`, `background_job_runner.py` |
 
+## 🎬 Best Practices for Content Creators
+
+To ensure the absolute highest fidelity and smoothest media rendering experience when producing commercial video campaigns through Izumi, please follow these professional studio guidelines:
+
+### 1. Start Fresh: One Campaign per Workspace
+- **Why it Matters**: Just like organizing footage in a professional editing bay, mixing multiple products and brands into the same Izumi workspace can clutter your media library. Uploaded images and rendered clips accumulate in the right-hand canvas panel.
+- **Pro-Tip**: To keep your art direction perfectly focused, always **create a completely new Izumi project** whenever you begin generating an entirely new advertising campaign.
+
+### 2. Keep Content Commercial-Safe (Veo Compliance)
+- **Why it Matters**: The underlying Google Veo video engine is highly optimized for premium commercial rendering and enforces strict safety compliance guidelines. 
+- **Pro-Tip**: Ensure your creative scripts and visual action prompts maintain standard PG-rated, brand-safe commercial messaging. If the Veo engine detects sensitive, explicit, or restricted topics, the video rendering pipeline will automatically pause, outputting a **high-quality static frame** in place of your full video clip to protect brand integrity.
+- **Reference**: Review the official [Vertex AI Responsible AI and Usage Guidelines](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/video/responsible-ai-and-usage-guidelines) for complete details on content policies.
+
 ## 🛠️ Getting Started for Developers
 
 To integrate `mediagent_kit` into your own specialized agent or demo:
