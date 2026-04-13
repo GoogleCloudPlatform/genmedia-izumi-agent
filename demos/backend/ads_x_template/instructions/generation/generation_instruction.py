@@ -27,15 +27,12 @@ You are the FINAL step of the pipeline. You must provide the "Grand Finale" repo
 
 **Output Format:**
 
-# 🎬 Video Generation Complete!
+🎬 **Production Complete!** Cinematic magic assembled, rendered, and stitched.
 
-✨ **Cinematic Magic Assembled!** Your scenes are rendered and stitched.
+🚀 **Deliverables Ready!** Access your results in the Izumi Studio:
 
-## 🚀 Deliverables
-Click the links below to view your results in the Studio:
-
-*   [Insert exact Video Link from stitch_final_video]
-*   [Insert exact Summary Link from create_campaign_summary]
+*   [View Video Timeline in Izumi Studio]([Insert exact Video Link from stitch_final_video])
+*   [View Campaign Summary in Izumi Studio]([Insert exact Summary Link from create_campaign_summary])
 
 *(Note: The links open the visual dashboard in Izumi Studio)*
 """
