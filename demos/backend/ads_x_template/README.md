@@ -40,6 +40,43 @@ In AI Director Mode, the template guardrails are removed. The agent dynamically 
 ## 🚀 Purpose
 The Template architecture is designed to yield consistently polished, broadcast-ready creative by preventing AI hallucinatory meandering, forcing all output to bend to established cinematic paradigms.
 
+---
+
+## 🌟 Join the Open-Source Creative Community!
+
+We believe the future of programmatic video advertising is **open and collaborative**. We strongly encourage marketing developers and cinematic engineers across GitHub to design, test, and submit their own high-converting JSON template architectures to our open-source library!
+
+To help you get started, we are sharing our flagship collection of **broadcast-proven marketing structures** that are already integrated and ready for your immediate production use:
+
+### ⚡ Fast-Paced Frameworks (High Energy, Quick Cuts)
+*Perfect for social media feeds, disruptive hooks, and high-velocity engagement.*
+
+*   **Problem/Solution (24s)** – Disrupt a 'Problem' state with a dynamic 'Solution'.
+*   **Feature Spotlight (23s)** – Rhythmic tabletop montage: materials, physics, & presence.
+*   **Pet Companion (24s)** – Chaotic joy of pets, anchoring energy to the product.
+*   **Style Showcase (23s)** – Clean fashion montage focusing on fit, fabric, & movement.
+*   **Beauty Routine (25s)** – High-velocity texture & product reveal montage.
+*   **Home Comfort (24s)** – Rapid-fire sensory home moments.
+*   **Meal Prep Made Easy (20s)** – High-octane cooking sizzle reel.
+
+### 🎬 Standard Pacing (Cinematic, Detailed Narrative)
+*Designed for premium storytelling, immersive product demonstrations, and emotional arcs.*
+
+*   **Problem/Solution Highlight (32s)** – Full Arc: Problem → Reveal → Flow → Payoff.
+*   **Feature Spotlight (32s)** – High-end 'Tabletop' commercial: materials & physics.
+*   **Pet Companion (32s)** – Emotional Arc: Curiosity → Action → Love.
+*   **Style Showcase (32s)** – Rhythmic interplay of attitude & fabric details.
+*   **Beauty Routine (32s)** – Sensory ritual, texture, and resulting 'Glow'.
+*   **Home Comfort (32s)** – Sensory journey: Airy Morning → Cozy Evening.
+*   **Meal Prep Made Easy (32s)** – Organized ingredients to restaurant quality.
+*   **UGC First Impression (32s)** – Unboxing & genuine discovery (Creator style).
+*   **UGC Honest Opinion (32s)** – Trust-focused lifestyle review (Creator style).
+
+### 🤝 How to Contribute Your Own:
+Have a brilliant structural idea for a **15-second teaser** or a **6-second unskippable bumper**? Simply format your scene timing in standard JSON, open a Pull Request, and help us expand the world's first open-source generative media orchestrator!
+
+---
+
 ## 💡 Understanding the Izumi Studio Canvas
 
 When the agent completes a creative run, it publishes its results to two distinct, read-only canvases in the Izumi Studio:
