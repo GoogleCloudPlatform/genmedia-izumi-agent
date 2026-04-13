@@ -39,3 +39,19 @@ In AI Director Mode, the template guardrails are removed. The agent dynamically 
 
 ## 🚀 Purpose
 The Template architecture is designed to yield consistently polished, broadcast-ready creative by preventing AI hallucinatory meandering, forcing all output to bend to established cinematic paradigms.
+
+## 💡 Understanding the Izumi Studio Canvas
+
+When the agent completes a creative run, it publishes its results to two distinct, read-only canvases in the Izumi Studio:
+
+1.  **Video Timeline Canvas**:
+    *   **Media Player**: Preview the stitched video or individual audio tracks.
+    *   **Multi-Track Timeline**: Visualize the precise arrangement of video clips, audio tracks, and cinematic transitions.
+    *   **Inspection Panel**: View specific clip details (duration, offsets) and the exact AI parameters (Generation Config) used for each asset.
+
+2.  **Campaign Summary Canvas**:
+    *   **Strategic Overview**: An interactive HTML report detailing the campaign's target demographics, creative tone, and stylistic alignment.
+
+These canvases serve as a transparent visual dashboard for reviewing both the strategy and the final cinematic assembly.
+
+![Izumi Studio Canvas Placeholder]([Placeholder: Upload your screenshot and put path here])

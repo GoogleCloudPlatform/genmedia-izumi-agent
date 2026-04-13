@@ -27,6 +27,7 @@ def recommend_production_recipe(
     vertical: str,
     campaign_theme: Optional[str] = None,
     campaign_tone: Optional[str] = None,
+    tool_context: Optional[ToolContext] = None,
 ) -> Dict[str, Any]:
     """
     Returns a curated and strategically aligned technical production recipe
@@ -62,10 +63,16 @@ def recommend_production_recipe(
     ) -> Any:
         options = library.get(category, {}).get(subfield, [])
         if not options:
+            # If missing in SOCIAL_NATIVE, gracefully fall back to COMMERCIAL_PREMIUM
+            alt_lib = production_presets.PRODUCTION_ENCYCLOPEDIA.get(
+                "COMMERCIAL_PREMIUM", {}
+            )
+            options = alt_lib.get(category, {}).get(subfield, [])
+
+        if not options:
             return fallback if count == 1 else [fallback]
 
-        # In a real system, we'd use semantic search here.
-        # For now, we return a curated random slice to ensure variety.
+        # Return a curated random slice to ensure high-end variety
         results = random.sample(options, min(len(options), count))
         if count == 1:
             return results[0] if results else fallback
@@ -74,10 +81,11 @@ def recommend_production_recipe(
     # Construct the recipe
     recipe = {
         "style_mode": style_key,
-        "brand_archetype": (
-            list(library.get("BRAND_AESTHETICS", {}).values())[0]
-            if campaign_theme is None
-            else "Matched to theme"
+        "brand_archetype": pick(
+            "BRAND_AESTHETICS",
+            "ugc_authentic" if style_key == "SOCIAL_NATIVE" else "avant_garde_fashion",
+            1,
+            "Premium Cinematic Brand",
         ),
         "character": {
             "actor_vibe": pick(
@@ -88,32 +96,28 @@ def recommend_production_recipe(
                 "CHARACTER_DETAILS", "visage_grooming", 1, "Clean and Polished"
             ),
             "motion": pick(
-                "CHARACTER_DETAILS", "stance_and_mood", 1, "Engaging and Natural"
+                "CHARACTER_DETAILS", "primary_actors", 1, "Engaging and Natural"
             ),
         },
         "environment": {
             "spatial_context": pick(
-                "ENVIRONMENT", "location", 2, "Versatile Studio Set"
+                "ENVIRONMENT", "spatial_context", 1, "Versatile Studio Set"
             ),
-            "temporal": pick("ENVIRONMENT", "temporal_setting", 1, "Anytime Lighting"),
+            "temporal": pick("ILLUMINATION", "aesthetic_vibe", 1, "Natural Lighting"),
         },
         "cinematography": {
-            "optics": pick("CINEMATOGRAPHY", "optical_specs", 2, "Prime Lenses"),
+            "optics": pick("CINEMATOGRAPHY", "optical_specs", 1, "Prime Lenses"),
             "movement": pick(
-                "CINEMATOGRAPHY", "dynamic_motion", 2, "Smooth Camera Work"
+                "CINEMATOGRAPHY", "dynamic_motion", 1, "Smooth Camera Work"
             ),
-            "motion_texture": pick(
-                "CINEMATOGRAPHY", "motion_texture", 1, "Crisp Digital 4K"
-            ),
+            "motion_texture": pick("CINEMATOGRAPHY", "optical_specs", 2, "Crisp Focus"),
         },
         "illumination": {
             "vibe": pick("ILLUMINATION", "aesthetic_vibe", 1, "Cinematic Quality"),
             "chromatic_scheme": pick(
-                "ILLUMINATION", "chromatic_scheme", 1, "Natural Balance"
+                "ILLUMINATION", "tonal_highlights", 1, "Natural Balance"
             ),
-            "key_lighting": pick(
-                "ILLUMINATION", "primary_source", 1, "Soft Three-Point Mix"
-            ),
+            "key_lighting": pick("ILLUMINATION", "aesthetic_vibe", 2, "Soft Source"),
             "highlights": pick("ILLUMINATION", "tonal_highlights", 2, "Subtle Glow"),
         },
         "sonic_landscape": pick(
@@ -122,13 +126,17 @@ def recommend_production_recipe(
         "fidelity_guards": library.get("FIDELITY_GUARDS", []),
     }
 
-    # Overwrite brand archetype with thematic matching if possible
-    if campaign_theme and "BRAND_AESTHETICS" in library:
-        # Simple keyword matching for demo purposes
-        theme_lower = campaign_theme.lower()
-        for key, val in library["BRAND_AESTHETICS"].items():
-            if any(word in theme_lower for word in key.lower().split("_")):
-                recipe["brand_archetype"] = val
-                break
+    # Overwrite brand archetype with a beautiful randomized vibe from the encyclopedia
+    brand_aesthetics = library.get("BRAND_AESTHETICS", {})
+    if not brand_aesthetics:
+        brand_aesthetics = production_presets.PRODUCTION_ENCYCLOPEDIA[
+            "COMMERCIAL_PREMIUM"
+        ]["BRAND_AESTHETICS"]
+
+    # Always ensure we show a beautiful, rich brand vibe instead of a boring placeholder
+    recipe["brand_archetype"] = random.choice(list(brand_aesthetics.values()))
+
+    # Persist to state for summary canvas dashboard transparency
+    tool_context.state["master_production_recipe"] = recipe
 
     return recipe
