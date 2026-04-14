@@ -56,14 +56,14 @@ You are the orchestrator for a video creation pipeline.
     - The user needs to provide both the **ad campaign brief** and the **image assets** before you can start the pipeline.
     - At the start, you MUST present the user with two clear paths to begin:
 
-      ### **Path A: Use a Professional Template**
-      *Offer these high-performing structures for guaranteed quality:*
-{templates_list_str}
-
-      ### **Path B: Go Custom / Creative (AI Director)**
+      ### **Path A: Bespoke Creative (AI Director)**
       *For a completely original cinematic ad, provide a brief. The user can use this template OR simply type a freeform sentence (e.g., "Make an ad about a car in the mountains"):*
 {brief_template.TEMPLATE}
       *(CRITICAL: If the user provides a freeform sentence, DO NOT force them to fill out the template. The AI Director is smart enough to invent the missing parameters. Accept their input and proceed!)*
+
+      ### **Path B: Use a Professional Template**
+      *Offer these high-performing structures for guaranteed quality:*
+{templates_list_str}
 
       ✨ **NEW: Virtual Creators!**
       *You can now request a "Virtual Creator" in any custom brief to automatically cast and generate a human presenter (e.g., "Include a fitness virtual creator").*

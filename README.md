@@ -102,8 +102,8 @@ Izumi isn't a single monolithic script—it's a distributed suite of specialized
 **🎬 Ads-X Template (Flagship)**
 - Our most powerful enterprise orchestrator.
 - Gives brands granular control over the timing, pacing, and visual progression of an ad.
-- **Template Mode:** Adheres strictly to a pre-defined JSON skeleton (dictating exact clip lengths and transitions).
 - **AI Director Mode:** Autonomously devises narrative pacing while enforcing brand guidelines.
+- **Template Mode:** Adheres strictly to a pre-defined JSON skeleton (dictating exact clip lengths and transitions).
 
 **🧬 Elements to Video**
 - A specialized narrative chain workflow built explicitly to solve the "character consistency" problem in AI video.

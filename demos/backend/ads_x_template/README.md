@@ -13,15 +13,15 @@ The defining characteristic of this agent is its capacity to run in two distinct
 
 ## 🔄 Dual Operating Modes
 
-### 1. Template Mode (Rigid Framework)
+### 1. AI Director Mode (Bespoke Generation)
+In AI Director Mode, the template guardrails are removed. The agent dynamically decides how many scenes the brief requires, how long they should run, and the pacing of the background music. 
+- It retains the high-quality orchestration pipelines of the template engine, but operates with the freedom to invent custom structural formats.
+
+### 2. Template Mode (Rigid Framework)
 In Template Mode, the AI must conform to an overarching JSON pacing document. The user supplies the core template (e.g., "The 15s UGC Feature", "The 8s Explainer"), and the AI simply populates that heavily constrained skeleton with generated media.
 - Total video duration is strictly enforced.
 - Scene cuts, audio transitions, and frame layouts are explicitly blocked out before generation begins.
 - Gemini operates purely as an art director, fleshing out visuals and copy to fit the predetermined time boxes.
-
-### 2. AI Director Mode (Bespoke Generation)
-In AI Director Mode, the template guardrails are removed. The agent dynamically decides how many scenes the brief requires, how long they should run, and the pacing of the background music. 
-- It retains the high-quality orchestration pipelines of the template engine, but operates with the freedom to invent custom structural formats.
 
 ## 🛠️ The Orchestration Workflow
 
