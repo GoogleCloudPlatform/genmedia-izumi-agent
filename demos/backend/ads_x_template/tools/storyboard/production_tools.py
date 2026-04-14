@@ -137,6 +137,7 @@ def recommend_production_recipe(
     recipe["brand_archetype"] = random.choice(list(brand_aesthetics.values()))
 
     # Persist to state for summary canvas dashboard transparency
-    tool_context.state["master_production_recipe"] = recipe
+    if tool_context is not None:
+        tool_context.state["master_production_recipe"] = recipe
 
     return recipe

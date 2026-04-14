@@ -85,7 +85,7 @@ def test_finalize_and_persist_storyboard_valid(mock_tool_context):
     result = asyncio.run(finalize_and_persist_storyboard(mock_tool_context, raw_output))
 
     assert result["status"] == "succeeded"
-    assert "Storyboard Synchronized" in result["result"]
+    assert "Validated & Synchronized" in result["result"]
     assert "storyboard" in mock_tool_context.state
 
 
