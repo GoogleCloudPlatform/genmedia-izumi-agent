@@ -65,7 +65,7 @@ if not os.path.exists(dummy_creds_path):
         json.dump(creds_info, f)
 
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = dummy_creds_path
-os.environ["FIRESTORE_EMULATOR_HOST"] = "localhost:8083"
+os.environ["FIRESTORE_EMULATOR_HOST"] = "127.0.0.1:8083"
 
 # Inject fallback environment variables for CI if missing
 os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "dummy-project")

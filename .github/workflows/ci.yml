@@ -44,7 +44,7 @@ jobs:
         run: |
           echo '{"emulators": {"firestore": {"port": 8083}}}' > firebase.json
           npm install -g firebase-tools
-          firebase emulators:start --only firestore &
+          firebase emulators:start --only firestore --host 127.0.0.1 &
           sleep 10
 
       - name: Run Tests with Coverage (Strict 80%)
