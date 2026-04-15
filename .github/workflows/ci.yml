@@ -40,15 +40,13 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Start Firestore Emulator
+      - name: Install Firebase Tools
         run: |
-          echo '{"emulators": {"firestore": {"port": 8083}}}' > firebase.json
+          echo '{"emulators": {"firestore": {"port": 8083, "host": "127.0.0.1"}}}' > firebase.json
           npm install -g firebase-tools
-          firebase emulators:start --only firestore --host 127.0.0.1 &
-          sleep 10
 
-      - name: Run Tests with Coverage (Strict 80%)
-        run: uv run pytest tests/ --cov=mediagent_kit --cov=demos/backend --cov-fail-under=80
+      - name: Run Tests with Firestore Emulator
+        run: firebase emulators:exec --only firestore "uv run pytest tests/ --cov=mediagent_kit --cov=demos/backend --cov-fail-under=80"
 
   frontend-checks:
     runs-on: ubuntu-latest
