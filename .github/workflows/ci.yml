@@ -35,6 +35,18 @@ jobs:
       - name: Run PyLint
         run: uv run pylint --fail-under=9.0 mediagent_kit demos/backend
 
+      - name: Set up Node.js for Firebase Tools
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Start Firestore Emulator
+        run: |
+          echo '{"emulators": {"firestore": {"port": 8083}}}' > firebase.json
+          npm install -g firebase-tools
+          firebase emulators:start --only firestore &
+          sleep 10
+
       - name: Run Tests with Coverage (Strict 80%)
         run: uv run pytest tests/ --cov=mediagent_kit --cov=demos/backend --cov-fail-under=80
 

@@ -67,6 +67,11 @@ if not os.path.exists(dummy_creds_path):
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = dummy_creds_path
 os.environ["FIRESTORE_EMULATOR_HOST"] = "localhost:8083"
 
+# Inject fallback environment variables for CI if missing
+os.environ.setdefault("GOOGLE_CLOUD_PROJECT", "dummy-project")
+os.environ.setdefault("GOOGLE_CLOUD_LOCATION", "us-central1")
+os.environ.setdefault("ASSET_SERVICE_GCS_BUCKET", "dummy-bucket")
+
 from unittest.mock import patch, MagicMock
 
 # Patch GCS client globally for tests to prevent live network calls
