@@ -35,6 +35,12 @@ jobs:
       - name: Run PyLint
         run: uv run pylint --fail-under=9.0 mediagent_kit demos/backend
 
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
       - name: Set up Node.js for Firebase Tools
         uses: actions/setup-node@v4
         with:
