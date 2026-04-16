@@ -31,10 +31,6 @@ Built for creators, marketers, and developers, this application provides a hands
 
 ---
 
-### 🚨 Current AI Ad Automation Challenges:
-- ❌ **Disjointed Workflows** - Creators jump between tools for script, image, and video generation.
-- ❌ **Consistency Control** - Ensuring brand style and character consistency across shots is painful.
-- ❌ **Complex Tooling** - Setting up complex multi-agent systems often requires heavy engineering.
 
 ### 💡 The Izumi Solution:
 🎬 **Creative Workbench**, **Multi-Agent Orchestrator**, and **Ad Generator** **All-in-One**! 
@@ -127,11 +123,11 @@ Click on the thumbnails to view the videos.
 
 | Case 1: SED Snacks | Case 2: CONSECTETUR | Case 3: LoremBaz Home |
 | :---: | :---: | :---: |
-| <video src="https://github.com/user-attachments/assets/9f2aa381-3c22-4e58-ad9a-3bb2bdccf480" width="200" controls></video> | <video src="https://github.com/user-attachments/assets/ede096fe-5f79-4193-bb13-293a6ca6e902" width="200" controls></video> | <video src="https://github.com/user-attachments/assets/d246f61b-0f26-4bbc-b98a-127d9db22100" width="200" controls></video> |
-| **Case 4** | **Case 5** | **Case 6** |
-| ![Coming Soon](https://via.placeholder.com/200x350?text=Coming+Soon) | ![Coming Soon](https://via.placeholder.com/200x350?text=Coming+Soon) | ![Coming Soon](https://via.placeholder.com/200x350?text=Coming+Soon) |
-| **Case 7** | **Case 8** | **Case 9** |
-| ![Coming Soon](https://via.placeholder.com/200x350?text=Coming+Soon) | ![Coming Soon](https://via.placeholder.com/200x350?text=Coming+Soon) | ![Coming Soon](https://via.placeholder.com/200x350?text=Coming+Soon) |
+| <video src="https://github.com/user-attachments/assets/9f2aa381-3c22-4e58-ad9a-3bb2bdccf480" width="200" height="350" style="object-fit: cover;" controls></video> | <video src="https://github.com/user-attachments/assets/ede096fe-5f79-4193-bb13-293a6ca6e902" width="200" height="350" style="object-fit: cover;" controls></video> | <video src="https://github.com/user-attachments/assets/d246f61b-0f26-4bbc-b98a-127d9db22100" width="200" height="350" style="object-fit: cover;" controls></video> |
+| **Case 4: BazQux LLC** | **Case 5: QuxCorge** | **Case 6: Amet-Rake** |
+| <video src="https://github.com/user-attachments/assets/ed7bf24c-e3b7-4623-9e7a-39b37cf96231" width="200" height="350" style="object-fit: cover;" controls></video> | <video src="https://github.com/user-attachments/assets/4e7dfbf4-debe-4f0a-9949-90baf787100e" width="200" height="350" style="object-fit: cover;" controls></video> | <video src="https://github.com/user-attachments/assets/001b2bc2-569b-4564-8e1f-0b4c6b8b0f76" width="200" height="350" style="object-fit: cover;" controls></video> |
+| **Case 7: Beggy Bay** | **Case 8: Grault-Heel** | **Case 9: Undefood Inc** |
+| <video src="https://github.com/user-attachments/assets/12345b5a-7cff-4929-9aed-71ac539f4be4" width="200" height="350" style="object-fit: cover;" controls></video> | <video src="https://github.com/user-attachments/assets/bc179a55-2e77-4ab9-b22b-f2dc62f30246" width="200" height="350" style="object-fit: cover;" controls></video> | <video src="https://github.com/user-attachments/assets/1e26800b-f7cd-4402-a6dd-37d64ef84558" width="200" height="350" style="object-fit: cover;" controls></video> |
 
 ---
 
@@ -148,22 +144,22 @@ These images were used as input to guide the agent:
 ![Image 1](https://github.com/user-attachments/assets/d41394b1-a066-4a85-82d5-356fef9a9ee8?format=png) ![Image 2](https://github.com/user-attachments/assets/48034c8f-70ad-404b-aba3-f1689ea5cfb5?format=png) ![Image 3](https://github.com/user-attachments/assets/db33ae76-808c-403e-a580-0472131bd952?format=png) ![Image 4](https://github.com/user-attachments/assets/e4ae4a7b-da73-4814-a0c0-b27441a35c26?format=png) ![Image 5](https://github.com/user-attachments/assets/133f280e-500c-40c8-933a-dba4524f6e37?format=png)
 
 #### Full Prompt
-**Campaign Name**: The Perfect Shake
-**Product/Service**: Premium savory snack line (Potato Chips, Pretzels, Popcorn, and Mixed Nuts)
-**Target Duration**: 15s
-**Format**: Portrait
-
-**Strategic Context**
-*   **Campaign Theme**: Focusing on the precision and satisfaction of perfectly seasoned snacks.
-*   **Campaign Tone**: Snappy, clean, and rhythmic. Think high-energy cuts synced to a crisp beat.
-*   **Primary Hook**: The "Just Right" seasoning.
-*   **Target Audience**: The Aesthetic Snacker. Young professionals and Gen Z creators who want snacks that look as good on their desks as they taste.
-*   **Brand Voice**: Minimalist, confident, and slightly cheeky.
-
-**Visual & Narrative Style**
-*   **Visual Style**: Studio Minimalist. High-brightness, clean white backgrounds (matching your provided images) with sharp shadows and vivid product colors (like that metallic red bag).
-*   **Key Message**: SED SNACKS: Seasoned to stand out.
-*   **Setting**: A bright, modern home office and a high-end minimalist kitchen.
+> **Campaign Name**: The Perfect Shake
+> **Product/Service**: Premium savory snack line (Potato Chips, Pretzels, Popcorn, and Mixed Nuts)
+> **Target Duration**: 15s
+> **Format**: Portrait
+> 
+> **Strategic Context**
+> *   **Campaign Theme**: Focusing on the precision and satisfaction of perfectly seasoned snacks.
+> *   **Campaign Tone**: Snappy, clean, and rhythmic. Think high-energy cuts synced to a crisp beat.
+> *   **Primary Hook**: The "Just Right" seasoning.
+> *   **Target Audience**: The Aesthetic Snacker. Young professionals and Gen Z creators who want snacks that look as good on their desks as they taste.
+> *   **Brand Voice**: Minimalist, confident, and slightly cheeky.
+> 
+> **Visual & Narrative Style**
+> *   **Visual Style**: Studio Minimalist. High-brightness, clean white backgrounds (matching your provided images) with sharp shadows and vivid product colors (like that metallic red bag).
+> *   **Key Message**: SED SNACKS: Seasoned to stand out.
+> *   **Setting**: A bright, modern home office and a high-end minimalist kitchen.
 
 </details>
 
@@ -192,8 +188,81 @@ These images were used as input to guide the agent:
 </details>
 
 <details>
-<summary><b>Cases 4-9: Coming Soon</b></summary>
-More amazing showcases are on the way!
+<summary><b>Case 4: BazQux LLC</b></summary>
+
+#### Input Assets
+These images were used as input to guide the agent:
+
+![Logo](https://github.com/user-attachments/assets/9aa33a30-1de2-471a-bf3b-ca9da4a530cb) ![Product with Logo](https://github.com/user-attachments/assets/3ae4d275-aa64-46bc-b1c3-9405234f02f8)
+
+#### Full Prompt
+> Generate a video advertisement. BazQux LLC highlights BazQux-Wash (a facial cleansing gel dispensed from a tube container), targeting Female spa lovers aged 35-50 in Stockholm, Sweden who are interested in deep pore cleansing and detox in luxury hotel spas.
+
+</details>
+
+<details>
+<summary><b>Case 5: QuxCorge</b></summary>
+
+#### Input Assets
+These images were used as input to guide the agent:
+
+![Logo](https://github.com/user-attachments/assets/1e54ea51-c59b-49e9-b36c-b9fdeabd18a4) ![Product with Logo](https://github.com/user-attachments/assets/6b38e0ad-8b6e-4d13-8176-5d278f204192)
+
+#### Full Prompt
+> Generate a video advertisement. QuxCorge relaxes with QC-Sandal (open footwear consisting of a sole held to the foot by straps), targeting Female vacationers aged 25-34 in Ubud, Indonesia who are interested in poolside fashion at resorts.
+
+</details>
+
+<details>
+<summary><b>Case 6: Amet-Rake</b></summary>
+
+#### Input Assets
+These images were used as input to guide the agent:
+
+![Logo](https://github.com/user-attachments/assets/96b8f88c-e57b-408c-9808-1ba088960ff5) ![Product with Logo](https://github.com/user-attachments/assets/586889aa-3bb3-4bb7-a57f-ae37fd798fa1)
+
+#### Full Prompt
+> Generate a video advertisement. Amet Tools rakes with Amet-Rake (toothed tool designed for gathering loose debris or smoothing soil), targeting Female mindfulness practitioners aged 25-34 in Kyoto, Japan who are interested in raking sand patterns in zen gardens.
+
+</details>
+
+<details>
+<summary><b>Case 7: Beggy Bay</b></summary>
+
+#### Input Assets
+These images were used as input to guide the agent:
+
+![Logo](https://github.com/user-attachments/assets/75dd1991-6a65-408f-8b82-6c59040817e2) ![Product with Logo](https://github.com/user-attachments/assets/8c43c7c9-b4d6-4c8f-b6a2-d6841401ccfa)
+
+#### Full Prompt
+> Generate a video advertisement. Beggy Bay packs Beggy-Soy (a candle poured into a lidded metal tin), targeting Female travelers aged 25-34 in Marrakech, Morocco who are interested in travel comfort in hotel rooms.
+
+</details>
+
+<details>
+<summary><b>Case 8: Grault-Heel</b></summary>
+
+#### Input Assets
+These images were used as input to guide the agent:
+
+![Logo](https://github.com/user-attachments/assets/e9db7463-2aaa-4bb3-a628-7caa6813554c) ![Product with Logo](https://github.com/user-attachments/assets/fabbb0be-3953-44f9-a021-6fd884bbf87d)
+
+#### Full Prompt
+> Generate a video advertisement. Grault Design elevates with Grault-Heel (high-heeled footwear intended for performance or social events), targeting Female partygoers aged 18-24 in Ibiza, Spain who are interested in partying and glamour in nightclubs.
+
+</details>
+
+<details>
+<summary><b>Case 9: Undefood Inc</b></summary>
+
+#### Input Assets
+These images were used as input to guide the agent:
+
+![Logo](https://github.com/user-attachments/assets/f7e4a57d-0da0-4836-aa6c-e8bfa97f248a) ![Product with Logo](https://github.com/user-attachments/assets/e569788d-4e5f-4fbc-ae1c-e8c1c24c923c)
+
+#### Full Prompt
+> Generate a video advertisement. Undefood Inc cooks Undefood-Ground (loose, crumbled plant protein resembling ground meat), targeting Female chefs aged 25-34 in Lima, Peru who are interested in meal prepping on Taco Tuesdays.
+
 </details>
 
 ---

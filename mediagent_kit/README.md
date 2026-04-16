@@ -136,7 +136,6 @@ Based on the codebase (`agent.py` and `mediagent_config.json`), the pipeline use
 
 We analyze the two real use cases available in the repository to demonstrate the cost difference between a custom creative pipeline and a templated one. The estimates are grounded in actual log traces for a full run.
 
-````carousel
 ### 🎬 Case 1: Custom Cinematic Ad ("SED Snacks")
 This scenario involves dynamic planning, script generation, asset description, and iterative tool use by the agent.
 -   **Target Duration**: 15 seconds (4 scenes).
@@ -154,7 +153,6 @@ This scenario involves dynamic planning, script generation, asset description, a
 | **Music** | `lyria-3-clip-preview` | 1 track (30s) | $0.04 / song | $0.0400 |
 | **Total Estimated Cost** | | | | **~$2.11** |
 
-<!-- slide -->
 ### 📋 Case 2: Template Mode ("Pet Companion Fast")
 This scenario uses the "Pet Companion (Fast)" template, which defines 8 scenes with a target duration of 24 seconds. Although the final video is trimmed to 24 seconds, the system generates a standard duration (4 seconds) per scene before trimming.
 -   **Target Duration**: 24 seconds (8 scenes).
@@ -171,7 +169,6 @@ This scenario uses the "Pet Companion (Fast)" template, which defines 8 scenes w
 | **Voiceover** | `gemini-3.1-flash-tts-preview` | ~6 successful calls (~2000 audio tokens) | $20.00 / 1M out | ~$0.0420 |
 | **Music** | `lyria-3-clip-preview` | 1 track (30s) | $0.04 / song | $0.0400 |
 | **Total Estimated Cost** | | | | **~$4.03** |
-````
 
 > [!WARNING]
 > **Real-World Costs May Be Higher**: The above estimates are for a **single successful run** with no iterations or retries. In practice, costs can be significantly higher (often **$5.00 - $15.00+** per use case) due to:
