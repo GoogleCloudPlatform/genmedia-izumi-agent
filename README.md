@@ -130,9 +130,9 @@ Click on the thumbnails to view the videos.
 <th width="33.33%" style="text-align: center;">Case 3: Undefood Inc</th>
 </tr>
 <tr>
-<td align="center"><video src="https://github.com/user-attachments/assets/12345b5a-7cff-4929-9aed-71ac539f4be4" width="200" height="350" style="object-fit: cover;" controls></video></td>
-<td align="center"><video src="https://github.com/user-attachments/assets/bc179a55-2e77-4ab9-b22b-f2dc62f30246" width="200" height="350" style="object-fit: cover;" controls></video></td>
-<td align="center"><video src="https://github.com/user-attachments/assets/1e26800b-f7cd-4402-a6dd-37d64ef84558" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/12345b5a-7cff-4929-9aed-71ac539f4be4" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/bc179a55-2e77-4ab9-b22b-f2dc62f30246" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/1e26800b-f7cd-4402-a6dd-37d64ef84558" width="200" height="350" style="object-fit: cover;" controls></video></td>
 </tr>
 <tr>
 <th style="text-align: center;">Case 4: BazQux LLC</th>
@@ -140,9 +140,9 @@ Click on the thumbnails to view the videos.
 <th style="text-align: center;">Case 6: Amet-Rake</th>
 </tr>
 <tr>
-<td align="center"><video src="https://github.com/user-attachments/assets/ed7bf24c-e3b7-4623-9e7a-39b37cf96231" width="200" height="350" style="object-fit: cover;" controls></video></td>
-<td align="center"><video src="https://github.com/user-attachments/assets/4e7dfbf4-debe-4f0a-9949-90baf787100e" width="200" height="350" style="object-fit: cover;" controls></video></td>
-<td align="center"><video src="https://github.com/user-attachments/assets/001b2bc2-569b-4564-8e1f-0b4c6b8b0f76" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/ed7bf24c-e3b7-4623-9e7a-39b37cf96231" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/4e7dfbf4-debe-4f0a-9949-90baf787100e" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/001b2bc2-569b-4564-8e1f-0b4c6b8b0f76" width="200" height="350" style="object-fit: cover;" controls></video></td>
 </tr>
 <tr>
 <th style="text-align: center;">Case 7: SED Snacks</th>
@@ -150,9 +150,9 @@ Click on the thumbnails to view the videos.
 <th style="text-align: center;">Case 9: LoremBaz Home</th>
 </tr>
 <tr>
-<td align="center"><video src="https://github.com/user-attachments/assets/9f2aa381-3c22-4e58-ad9a-3bb2bdccf480" width="200" height="350" style="object-fit: cover;" controls></video></td>
-<td align="center"><video src="https://github.com/user-attachments/assets/ede096fe-5f79-4193-bb13-293a6ca6e902" width="200" height="350" style="object-fit: cover;" controls></video></td>
-<td align="center"><video src="https://github.com/user-attachments/assets/d246f61b-0f26-4bbc-b98a-127d9db22100" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/9f2aa381-3c22-4e58-ad9a-3bb2bdccf480" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/ede096fe-5f79-4193-bb13-293a6ca6e902" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/d246f61b-0f26-4bbc-b98a-127d9db22100" width="200" height="350" style="object-fit: cover;" controls></video></td>
 </tr>
 </table>
 

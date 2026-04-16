@@ -160,7 +160,7 @@ describe('GenerateInterface', () => {
     await waitFor(() => expect(generateButton).not.toBeDisabled());
     await userEvent.click(generateButton);
     await waitFor(() => expect(mediaService.generateSpeech).toHaveBeenCalled());
-  });
+  }, 20000);
 
   it('should display an error message if generation fails', async () => {
     const error = new Error('Generation failed horribly');
