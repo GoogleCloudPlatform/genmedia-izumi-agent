@@ -54,7 +54,7 @@ The `mediagent_kit` is organized into focused submodules to ensure a strict sepa
 | **[`/api`](api/)** | **REST Controllers**: Exposes endpoints for the React frontend, managing session state, assets, and triggers. | `sessions.py`, `assets.py`, `media_generation.py` |
 | **[`/services`](services/)** | **Heavy Lifters**: Wraps native GCP calls, handles database interactions, and orchestrates FFmpeg. | `media_generation_service.py`, `video_stitching_service.py` |
 | **[`/frontend`](frontend/)** | **Static Debugger**: Lightweight vanilla JS pages to trace API states without full React build. | `index.html` |
-| **`/utils`** | **Execution Abstractions**: Polling wrappers, background workers, and retry logic. | `retry.py`, `background_job_runner.py` |
+| **[`/utils`](utils/)** | **Execution Abstractions**: Polling wrappers, background workers, and retry logic. | `retry.py`, `background_job_runner.py` |
 
 ## 🎬 Best Practices for Content Creators
 
@@ -112,3 +112,96 @@ mount_to_fastapi_app(app, config)
 ```
 
 For details on how to customize the default AI models used by the services, see the `mediagent_config.json` file in the project root.
+## 📊 API Usage & Cost Calculation
+
+This section provides a detailed estimate of the API calls and associated costs for generating videos using the Izumi ecosystem, based on the actual end-to-end pipeline observed in logs (e.g., `app_20260415_160516.log`) and official pricing.
+
+> [!TIP]
+> For the most up-to-date pricing, please refer to the official [Gemini API Pricing Documentation](https://ai.google.dev/gemini-api/docs/pricing).
+
+### 🛠️ Pipeline Models in Use
+Based on the codebase (`agent.py` and `mediagent_config.json`), the pipeline uses a multi-model approach:
+-   🤖 **Root & Sequential Agents**: `gemini-2.5-flash`
+-   🎬 **Custom Storyboard Agent**: `gemini-3.1-pro-preview`
+-   📋 **Templated Storyboard Agent**: `gemini-3-flash-preview`
+-   ✨ **Prompt Enrichment**: `gemini-3-flash-preview`
+-   🎨 **Image Generation**: `gemini-3.1-flash-image-preview`
+-   🗣️ **Voiceover (TTS)**: `gemini-3.1-flash-tts-preview`
+-   🎥 **Video Generation**: `veo-3.1-generate-001`
+-   🎵 **Music**: `lyria-3-clip-preview`
+
+---
+
+### 📈 Scenario Breakdown
+
+We analyze the two real use cases available in the repository to demonstrate the cost difference between a custom creative pipeline and a templated one. The estimates are grounded in actual log traces for a full run.
+
+````carousel
+### 🎬 Case 1: Custom Cinematic Ad ("SED Snacks")
+This scenario involves dynamic planning, script generation, asset description, and iterative tool use by the agent.
+-   **Target Duration**: 15 seconds (4 scenes).
+-   **Agent Mode**: Custom Storyboard (`gemini-3.1-pro-preview`).
+
+| Step / API | Model | Estimated Usage | Rate | Estimated Cost |
+| :--- | :--- | :--- | :--- | :--- |
+| **Orchestration & Helpers** | `gemini-2.5-flash` | ~9 calls (Params, Assets loop, Strategy, Router, VO rewrite)<br>~50k Input, ~5k Output | $0.30 / 1M in<br>$2.50 / 1M out | ~$0.0275 |
+| **Asset Descriptions** | `gemini-3.1-pro-preview` | 5 asset desc calls (1 per asset)<br>~15k Input, ~1k Output | $2.00 / 1M in<br>$12.00 / 1M out | ~$0.0420 |
+| **Custom Storyboard** | `gemini-3.1-pro-preview` | 1 storyboard call<br>~15k Input, ~5k Output | $2.00 / 1M in<br>$12.00 / 1M out | ~$0.0900 |
+| **Prompt Enrichment** | `gemini-3-flash-preview` | 8 calls (4 image, 4 video)<br>~30k Input, ~2k Output | $0.50 / 1M in<br>$3.00 / 1M out | ~$0.0210 |
+| **Image Generation** | `gemini-3.1-flash-image-preview` | 4 images (1024x1024px) | $0.067 / img | ~$0.2680 |
+| **Video Generation** | `Veo 3.1` (Fast 720p) | 16 seconds generated (4 scenes * 4s) | $0.10 / sec | $1.6000 |
+| **Voiceover** | `gemini-3.1-flash-tts-preview` | ~3 successful calls (~1000 audio tokens) | $20.00 / 1M out | ~$0.0200 |
+| **Music** | `lyria-3-clip-preview` | 1 track (30s) | $0.04 / song | $0.0400 |
+| **Total Estimated Cost** | | | | **~$2.11** |
+
+<!-- slide -->
+### 📋 Case 2: Template Mode ("Pet Companion Fast")
+This scenario uses the "Pet Companion (Fast)" template, which defines 8 scenes with a target duration of 24 seconds. Although the final video is trimmed to 24 seconds, the system generates a standard duration (4 seconds) per scene before trimming.
+-   **Target Duration**: 24 seconds (8 scenes).
+-   **Agent Mode**: Templated Storyboard (`gemini-3-flash-preview`).
+
+| Step / API | Model | Estimated Usage | Rate | Estimated Cost |
+| :--- | :--- | :--- | :--- | :--- |
+| **Orchestration & Helpers** | `gemini-2.5-flash` | ~12 calls<br>~60k Input, ~6k Output | $0.30 / 1M in<br>$2.50 / 1M out | ~$0.0330 |
+| **Asset Descriptions** | `gemini-3.1-pro-preview` | 8 asset desc calls<br>~24k Input, ~1.5k Output | $2.00 / 1M in<br>$12.00 / 1M out | ~$0.0660 |
+| **Template Storyboard** | `gemini-3-flash-preview` | 1 call<br>~10k Input, ~3k Output | $0.50 / 1M in<br>$3.00 / 1M out | ~$0.0140 |
+| **Prompt Enrichment** | `gemini-3-flash-preview` | 16 calls (8 image, 8 video)<br>~60k Input, ~4k Output | $0.50 / 1M in<br>$3.00 / 1M out | ~$0.0420 |
+| **Image Generation** | `gemini-3.1-flash-image-preview` | 8 images (1024x1024px) | $0.067 / img | ~$0.5360 |
+| **Video Generation** | `Veo 3.1` (Fast 720p) | 32 seconds generated (8 scenes * 4s) | $0.10 / sec | $3.2000 |
+| **Voiceover** | `gemini-3.1-flash-tts-preview` | ~6 successful calls (~2000 audio tokens) | $20.00 / 1M out | ~$0.0420 |
+| **Music** | `lyria-3-clip-preview` | 1 track (30s) | $0.04 / song | $0.0400 |
+| **Total Estimated Cost** | | | | **~$4.03** |
+````
+
+> [!WARNING]
+> **Real-World Costs May Be Higher**: The above estimates are for a **single successful run** with no iterations or retries. In practice, costs can be significantly higher (often **$5.00 - $15.00+** per use case) due to:
+> 1. **Iterative Refinement**: If you ask the agent to regenerate scenes or modify the script, it will incur additional LLM and media generation costs.
+> 2. **Large Asset Ingestion**: Passing multiple high-resolution images or videos as context to the prompt will consume many more tokens (e.g., ~1290 tokens per 1024x1024 image).
+> 3. **Retry Logic**: Any failures and retries in the generation process will add to the total cost.
+> 4. **Quality Settings**: Using higher resolution or frame rate models for video will increase costs.
+
+<details>
+<summary>🔍 Detailed Pricing Reference (Paid Tier)</summary>
+
+| Model | Input (per 1M) | Output (per 1M) | Notes |
+| :--- | :--- | :--- | :--- |
+| **Gemini 3.1 Pro Preview** | $2.00 (<=200k) | $12.00 (<=200k) | $4.00/>200k in, $18.00/>200k out |
+| **Gemini 3.1 Flash-Lite** | $0.25 | $1.50 | |
+| **Gemini 3 Flash Preview** | $0.50 | $3.00 | |
+| **Gemini 2.5 Pro** | $1.25 (<=200k) | $10.00 (<=200k) | |
+| **Gemini 2.5 Flash** | $0.30 | $2.50 | |
+| **Gemini 3.1 Flash Image** | $0.50 | $60.00 | ~$0.067 per 1K image |
+| **Gemini 3.1 Flash TTS** | $1.00 | $20.00 | Audio tokens: 25 per second |
+
+**Veo 3.1 Video Generation:**
+-   **Standard**: $0.40/sec (720p/1080p), $0.60/sec (4K)
+-   **Fast**: $0.10/sec (720p), $0.12/sec (1080p), $0.30/sec (4K)
+-   **Lite**: $0.05/sec (720p), $0.08/sec (1080p)
+
+**Music Generation:**
+-   **Lyria 3 Clip Preview**: $0.04 per song (30s)
+-   **Lyria 3 Pro Preview**: $0.08 per song (Full)
+
+</details>
+
+
