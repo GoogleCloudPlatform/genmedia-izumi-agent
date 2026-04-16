@@ -141,34 +141,158 @@ This scenario involves dynamic planning, script generation, asset description, a
 -   **Target Duration**: 15 seconds (4 scenes).
 -   **Agent Mode**: Custom Storyboard (`gemini-3.1-pro-preview`).
 
-| Step / API | Model | Estimated Usage | Rate | Estimated Cost |
-| :--- | :--- | :--- | :--- | :--- |
-| **Orchestration & Helpers** | `gemini-2.5-flash` | ~9 calls (Params, Assets loop, Strategy, Router, VO rewrite)<br>~50k Input, ~5k Output | $0.30 / 1M in<br>$2.50 / 1M out | ~$0.0275 |
-| **Asset Descriptions** | `gemini-3.1-pro-preview` | 5 asset desc calls (1 per asset)<br>~15k Input, ~1k Output | $2.00 / 1M in<br>$12.00 / 1M out | ~$0.0420 |
-| **Custom Storyboard** | `gemini-3.1-pro-preview` | 1 storyboard call<br>~15k Input, ~5k Output | $2.00 / 1M in<br>$12.00 / 1M out | ~$0.0900 |
-| **Prompt Enrichment** | `gemini-3-flash-preview` | 8 calls (4 image, 4 video)<br>~30k Input, ~2k Output | $0.50 / 1M in<br>$3.00 / 1M out | ~$0.0210 |
-| **Image Generation** | `gemini-3.1-flash-image-preview` | 4 images (1024x1024px) | $0.067 / img | ~$0.2680 |
-| **Video Generation** | `Veo 3.1` (Fast 720p) | 16 seconds generated (4 scenes * 4s) | $0.10 / sec | $1.6000 |
-| **Voiceover** | `gemini-3.1-flash-tts-preview` | ~3 successful calls (~1000 audio tokens) | $20.00 / 1M out | ~$0.0200 |
-| **Music** | `lyria-3-clip-preview` | 1 track (30s) | $0.04 / song | $0.0400 |
-| **Total Estimated Cost** | | | | **~$2.11** |
+<table style="width: 100%; border-collapse: collapse;">
+  <thead>
+    <tr style="background-color: #eef2f7; border-bottom: 2px solid #cfd8dc;">
+      <th style="padding: 12px; text-align: left;">Step / API</th>
+      <th style="padding: 12px; text-align: left;">Model</th>
+      <th style="padding: 12px; text-align: left;">Estimated Usage</th>
+      <th style="padding: 12px; text-align: left;">Rate</th>
+      <th style="padding: 12px; text-align: right;">Estimated Cost</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🧭 <b>Orchestration & Helpers</b></td>
+      <td style="padding: 12px;"><code>gemini-2.5-flash</code></td>
+      <td style="padding: 12px;">~9 calls (Params, Assets loop, Strategy, Router, VO rewrite)<br><small style="color: #757575;">~50k Input, ~5k Output</small></td>
+      <td style="padding: 12px;"><small>$0.30 / 1M in<br>$2.50 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0275</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">📝 <b>Asset Descriptions</b></td>
+      <td style="padding: 12px;"><code>gemini-3.1-pro-preview</code></td>
+      <td style="padding: 12px;">5 asset desc calls (1 per asset)<br><small style="color: #757575;">~15k Input, ~1k Output</small></td>
+      <td style="padding: 12px;"><small>$2.00 / 1M in<br>$12.00 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0420</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">📋 <b>Custom Storyboard</b></td>
+      <td style="padding: 12px;"><code>gemini-3.1-pro-preview</code></td>
+      <td style="padding: 12px;">1 storyboard call<br><small style="color: #757575;">~15k Input, ~5k Output</small></td>
+      <td style="padding: 12px;"><small>$2.00 / 1M in<br>$12.00 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0900</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">✨ <b>Prompt Enrichment</b></td>
+      <td style="padding: 12px;"><code>gemini-3-flash-preview</code></td>
+      <td style="padding: 12px;">8 calls (4 image, 4 video)<br><small style="color: #757575;">~30k Input, ~2k Output</small></td>
+      <td style="padding: 12px;"><small>$0.50 / 1M in<br>$3.00 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0210</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🎨 <b>Image Generation</b></td>
+      <td style="padding: 12px;"><code>gemini-3.1-flash-image-preview</code></td>
+      <td style="padding: 12px;">4 images (1024x1024px)</td>
+      <td style="padding: 12px;"><small>$0.067 / img</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.2680</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🎥 <b>Video Generation</b></td>
+      <td style="padding: 12px;"><code>Veo 3.1</code> (Fast 720p)</td>
+      <td style="padding: 12px;">16 seconds generated (4 scenes * 4s)</td>
+      <td style="padding: 12px;"><small>$0.10 / sec</small></td>
+      <td style="padding: 12px; text-align: right;">$1.6000</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🗣️ <b>Voiceover</b></td>
+      <td style="padding: 12px;"><code>gemini-3.1-flash-tts-preview</code></td>
+      <td style="padding: 12px;">~3 successful calls (~1000 audio tokens)</td>
+      <td style="padding: 12px;"><small>$20.00 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0200</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🎵 <b>Music</b></td>
+      <td style="padding: 12px;"><code>lyria-3-clip-preview</code></td>
+      <td style="padding: 12px;">1 track (30s)</td>
+      <td style="padding: 12px;"><small>$0.04 / song</small></td>
+      <td style="padding: 12px; text-align: right;">$0.0400</td>
+    </tr>
+    <tr style="background-color: #eef2f7; font-weight: bold;">
+      <td colspan="4" style="padding: 12px; text-align: right;">Total Estimated Cost</td>
+      <td style="padding: 12px; text-align: right;">~$2.11</td>
+    </tr>
+  </tbody>
+</table>
 
 ### 📋 Case 2: Template Mode ("Pet Companion Fast")
 This scenario uses the "Pet Companion (Fast)" template, which defines 8 scenes with a target duration of 24 seconds. Although the final video is trimmed to 24 seconds, the system generates a standard duration (4 seconds) per scene before trimming.
 -   **Target Duration**: 24 seconds (8 scenes).
 -   **Agent Mode**: Templated Storyboard (`gemini-3-flash-preview`).
 
-| Step / API | Model | Estimated Usage | Rate | Estimated Cost |
-| :--- | :--- | :--- | :--- | :--- |
-| **Orchestration & Helpers** | `gemini-2.5-flash` | ~12 calls<br>~60k Input, ~6k Output | $0.30 / 1M in<br>$2.50 / 1M out | ~$0.0330 |
-| **Asset Descriptions** | `gemini-3.1-pro-preview` | 8 asset desc calls<br>~24k Input, ~1.5k Output | $2.00 / 1M in<br>$12.00 / 1M out | ~$0.0660 |
-| **Template Storyboard** | `gemini-3-flash-preview` | 1 call<br>~10k Input, ~3k Output | $0.50 / 1M in<br>$3.00 / 1M out | ~$0.0140 |
-| **Prompt Enrichment** | `gemini-3-flash-preview` | 16 calls (8 image, 8 video)<br>~60k Input, ~4k Output | $0.50 / 1M in<br>$3.00 / 1M out | ~$0.0420 |
-| **Image Generation** | `gemini-3.1-flash-image-preview` | 8 images (1024x1024px) | $0.067 / img | ~$0.5360 |
-| **Video Generation** | `Veo 3.1` (Fast 720p) | 32 seconds generated (8 scenes * 4s) | $0.10 / sec | $3.2000 |
-| **Voiceover** | `gemini-3.1-flash-tts-preview` | ~6 successful calls (~2000 audio tokens) | $20.00 / 1M out | ~$0.0420 |
-| **Music** | `lyria-3-clip-preview` | 1 track (30s) | $0.04 / song | $0.0400 |
-| **Total Estimated Cost** | | | | **~$4.03** |
+<table style="width: 100%; border-collapse: collapse;">
+  <thead>
+    <tr style="background-color: #eef2f7; border-bottom: 2px solid #cfd8dc;">
+      <th style="padding: 12px; text-align: left;">Step / API</th>
+      <th style="padding: 12px; text-align: left;">Model</th>
+      <th style="padding: 12px; text-align: left;">Estimated Usage</th>
+      <th style="padding: 12px; text-align: left;">Rate</th>
+      <th style="padding: 12px; text-align: right;">Estimated Cost</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🧭 <b>Orchestration & Helpers</b></td>
+      <td style="padding: 12px;"><code>gemini-2.5-flash</code></td>
+      <td style="padding: 12px;">~12 calls<br><small style="color: #757575;">~60k Input, ~6k Output</small></td>
+      <td style="padding: 12px;"><small>$0.30 / 1M in<br>$2.50 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0330</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">📝 <b>Asset Descriptions</b></td>
+      <td style="padding: 12px;"><code>gemini-3.1-pro-preview</code></td>
+      <td style="padding: 12px;">8 asset desc calls<br><small style="color: #757575;">~24k Input, ~1.5k Output</small></td>
+      <td style="padding: 12px;"><small>$2.00 / 1M in<br>$12.00 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0660</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">📋 <b>Template Storyboard</b></td>
+      <td style="padding: 12px;"><code>gemini-3-flash-preview</code></td>
+      <td style="padding: 12px;">1 call<br><small style="color: #757575;">~10k Input, ~3k Output</small></td>
+      <td style="padding: 12px;"><small>$0.50 / 1M in<br>$3.00 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0140</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">✨ <b>Prompt Enrichment</b></td>
+      <td style="padding: 12px;"><code>gemini-3-flash-preview</code></td>
+      <td style="padding: 12px;">16 calls (8 image, 8 video)<br><small style="color: #757575;">~60k Input, ~4k Output</small></td>
+      <td style="padding: 12px;"><small>$0.50 / 1M in<br>$3.00 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0420</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🎨 <b>Image Generation</b></td>
+      <td style="padding: 12px;"><code>gemini-3.1-flash-image-preview</code></td>
+      <td style="padding: 12px;">8 images (1024x1024px)</td>
+      <td style="padding: 12px;"><small>$0.067 / img</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.5360</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🎥 <b>Video Generation</b></td>
+      <td style="padding: 12px;"><code>Veo 3.1</code> (Fast 720p)</td>
+      <td style="padding: 12px;">32 seconds generated (8 scenes * 4s)</td>
+      <td style="padding: 12px;"><small>$0.10 / sec</small></td>
+      <td style="padding: 12px; text-align: right;">$3.2000</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🗣️ <b>Voiceover</b></td>
+      <td style="padding: 12px;"><code>gemini-3.1-flash-tts-preview</code></td>
+      <td style="padding: 12px;">~6 successful calls (~2000 audio tokens)</td>
+      <td style="padding: 12px;"><small>$20.00 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0420</td>
+    </tr>
+    <tr style="border-bottom: 1px solid #e0e0e0;">
+      <td style="padding: 12px;">🎵 <b>Music</b></td>
+      <td style="padding: 12px;"><code>lyria-3-clip-preview</code></td>
+      <td style="padding: 12px;">1 track (30s)</td>
+      <td style="padding: 12px;"><small>$0.04 / song</small></td>
+      <td style="padding: 12px; text-align: right;">$0.0400</td>
+    </tr>
+    <tr style="background-color: #eef2f7; font-weight: bold;">
+      <td colspan="4" style="padding: 12px; text-align: right;">Total Estimated Cost</td>
+      <td style="padding: 12px; text-align: right;">~$4.03</td>
+    </tr>
+  </tbody>
+</table>
 
 > [!WARNING]
 > **Real-World Costs May Be Higher**: The above estimates are for a **single successful run** with no iterations or retries. In practice, costs can be significantly higher (often **$5.00 - $15.00+** per use case) due to:
