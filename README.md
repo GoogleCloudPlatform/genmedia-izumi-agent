@@ -135,9 +135,9 @@ Click on the thumbnails to view the videos.
 <td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/1e26800b-f7cd-4402-a6dd-37d64ef84558" width="200" height="350" style="object-fit: cover;" controls></video></td>
 </tr>
 <tr>
-<th style="text-align: center;">Case 4: BazQux LLC</th>
-<th style="text-align: center;">Case 5: QuxCorge</th>
-<th style="text-align: center;">Case 6: Amet-Rake</th>
+<th width="33.33%" style="text-align: center;">Case 4: BazQux LLC</th>
+<th width="33.33%" style="text-align: center;">Case 5: QuxCorge</th>
+<th width="33.33%" style="text-align: center;">Case 6: Amet-Rake</th>
 </tr>
 <tr>
 <td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/ed7bf24c-e3b7-4623-9e7a-39b37cf96231" width="200" height="350" style="object-fit: cover;" controls></video></td>
@@ -145,14 +145,14 @@ Click on the thumbnails to view the videos.
 <td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/001b2bc2-569b-4564-8e1f-0b4c6b8b0f76" width="200" height="350" style="object-fit: cover;" controls></video></td>
 </tr>
 <tr>
-<th style="text-align: center;">Case 7: SED Snacks</th>
+<<th style="text-align: center;">Case 7: SED Snacks</th>
 <th style="text-align: center;">Case 8: CONSECTETUR</th>
 <th style="text-align: center;">Case 9: LoremBaz Home</th>
 </tr>
 <tr>
-<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/9f2aa381-3c22-4e58-ad9a-3bb2bdccf480" width="200" height="350" style="object-fit: cover;" controls></video></td>
-<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/ede096fe-5f79-4193-bb13-293a6ca6e902" width="200" height="350" style="object-fit: cover;" controls></video></td>
-<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/d246f61b-0f26-4bbc-b98a-127d9db22100" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/154da8db-1950-4deb-acee-3108bc3fffdf" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/af5ade24-db2b-47cd-bce3-7e7602134c58" width="200" height="350" style="object-fit: cover;" controls></video></td>
+<td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/249fd96d-8b76-4716-ae49-daa0074a543f" width="200" height="350" style="object-fit: cover;" controls></video></td>
 </tr>
 </table>
 
