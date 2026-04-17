@@ -111,8 +111,10 @@ app = FastAPI(title="My Custom Agent API")
 mount_to_fastapi_app(app, config)
 ```
 
-For details on how to customize the default AI models used by the services, see the `mediagent_config.json` file in the project root.
+
 ## 📊 API Usage & Cost Calculation
+
+For details on how to customize the default AI models used by the services, see the `mediagent_config.json` file.
 
 This section provides a detailed estimate of the API calls and associated costs for generating videos using the Izumi ecosystem, based on the actual end-to-end pipeline observed in logs (e.g., `app_20260415_160516.log`) and official pricing.
 
@@ -156,8 +158,8 @@ This scenario involves dynamic planning, script generation, asset description, a
       <td style="padding: 12px;">🧭 <b>Orchestration & Helpers</b></td>
       <td style="padding: 12px;"><code>gemini-2.5-flash</code></td>
       <td style="padding: 12px;">~9 calls (Params, Assets loop, Strategy, Router, VO rewrite)<br><small style="color: #757575;">~50k Input, ~5k Output</small></td>
-      <td style="padding: 12px;"><small>$0.30 / 1M in<br>$2.50 / 1M out</small></td>
-      <td style="padding: 12px; text-align: right;">~$0.0275</td>
+      <td style="padding: 12px;"><small>$0.075 / 1M in<br>$0.30 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0053</td>
     </tr>
     <tr style="border-bottom: 1px solid #e0e0e0;">
       <td style="padding: 12px;">📝 <b>Asset Descriptions</b></td>
@@ -177,8 +179,8 @@ This scenario involves dynamic planning, script generation, asset description, a
       <td style="padding: 12px;">✨ <b>Prompt Enrichment</b></td>
       <td style="padding: 12px;"><code>gemini-3-flash-preview</code></td>
       <td style="padding: 12px;">8 calls (4 image, 4 video)<br><small style="color: #757575;">~30k Input, ~2k Output</small></td>
-      <td style="padding: 12px;"><small>$0.50 / 1M in<br>$3.00 / 1M out</small></td>
-      <td style="padding: 12px; text-align: right;">~$0.0210</td>
+      <td style="padding: 12px;"><small>$0.075 / 1M in<br>$0.30 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0029</td>
     </tr>
     <tr style="border-bottom: 1px solid #e0e0e0;">
       <td style="padding: 12px;">🎨 <b>Image Generation</b></td>
@@ -210,7 +212,7 @@ This scenario involves dynamic planning, script generation, asset description, a
     </tr>
     <tr style="background-color: #eef2f7; font-weight: bold;">
       <td colspan="4" style="padding: 12px; text-align: right;">Total Estimated Cost</td>
-      <td style="padding: 12px; text-align: right;">~$2.11</td>
+      <td style="padding: 12px; text-align: right;">~$2.07</td>
     </tr>
   </tbody>
 </table>
@@ -235,8 +237,8 @@ This scenario uses the "Pet Companion (Fast)" template, which defines 8 scenes w
       <td style="padding: 12px;">🧭 <b>Orchestration & Helpers</b></td>
       <td style="padding: 12px;"><code>gemini-2.5-flash</code></td>
       <td style="padding: 12px;">~12 calls<br><small style="color: #757575;">~60k Input, ~6k Output</small></td>
-      <td style="padding: 12px;"><small>$0.30 / 1M in<br>$2.50 / 1M out</small></td>
-      <td style="padding: 12px; text-align: right;">~$0.0330</td>
+      <td style="padding: 12px;"><small>$0.075 / 1M in<br>$0.30 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0063</td>
     </tr>
     <tr style="border-bottom: 1px solid #e0e0e0;">
       <td style="padding: 12px;">📝 <b>Asset Descriptions</b></td>
@@ -249,15 +251,15 @@ This scenario uses the "Pet Companion (Fast)" template, which defines 8 scenes w
       <td style="padding: 12px;">📋 <b>Template Storyboard</b></td>
       <td style="padding: 12px;"><code>gemini-3-flash-preview</code></td>
       <td style="padding: 12px;">1 call<br><small style="color: #757575;">~10k Input, ~3k Output</small></td>
-      <td style="padding: 12px;"><small>$0.50 / 1M in<br>$3.00 / 1M out</small></td>
-      <td style="padding: 12px; text-align: right;">~$0.0140</td>
+      <td style="padding: 12px;"><small>$0.075 / 1M in<br>$0.30 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0017</td>
     </tr>
     <tr style="border-bottom: 1px solid #e0e0e0;">
       <td style="padding: 12px;">✨ <b>Prompt Enrichment</b></td>
       <td style="padding: 12px;"><code>gemini-3-flash-preview</code></td>
       <td style="padding: 12px;">16 calls (8 image, 8 video)<br><small style="color: #757575;">~60k Input, ~4k Output</small></td>
-      <td style="padding: 12px;"><small>$0.50 / 1M in<br>$3.00 / 1M out</small></td>
-      <td style="padding: 12px; text-align: right;">~$0.0420</td>
+      <td style="padding: 12px;"><small>$0.075 / 1M in<br>$0.30 / 1M out</small></td>
+      <td style="padding: 12px; text-align: right;">~$0.0057</td>
     </tr>
     <tr style="border-bottom: 1px solid #e0e0e0;">
       <td style="padding: 12px;">🎨 <b>Image Generation</b></td>
@@ -289,40 +291,19 @@ This scenario uses the "Pet Companion (Fast)" template, which defines 8 scenes w
     </tr>
     <tr style="background-color: #eef2f7; font-weight: bold;">
       <td colspan="4" style="padding: 12px; text-align: right;">Total Estimated Cost</td>
-      <td style="padding: 12px; text-align: right;">~$4.03</td>
+      <td style="padding: 12px; text-align: right;">~$3.90</td>
     </tr>
   </tbody>
 </table>
 
 > [!WARNING]
-> **Real-World Costs May Be Higher**: The above estimates are for a **single successful run** with no iterations or retries. In practice, costs can be significantly higher (often **$5.00 - $15.00+** per use case) due to:
-> 1. **Iterative Refinement**: If you ask the agent to regenerate scenes or modify the script, it will incur additional LLM and media generation costs.
-> 2. **Large Asset Ingestion**: Passing multiple high-resolution images or videos as context to the prompt will consume many more tokens (e.g., ~1290 tokens per 1024x1024 image).
-> 3. **Retry Logic**: Any failures and retries in the generation process will add to the total cost.
+> **Real-World Costs May Be Higher**: The above estimates are for a **single successful run** with no iterations or retries. In practice, costs can be higher (often **$3.00 - $8.00+** per use case) due to:
+1. **Iterative Refinement**: If you ask the agent to regenerate scenes or modify the script, it will incur additional LLM and media generation costs.
+2. **Large Asset Ingestion**: Passing multiple high-resolution images or videos as context to the prompt will consume many more tokens (e.g., ~1290 tokens per 1024x1024 image).
+3. **Retry Logic**: Any failures and retries in the generation process will add to the total cost.
+4. **Quality Settings**: Using higher resolution or frame rate models for video will increase costs. total cost.
 > 4. **Quality Settings**: Using higher resolution or frame rate models for video will increase costs.
 
-<details>
-<summary>🔍 Detailed Pricing Reference (Paid Tier)</summary>
-
-| Model | Input (per 1M) | Output (per 1M) | Notes |
-| :--- | :--- | :--- | :--- |
-| **Gemini 3.1 Pro Preview** | $2.00 (<=200k) | $12.00 (<=200k) | $4.00/>200k in, $18.00/>200k out |
-| **Gemini 3.1 Flash-Lite** | $0.25 | $1.50 | |
-| **Gemini 3 Flash Preview** | $0.50 | $3.00 | |
-| **Gemini 2.5 Pro** | $1.25 (<=200k) | $10.00 (<=200k) | |
-| **Gemini 2.5 Flash** | $0.30 | $2.50 | |
-| **Gemini 3.1 Flash Image** | $0.50 | $60.00 | ~$0.067 per 1K image |
-| **Gemini 3.1 Flash TTS** | $1.00 | $20.00 | Audio tokens: 25 per second |
-
-**Veo 3.1 Video Generation:**
--   **Standard**: $0.40/sec (720p/1080p), $0.60/sec (4K)
--   **Fast**: $0.10/sec (720p), $0.12/sec (1080p), $0.30/sec (4K)
--   **Lite**: $0.05/sec (720p), $0.08/sec (1080p)
-
-**Music Generation:**
--   **Lyria 3 Clip Preview**: $0.04 per song (30s)
--   **Lyria 3 Pro Preview**: $0.08 per song (Full)
-
-</details>
+For a detailed pricing reference, please refer to the official [Gemini API Pricing Documentation](https://ai.google.dev/gemini-api/docs/pricing).
 
 
