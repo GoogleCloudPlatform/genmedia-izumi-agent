@@ -125,9 +125,9 @@ Click on the thumbnails to view the videos.
 
 <table align="center" width="100%" style="border: none; table-layout: fixed;">
 <tr>
-<th width="33.33%" style="text-align: center;">Case 1: Beggy Bay</th>
-<th width="33.33%" style="text-align: center;">Case 2: Grault-Heel</th>
-<th width="33.33%" style="text-align: center;">Case 3: Undefood Inc</th>
+<th width="33.33%" style="text-align: center;">Case 1: Scented Candle</th>
+<th width="33.33%" style="text-align: center;">Case 2: Luxury High Heels</th>
+<th width="33.33%" style="text-align: center;">Case 3: Plant-Based Meat</th>
 </tr>
 <tr>
 <td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/12345b5a-7cff-4929-9aed-71ac539f4be4" width="200" height="350" style="object-fit: cover;" controls></video></td>
@@ -135,9 +135,9 @@ Click on the thumbnails to view the videos.
 <td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/1e26800b-f7cd-4402-a6dd-37d64ef84558" width="200" height="350" style="object-fit: cover;" controls></video></td>
 </tr>
 <tr>
-<th width="33.33%" style="text-align: center;">Case 4: BazQux LLC</th>
-<th width="33.33%" style="text-align: center;">Case 5: QuxCorge</th>
-<th width="33.33%" style="text-align: center;">Case 6: Amet-Rake</th>
+<th width="33.33%" style="text-align: center;">Case 4: Facial Cleanser</th>
+<th width="33.33%" style="text-align: center;">Case 5: Resort Sandals</th>
+<th width="33.33%" style="text-align: center;">Case 6: Zen Garden Rake</th>
 </tr>
 <tr>
 <td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/ed7bf24c-e3b7-4623-9e7a-39b37cf96231" width="200" height="350" style="object-fit: cover;" controls></video></td>
@@ -145,9 +145,9 @@ Click on the thumbnails to view the videos.
 <td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/001b2bc2-569b-4564-8e1f-0b4c6b8b0f76" width="200" height="350" style="object-fit: cover;" controls></video></td>
 </tr>
 <tr>
-<<th style="text-align: center;">Case 7: SED Snacks</th>
-<th style="text-align: center;">Case 8: CONSECTETUR</th>
-<th style="text-align: center;">Case 9: LoremBaz Home</th>
+<th style="text-align: center;">Case 7: Savory Snacks</th>
+<th style="text-align: center;">Case 8: Pet Care</th>
+<th style="text-align: center;">Case 9: Home Comfort</th>
 </tr>
 <tr>
 <td width="33.33%" align="center"><video src="https://github.com/user-attachments/assets/154da8db-1950-4deb-acee-3108bc3fffdf" width="200" height="350" style="object-fit: cover;" controls></video></td>
@@ -163,7 +163,7 @@ Click on the thumbnails to view the videos.
 Expand each case to see the input assets and full prompt.
 
 <details>
-<summary><b>Case 1: Beggy Bay</b></summary>
+<summary><b>Case 1: Scented Candle</b></summary>
 
 #### Input Assets
 These images were used as input to guide the agent:
@@ -176,7 +176,7 @@ These images were used as input to guide the agent:
 </details>
 
 <details>
-<summary><b>Case 2: Grault-Heel</b></summary>
+<summary><b>Case 2: Luxury High Heels</b></summary>
 
 #### Input Assets
 These images were used as input to guide the agent:
@@ -189,7 +189,7 @@ These images were used as input to guide the agent:
 </details>
 
 <details>
-<summary><b>Case 3: Undefood Inc</b></summary>
+<summary><b>Case 3: Plant-Based Meat</b></summary>
 
 #### Input Assets
 These images were used as input to guide the agent:
@@ -202,7 +202,7 @@ These images were used as input to guide the agent:
 </details>
 
 <details>
-<summary><b>Case 4: BazQux LLC</b></summary>
+<summary><b>Case 4: Facial Cleanser</b></summary>
 
 #### Input Assets
 These images were used as input to guide the agent:
@@ -215,7 +215,7 @@ These images were used as input to guide the agent:
 </details>
 
 <details>
-<summary><b>Case 5: QuxCorge</b></summary>
+<summary><b>Case 5: Resort Sandals</b></summary>
 
 #### Input Assets
 These images were used as input to guide the agent:
@@ -228,7 +228,7 @@ These images were used as input to guide the agent:
 </details>
 
 <details>
-<summary><b>Case 6: Amet-Rake</b></summary>
+<summary><b>Case 6: Zen Garden Rake</b></summary>
 
 #### Input Assets
 These images were used as input to guide the agent:
@@ -241,7 +241,7 @@ These images were used as input to guide the agent:
 </details>
 
 <details>
-<summary><b>Case 7: SED Snacks</b></summary>
+<summary><b>Case 7: Savory Snacks</b></summary>
 
 #### Input Assets
 These images were used as input to guide the agent:
@@ -269,7 +269,7 @@ These images were used as input to guide the agent:
 </details>
 
 <details>
-<summary><b>Case 8: CONSECTETUR</b></summary>
+<summary><b>Case 8: Pet Care</b></summary>
 
 #### Input Assets
 
@@ -281,7 +281,7 @@ These images were used as input to guide the agent:
 </details>
 
 <details>
-<summary><b>Case 9: LoremBaz Home</b></summary>
+<summary><b>Case 9: Home Comfort</b></summary>
 
 #### Input Assets
 
