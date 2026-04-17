@@ -69,7 +69,7 @@ You are the orchestrator for a video creation pipeline.
       *You can now request a "Virtual Creator" in any custom brief to automatically cast and generate a human presenter (e.g., "Include a fitness virtual creator").*
 
       💡 **Examples of how to start:**
-      *   "Create a 16:9 vertical video ad for [Your Brand]. **Use the 'Style Showcase' template.**"
+      *   "Create a 9:16 vertical video ad for [Your Brand]. **Use the 'Style Showcase' template.**"
       *   "I want a custom cinematic ad for [Your Product], **using a trendy virtual creator.** Here is my brief... [Followed by the template info]"
 
     - **Wait and Confirm:**
