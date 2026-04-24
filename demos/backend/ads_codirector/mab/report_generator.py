@@ -260,12 +260,22 @@ def generate_html_report(
             """
             user_asset_paths = local_artifact_dirs.get("user_asset_paths", {})
             for i, (filename, annotation) in enumerate(user_assets_from_log.items()):
-                if filename.startswith("iter_") or filename.startswith("scene_"): continue
-                description = annotation.get("caption", "") if isinstance(annotation, dict) else str(annotation)
-                role = annotation.get("semantic_role", "N/A") if isinstance(annotation, dict) else "N/A"
-                
+                if filename.startswith("iter_") or filename.startswith("scene_"):
+                    continue
+                description = (
+                    annotation.get("caption", "")
+                    if isinstance(annotation, dict)
+                    else str(annotation)
+                )
+                role = (
+                    annotation.get("semantic_role", "N/A")
+                    if isinstance(annotation, dict)
+                    else "N/A"
+                )
+
                 img_src = ""
-                if use_asset_uris: img_src = f"asset://{filename}"
+                if use_asset_uris:
+                    img_src = f"asset://{filename}"
                 else:
                     path = user_asset_paths.get(filename)
                     if path and path.is_file():
@@ -307,7 +317,7 @@ def generate_html_report(
                 vp = local_dir / final_video_filename
                 if vp.is_file():
                     video_src = f"data:video/mp4;base64,{base64.b64encode(vp.read_bytes()).decode()}"
-            
+
             html_content += f"""
             <div class="video-hero">
                 <video controls src="{video_src}"></video>
@@ -317,7 +327,7 @@ def generate_html_report(
             # 1. Creative Configuration Card
             arms_selected = iteration.get("arms_selected", {})
             warm_start = mab_state.get("warm_start") if iter_num == 1 else None
-            
+
             html_content += f"""
             <div class="report-card">
                 <div class="card-header" onclick="toggleSection(this)">
@@ -369,7 +379,7 @@ def generate_html_report(
                         cp = iteration_artifacts.get("character_collage_path")
                         if cp and cp.is_file():
                             c_src = f"data:image/png;base64,{base64.b64encode(cp.read_bytes()).decode()}"
-                    
+
                     if c_src:
                         html_content += f"""
                         <div style="display: flex; gap: 2em; align-items: flex-start; margin-bottom:1.5em;">
@@ -403,7 +413,7 @@ def generate_html_report(
                     att_score = attempt.get("score", 0)
                     eval_data = attempt.get("evaluation", {})
                     output = attempt.get("output", {})
-                    
+
                     html_content += f"""
                     <div style="border-bottom: 1px solid var(--border); margin-bottom: 15px; padding-bottom: 15px;">
                         <div class="bold" style="display:flex; justify-content:space-between;">
@@ -412,12 +422,20 @@ def generate_html_report(
                         </div>
                         <div class="mt-10" style="font-size:0.9em;">
                     """
-                    scenes_list = output.get("scenes") or output.get("script") or output.get("storyline", {}).get("scenes")
+                    scenes_list = (
+                        output.get("scenes")
+                        or output.get("script")
+                        or output.get("storyline", {}).get("scenes")
+                    )
                     if isinstance(scenes_list, list):
                         for s_idx, scn in enumerate(scenes_list):
-                            desc = scn.get('action') or scn.get('visual_description') or "N/A"
+                            desc = (
+                                scn.get("action")
+                                or scn.get("visual_description")
+                                or "N/A"
+                            )
                             html_content += f"<div class='mb-10'><span class='bold'>Scene {s_idx+1}:</span> {desc}</div>"
-                    
+
                     html_content += f"""
                         </div>
                         <div class="feedback-pane">
@@ -440,13 +458,16 @@ def generate_html_report(
                 <div class="card-content">
                     <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
             """
-            for a_type in [("Background Music", "background_music"), ("Voiceover", "voiceover")]:
+            for a_type in [
+                ("Background Music", "background_music"),
+                ("Voiceover", "voiceover"),
+            ]:
                 label, key = a_type
                 p_key = f"{key}_prompt"
                 h_key = f"{key}_generation_history"
                 prompt_data = storyboard.get(p_key, {})
                 history = storyboard.get(h_key, [])
-                
+
                 html_content += f"""
                 <div style="background:#f8f9fa; padding:15px; border-radius:6px; border:1px solid var(--border);">
                     <h5 class="mb-10">{label}</h5>
@@ -457,11 +478,13 @@ def generate_html_report(
                     for h_idx, att in enumerate(history):
                         fname = att.get("asset", {}).get("file_name")
                         src = ""
-                        if use_asset_uris: src = f"asset://{fname}"
+                        if use_asset_uris:
+                            src = f"asset://{fname}"
                         elif local_dir and fname:
                             ap = local_dir / fname
-                            if ap.is_file(): src = f"data:audio/mp3;base64,{base64.b64encode(ap.read_bytes()).decode()}"
-                        
+                            if ap.is_file():
+                                src = f"data:audio/mp3;base64,{base64.b64encode(ap.read_bytes()).decode()}"
+
                         if src:
                             html_content += f"""
                             <div class="mt-10">
@@ -507,7 +530,11 @@ def generate_html_report(
                 eff_scores = verifier_results.get("mab_efficacy_scores", {})
                 eff_justs = verifier_results.get("mab_efficacy_justifications", {})
                 for dim, score in eff_scores.items():
-                    just = eff_justs.get(dim, "N/A") if isinstance(eff_justs, dict) else str(eff_justs)
+                    just = (
+                        eff_justs.get(dim, "N/A")
+                        if isinstance(eff_justs, dict)
+                        else str(eff_justs)
+                    )
                     html_content += f"""
                     <div class="efficacy-card">
                         <div class="efficacy-header">
@@ -534,14 +561,17 @@ def generate_html_report(
                 for s_idx, scene in enumerate(storyboard.get("scenes", [])):
                     fname = f"iter_{iter_index}_scene_{s_idx}_final_frame.png"
                     hist = scene.get("first_frame_generation_history", [])
-                    if hist and (h_name := hist[-1].get("asset", {}).get("file_name")): fname = h_name
-                    
+                    if hist and (h_name := hist[-1].get("asset", {}).get("file_name")):
+                        fname = h_name
+
                     src = ""
-                    if use_asset_uris: src = f"asset://{fname}"
+                    if use_asset_uris:
+                        src = f"asset://{fname}"
                     elif local_dir:
                         fp = local_dir / fname
-                        if fp.is_file(): src = f"data:image/png;base64,{base64.b64encode(fp.read_bytes()).decode()}"
-                    
+                        if fp.is_file():
+                            src = f"data:image/png;base64,{base64.b64encode(fp.read_bytes()).decode()}"
+
                     if src:
                         html_content += f'<img src="{src}" style="flex: 1; min-width: 0; display: block; width: 100%; border-right: 1px solid rgba(255,255,255,0.1);" title="Scene {s_idx+1}">'
                 html_content += "</div>"
@@ -567,13 +597,15 @@ def generate_html_report(
                         f_name = attempt.get("asset", {}).get("file_name")
                         b_cls = "badge-regen" if is_reg else "badge-retained"
                         b_txt = "REGEN" if is_reg else "KEEP"
-                        
+
                         a_src = ""
-                        if use_asset_uris: a_src = f"asset://{f_name}"
+                        if use_asset_uris:
+                            a_src = f"asset://{f_name}"
                         elif local_dir and f_name:
                             ap = local_dir / f_name
-                            if ap.is_file(): a_src = f"data:image/png;base64,{base64.b64encode(ap.read_bytes()).decode()}"
-                        
+                            if ap.is_file():
+                                a_src = f"data:image/png;base64,{base64.b64encode(ap.read_bytes()).decode()}"
+
                         v_res = attempt.get("joint_verification", {})
                         html_content += f"""
                         <div class="attempt">
@@ -611,14 +643,16 @@ def generate_html_report(
                         p = data.get("pulls", 0)
                         r = data.get("total_reward", 0) / p if p > 0 else 0
                         html_content += "<tr>"
-                        if idx == 0: html_content += f'<td rowspan="{len(arms)}" class="bold" style="background:#f8f9fa;">{dim.replace("_"," ").title()}</td>'
+                        if idx == 0:
+                            html_content += f'<td rowspan="{len(arms)}" class="bold" style="background:#f8f9fa;">{dim.replace("_"," ").title()}</td>'
                         html_content += f"<td>{arm}</td><td style='text-align:center;'>{p}</td><td style='text-align:center;'>{r:.2f}</td></tr>"
                 html_content += "</tbody></table></div></div>"
 
         html_content += "</div></body></html>"
 
         if output_path:
-            with open(output_path, "w") as f: f.write(html_content)
+            with open(output_path, "w") as f:
+                f.write(html_content)
             logger.info(f"Successfully generated HTML report at {output_path}")
         return html_content
     except Exception as e:

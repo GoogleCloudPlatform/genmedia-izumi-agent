@@ -42,7 +42,9 @@ async def verify_storyboard_assets(tool_context: ToolContext) -> dict:
     iteration_num = state.get("mab_iteration", 0)
 
     if not storyboard or not storyline:
-        logger.warning("Verification skipped: missing storyboard or storyline in state.")
+        logger.warning(
+            "Verification skipped: missing storyboard or storyline in state."
+        )
         return {"status": "succeeded", "result": "Verification skipped: missing data."}
 
     # 1. Prepare Context Data for LLM
@@ -135,10 +137,9 @@ async def verify_storyboard_assets(tool_context: ToolContext) -> dict:
             for asset_name in missing:
                 if asset_name in valid_filenames:
                     for p in [ff_prompt, v_prompt]:
-                        if (
-                            asset_name not in p.get("assets", [])
-                            and f"asset://{asset_name}" not in p.get("assets", [])
-                        ):
+                        if asset_name not in p.get(
+                            "assets", []
+                        ) and f"asset://{asset_name}" not in p.get("assets", []):
                             p.setdefault("assets", []).append(asset_name)
 
         # 6. MANDATORY R2V ASSET SYNC (Safeguard)
@@ -153,10 +154,9 @@ async def verify_storyboard_assets(tool_context: ToolContext) -> dict:
                 for fname, meta in annotated_visuals.items():
                     # Force both Logo and Product
                     if meta.get("semantic_role") in ["logo", "product"]:
-                        if (
-                            fname not in p.get("assets", [])
-                            and f"asset://{fname}" not in p.get("assets", [])
-                        ):
+                        if fname not in p.get(
+                            "assets", []
+                        ) and f"asset://{fname}" not in p.get("assets", []):
                             logger.info(
                                 f"Forcing R2V dependency '{fname}' ({meta.get('semantic_role')}) into final scene."
                             )

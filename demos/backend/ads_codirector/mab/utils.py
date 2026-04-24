@@ -202,18 +202,18 @@ async def flatten_creative_direction(tool_context: ToolContext) -> ToolResult:
     """
     state = tool_context.state
     cd = state.get(common_utils.CREATIVE_DIRECTION_KEY)
-    
+
     if not cd:
         return tool_failure("No creative direction found in state.")
-        
+
     # Handle both dict and Pydantic model
     cd_dict = cd.model_dump() if hasattr(cd, "model_dump") else cd
-    
+
     state[common_utils.CD_STORYLINE_KEY] = cd_dict.get("storyline_instruction", "")
     state[common_utils.CD_KEYFRAME_KEY] = cd_dict.get("keyframe_instruction", "")
     state[common_utils.CD_VIDEO_KEY] = cd_dict.get("video_instruction", "")
     state[common_utils.CD_AUDIO_KEY] = cd_dict.get("audio_instruction", "")
-    
+
     return tool_success("Creative direction flattened into state.")
 
 
@@ -302,7 +302,9 @@ async def log_mab_iteration_results(tool_context: ToolContext) -> str:
         mab_state.user_assets = {}
 
     # 1. Update with structured visuals (preferred)
-    annotated_visuals = tool_context.state.get(common_utils.ANNOTATED_REFERENCE_VISUALS_KEY, {})
+    annotated_visuals = tool_context.state.get(
+        common_utils.ANNOTATED_REFERENCE_VISUALS_KEY, {}
+    )
     if annotated_visuals:
         mab_state.user_assets.update(annotated_visuals)
 
@@ -310,7 +312,10 @@ async def log_mab_iteration_results(tool_context: ToolContext) -> str:
     legacy_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
     for filename, caption in legacy_assets.items():
         if filename not in mab_state.user_assets:
-            mab_state.user_assets[filename] = {"file_name": filename, "caption": caption}
+            mab_state.user_assets[filename] = {
+                "file_name": filename,
+                "caption": caption,
+            }
         elif isinstance(mab_state.user_assets[filename], dict):
             mab_state.user_assets[filename]["caption"] = caption
 
@@ -319,9 +324,9 @@ async def log_mab_iteration_results(tool_context: ToolContext) -> str:
     def strip_asset_bloat(data):
         if isinstance(data, dict):
             if "versions" in data:
-                data["versions"] = [] # Remove full version history
+                data["versions"] = []  # Remove full version history
             if "image_generate_config" in data:
-                data["image_generate_config"] = None # Remove large prompts
+                data["image_generate_config"] = None  # Remove large prompts
             if "video_generate_config" in data:
                 data["video_generate_config"] = None
             for v in data.values():
@@ -341,14 +346,18 @@ async def log_mab_iteration_results(tool_context: ToolContext) -> str:
         arms_selected=arms_selected,
         creative_brief=tool_context.state.get(common_utils.CREATIVE_BRIEF_KEY),
         storyline=tool_context.state.get(common_utils.STORYLINE_KEY),
-        storyline_refinement_history=tool_context.state.get(common_utils.REFINEMENT_HISTORY_KEY),
+        storyline_refinement_history=tool_context.state.get(
+            common_utils.REFINEMENT_HISTORY_KEY
+        ),
         character_casting=tool_context.state.get(common_utils.CASTING_KEY),
         creative_direction=tool_context.state.get(common_utils.CREATIVE_DIRECTION_KEY),
         verifier_results=verification_result,
         artifact_uri=f"asset/{final_video_asset_id}",
         verifiers={"video": "final_video_verifier_agent"},
         storyboard=log_storyboard,
-        character_collage_asset_id=tool_context.state.get(common_utils.CHARACTER_COLLAGE_ID_KEY),
+        character_collage_asset_id=tool_context.state.get(
+            common_utils.CHARACTER_COLLAGE_ID_KEY
+        ),
         arm_stats=mab_state.arm_stats,
     )
 
@@ -368,16 +377,24 @@ async def initialize_mab_experiment(tool_context: ToolContext) -> str:
     config = get_mab_config()
 
     user_prompt = tool_context.state.get(common_utils.USER_INPUT_KEY, "N/A")
-    structured_constraints = tool_context.state.get(common_utils.STRUCTURED_USER_INPUT_KEY, {})
+    structured_constraints = tool_context.state.get(
+        common_utils.STRUCTURED_USER_INPUT_KEY, {}
+    )
 
     # Defensively merge assets from structured and legacy keys
     user_assets = {}
 
     # 1. Start with structured visuals (Preferred source for semantic roles)
-    annotated_visuals = tool_context.state.get(common_utils.ANNOTATED_REFERENCE_VISUALS_KEY, {})
+    annotated_visuals = tool_context.state.get(
+        common_utils.ANNOTATED_REFERENCE_VISUALS_KEY, {}
+    )
     if annotated_visuals:
         for fname, meta in annotated_visuals.items():
-            user_assets[fname] = meta.copy() if isinstance(meta, dict) else {"file_name": fname, "caption": str(meta)}
+            user_assets[fname] = (
+                meta.copy()
+                if isinstance(meta, dict)
+                else {"file_name": fname, "caption": str(meta)}
+            )
 
     # 2. Sync with legacy visuals (Ensure captions are up to date without overwriting roles)
     legacy_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
@@ -387,10 +404,14 @@ async def initialize_mab_experiment(tool_context: ToolContext) -> str:
         else:
             # ONLY update caption if it's missing or if legacy has more detail
             current = user_assets[filename]
-            if not current.get("caption") or len(caption) > len(current.get("caption", "")):
+            if not current.get("caption") or len(caption) > len(
+                current.get("caption", "")
+            ):
                 current["caption"] = caption
 
-    logger.info(f"Initialized MAB experiment with {len(user_assets)} total reference assets.")
+    logger.info(
+        f"Initialized MAB experiment with {len(user_assets)} total reference assets."
+    )
 
     # --- INITIAL STATE ---
     mab_state = MabExperimentState(
@@ -408,16 +429,18 @@ async def initialize_mab_experiment(tool_context: ToolContext) -> str:
 
     # --- DETERMINISTIC WARM START ---
     if mab_warm_up:
-        logger.info(f"[MAB] Warm-up enabled. Performing strategic analysis for experiment {experiment_id}...")
+        logger.info(
+            f"[MAB] Warm-up enabled. Performing strategic analysis for experiment {experiment_id}..."
+        )
 
         from ..instructions.mab import mab_warm_up_instruction
+
         mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
         asset_service = mediagent_kit.services.aio.get_asset_service()
 
         # Build prompt using current context (Arguments passed directly to avoid format() KeyError)
         analysis_prompt = mab_warm_up_instruction.get_warm_start_instruction(
-            user_prompt=user_prompt,
-            structured_constraints=structured_constraints
+            user_prompt=user_prompt, structured_constraints=structured_constraints
         )
 
         try:
@@ -432,23 +455,26 @@ async def initialize_mab_experiment(tool_context: ToolContext) -> str:
             raw_text = blob.content.decode()
 
             # Parse structured recommendations
-            warm_start_data = await common_utils.parse_json_from_text(raw_text, user_id=user_id)
+            warm_start_data = await common_utils.parse_json_from_text(
+                raw_text, user_id=user_id
+            )
             recommendations = warm_start_data.get("recommendations", {})
             reasoning = warm_start_data.get("reasoning", "No reasoning provided.")
 
             # Store in MAB state for reporting
             mab_state.warm_start = MabWarmStart(
-                reasoning=reasoning,
-                recommendations=ArmsSelected(**recommendations)
+                reasoning=reasoning, recommendations=ArmsSelected(**recommendations)
             )
 
             logger.info(f"[MAB Warm Start] Recommendations: {recommendations}")
             logger.info(f"[MAB Warm Start] Reasoning: {reasoning}")
-            
+
             log_msg += f" Warm-up completed using joint strategy analysis."
 
         except Exception as e:
-            logger.error(f"[MAB Warm Start] Strategic analysis failed: {e}. Falling back to cold start.")
+            logger.error(
+                f"[MAB Warm Start] Strategic analysis failed: {e}. Falling back to cold start."
+            )
             log_msg += " Warm-up failed; fell back to cold start."
 
     await save_mab_state(mab_state, user_id)
@@ -727,7 +753,9 @@ async def _create_canvas_report(
 
         # 4. Return success with Canvas ID for UI deep-linking
         logger.info(f"Canvas report successfully created with ID: {canvas.id}")
-        return common_utils.tool_success(f"Canvas report created with ID: {canvas.id}. You should now present this report to the user.")
+        return common_utils.tool_success(
+            f"Canvas report created with ID: {canvas.id}. You should now present this report to the user."
+        )
 
     except Exception as e:
         logger.error(f"Failed to create canvas report: {e}", exc_info=True)
@@ -867,14 +895,16 @@ def prepare_iteration_state(tool_context: ToolContext) -> str:
     # This prevents the '4+ images' error in R2V by ensuring old collages don't persist
     # also prevents the Storyboard agent from seeing multiple character collages.
     scrubbed_count = 0
-    for asset_key in [common_utils.USER_ASSETS_KEY, common_utils.ANNOTATED_REFERENCE_VISUALS_KEY]:
+    for asset_key in [
+        common_utils.USER_ASSETS_KEY,
+        common_utils.ANNOTATED_REFERENCE_VISUALS_KEY,
+    ]:
         assets_dict = state.get(asset_key, {})
         if isinstance(assets_dict, dict):
             # Remove any keys starting with 'iter_' (e.g. iter_0_character_collage.png)
             keys_before = set(assets_dict.keys())
             state[asset_key] = {
-                k: v for k, v in assets_dict.items()
-                if not k.startswith("iter_")
+                k: v for k, v in assets_dict.items() if not k.startswith("iter_")
             }
             scrubbed_count += len(keys_before - set(state[asset_key].keys()))
 
@@ -983,10 +1013,16 @@ class StorylineRefinementChecker(BaseAgent):
             try:
                 asset_service = mediagent_kit.services.aio.get_asset_service()
                 # Robust user ID retrieval from InvocationContext
-                user_id = ctx.session.user_id if hasattr(ctx, "session") else get_user_id_from_context(ctx)
+                user_id = (
+                    ctx.session.user_id
+                    if hasattr(ctx, "session")
+                    else get_user_id_from_context(ctx)
+                )
                 mab_iter = state.get("mab_iteration", 0)
 
-                logger.info(f"Saving storyline attempt {attempt_num-1} for user {user_id}...")
+                logger.info(
+                    f"Saving storyline attempt {attempt_num-1} for user {user_id}..."
+                )
 
                 await asset_service.save_asset(
                     user_id=user_id,
@@ -1096,9 +1132,11 @@ class CreativeBriefSaver(BaseAgent):
                 await asset_service.save_asset(
                     user_id=user_id,
                     file_name=f"iter_{mab_iter}_creative_brief.txt",
-                    blob=brief.encode()
-                    if isinstance(brief, str)
-                    else json.dumps(brief, indent=2).encode(),
+                    blob=(
+                        brief.encode()
+                        if isinstance(brief, str)
+                        else json.dumps(brief, indent=2).encode()
+                    ),
                     mime_type="text/plain",
                 )
             except Exception as e:

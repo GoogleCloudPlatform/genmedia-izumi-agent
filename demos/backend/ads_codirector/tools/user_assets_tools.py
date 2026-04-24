@@ -66,7 +66,9 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
         description_filename = f"{os.path.splitext(asset.file_name)[0]}_description.txt"
 
         # Resolve filename placeholder for the LLM
-        prompt = user_assets_instruction.INSTRUCTION.replace("{file_name}", asset.file_name)
+        prompt = user_assets_instruction.INSTRUCTION.replace(
+            "{file_name}", asset.file_name
+        )
 
         annotation_task = mediagen_service.generate_text_with_gemini(
             user_id=user_id,

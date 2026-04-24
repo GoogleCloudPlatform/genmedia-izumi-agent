@@ -23,14 +23,17 @@ _RUBRIC_PATH = Path(__file__).parent / "keyframe_verifier.md"
 with open(_RUBRIC_PATH, encoding="utf-8") as f:
     _RUBRIC = f.read()
 
-INSTRUCTION = """
+INSTRUCTION = (
+    """
 ### BRAND INTEGRITY MANDATE (CRITICAL)
 You MUST use the official product name and brand name provided in the 'Structured Constraints'. 
 - DO NOT invent, guess, or creatively modify these names.
 - Use them exactly as written in your 'feedback' and 'actionable_feedback'.
 - Defer to the text in the constraints even if visual text on the images appears different or unclear.
 
-""" + _RUBRIC + """
+"""
+    + _RUBRIC
+    + """
 
 **Input Context:**
 - Original User Prompt: {user_prompt}
@@ -40,4 +43,6 @@ You MUST use the official product name and brand name provided in the 'Structure
 
 **Output Template:**
 Return a valid JSON matching this schema:
-""" + joint_keyframe_verifier_model.DESCRIPTION
+"""
+    + joint_keyframe_verifier_model.DESCRIPTION
+)

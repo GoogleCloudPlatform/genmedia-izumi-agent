@@ -53,14 +53,16 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
             scene["first_frame_prompt"]["asset_id"]
         )
         video_asset_id = scene["video_prompt"].get("asset_id")
-        
+
         if video_asset_id:
             video_asset = await asset_service.get_asset_by_id(video_asset_id)
             logger.info(f"Adding video clip for scene {index}: {video_asset.file_name}")
         else:
             # FALLBACK: Use static image if video failed
             video_asset = first_frame_asset
-            logger.warning(f"Scene {index} has no video asset. Using static fallback: {video_asset.file_name}")
+            logger.warning(
+                f"Scene {index} has no video asset. Using static fallback: {video_asset.file_name}"
+            )
 
         video_clips.append(
             types.VideoClip(asset=video_asset, first_frame_asset=first_frame_asset)
@@ -70,9 +72,14 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
         if hold_id := scene.get("last_frame_hold_asset_id"):
             hold_duration = scene.get("last_frame_hold_duration", 2.0)
             hold_asset = await asset_service.get_asset_by_id(hold_id)
-            logger.info(f"Adding static logo hold for scene {index}: {hold_asset.file_name} ({hold_duration}s)")
+            logger.info(
+                f"Adding static logo hold for scene {index}: {hold_asset.file_name} ({hold_duration}s)"
+            )
             video_clips.append(
-                types.VideoClip(asset=hold_asset, trim=types.Trim(duration_seconds=float(hold_duration)))
+                types.VideoClip(
+                    asset=hold_asset,
+                    trim=types.Trim(duration_seconds=float(hold_duration)),
+                )
             )
             total_duration_seconds += float(hold_duration)
 

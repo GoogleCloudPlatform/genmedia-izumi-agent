@@ -57,7 +57,10 @@ async def generate_character_collage(tool_context: ToolContext) -> ToolResult:
     if not character_references:
         for filename, caption in user_assets.items():
             caption_lower = caption.lower()
-            if any(kw in caption_lower for kw in ["character", "person", "human", "man", "woman", "actor"]):
+            if any(
+                kw in caption_lower
+                for kw in ["character", "person", "human", "man", "woman", "actor"]
+            ):
                 character_references.append(filename)
 
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()

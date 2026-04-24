@@ -47,16 +47,20 @@ class EpsilonGreedyBandit:
         # Check for unpulled arms first
         stage_stats = self.arm_stats.get(stage, {})
         unpulled_arms = [arm for arm in stage_arms if arm not in stage_stats]
-        
+
         if unpulled_arms:
             # PRIORITIZE RECOMMENDED ARM (Warm Start Alignment)
             recommended_arm = self.recommendations.get(stage)
             if recommended_arm and recommended_arm in unpulled_arms:
-                logger.info(f"MAB ({stage}): Cold start - selecting recommended arm -> {recommended_arm}")
+                logger.info(
+                    f"MAB ({stage}): Cold start - selecting recommended arm -> {recommended_arm}"
+                )
                 return recommended_arm
 
             selected_arm = random.choice(unpulled_arms)
-            logger.info(f"MAB ({stage}): Cold start - randomly selecting untried arm -> {selected_arm}")
+            logger.info(
+                f"MAB ({stage}): Cold start - randomly selecting untried arm -> {selected_arm}"
+            )
             return selected_arm
 
         if random.random() < self.epsilon:
@@ -82,12 +86,14 @@ class EpsilonGreedyBandit:
             else:
                 # FALLBACK: Use the seeded 'total_reward' if the list doesn't exist yet.
                 avg_reward = arm_stats.get("total_reward", 0) / arm_stats["pulls"]
-            
+
             if avg_reward > max_avg_reward:
                 max_avg_reward = avg_reward
                 best_arm = arm
 
-        logger.info(f"MAB ({stage}): Exploiting with best arm -> {best_arm} (Avg Reward: {max_avg_reward:.2f})")
+        logger.info(
+            f"MAB ({stage}): Exploiting with best arm -> {best_arm} (Avg Reward: {max_avg_reward:.2f})"
+        )
         return best_arm
 
     def update_reward(
@@ -100,12 +106,12 @@ class EpsilonGreedyBandit:
         # FACTORED REWARD: Extract dimension-specific efficacy scores if available
         # This aligns with the 'Independent Credit Assignment' requirement in the paper.
         efficacy_scores = verification_result.get("mab_efficacy_scores", {})
-        
+
         # Robustly extract the global score as fallback
         if isinstance(verification_result, dict):
             global_reward = verification_result.get("score", 0)
             if global_reward == 0 and "video" in verification_result:
-                 global_reward = verification_result["video"].get("score", 0)
+                global_reward = verification_result["video"].get("score", 0)
         else:
             global_reward = getattr(verification_result, "score", 0)
 
@@ -121,10 +127,10 @@ class EpsilonGreedyBandit:
 
             if "rewards" not in self.arm_stats[stage][arm]:
                 self.arm_stats[stage][arm]["rewards"] = []
-            
+
             self.arm_stats[stage][arm]["pulls"] += 1
             self.arm_stats[stage][arm]["rewards"].append(reward_score)
-            
+
             # Also maintain total_reward for compatibility with selection logic
             if "total_reward" not in self.arm_stats[stage][arm]:
                 self.arm_stats[stage][arm]["total_reward"] = 0.0
@@ -145,8 +151,10 @@ class EpsilonGreedyBandit:
                     if "rewards" in arm_stats and arm_stats["rewards"]:
                         avg_reward = sum(arm_stats["rewards"]) / arm_stats["pulls"]
                     else:
-                        avg_reward = arm_stats.get("total_reward", 0) / arm_stats["pulls"]
-                    
+                        avg_reward = (
+                            arm_stats.get("total_reward", 0) / arm_stats["pulls"]
+                        )
+
                     if avg_reward > max_avg_reward:
                         max_avg_reward = avg_reward
                         best_arm = arm
@@ -183,16 +191,20 @@ class UCBBandit:
         # We pick one randomly among the unpulled arms to avoid deterministic ordering.
         stage_stats = self.arm_stats.get(stage, {})
         unpulled_arms = [arm for arm in stage_arms if arm not in stage_stats]
-        
+
         if unpulled_arms:
             # PRIORITIZE RECOMMENDED ARM (Warm Start Alignment)
             recommended_arm = self.recommendations.get(stage)
             if recommended_arm and recommended_arm in unpulled_arms:
-                logger.info(f"MAB ({stage}): Cold start - selecting recommended arm -> {recommended_arm}")
+                logger.info(
+                    f"MAB ({stage}): Cold start - selecting recommended arm -> {recommended_arm}"
+                )
                 return recommended_arm
 
             selected_arm = random.choice(unpulled_arms)
-            logger.info(f"MAB ({stage}): Trying unpulled arm (random choice) -> {selected_arm}")
+            logger.info(
+                f"MAB ({stage}): Trying unpulled arm (random choice) -> {selected_arm}"
+            )
             return selected_arm
 
         best_arm = random.choice(stage_arms)
@@ -207,7 +219,7 @@ class UCBBandit:
                 mean_reward = sum(arm_stats["rewards"]) / num_pulls
             else:
                 mean_reward = arm_stats.get("total_reward", 0) / num_pulls
-            
+
             exploration_component = self.c * math.sqrt(
                 math.log(total_pulls_for_stage) / num_pulls
             )
@@ -233,12 +245,12 @@ class UCBBandit:
         # FACTORED REWARD: Extract dimension-specific efficacy scores if available
         # This aligns with the 'Independent Credit Assignment' requirement in the paper.
         efficacy_scores = verification_result.get("mab_efficacy_scores", {})
-        
+
         # Robustly extract the global score as fallback
         if isinstance(verification_result, dict):
             global_reward = verification_result.get("score", 0)
             if global_reward == 0 and "video" in verification_result:
-                 global_reward = verification_result["video"].get("score", 0)
+                global_reward = verification_result["video"].get("score", 0)
         else:
             global_reward = getattr(verification_result, "score", 0)
 
@@ -253,10 +265,10 @@ class UCBBandit:
 
             if "rewards" not in self.arm_stats[stage][arm]:
                 self.arm_stats[stage][arm]["rewards"] = []
-            
+
             self.arm_stats[stage][arm]["pulls"] += 1
             self.arm_stats[stage][arm]["rewards"].append(reward_score)
-            
+
             # Also maintain total_reward for compatibility with selection logic
             if "total_reward" not in self.arm_stats[stage][arm]:
                 self.arm_stats[stage][arm]["total_reward"] = 0.0

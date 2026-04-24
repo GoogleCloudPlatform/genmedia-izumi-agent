@@ -20,19 +20,14 @@ from utils.adk import blob_interceptor_callback
 
 from .instructions import (
     root_instruction,
-    user_assets_instruction,
     parameters_instruction,
 )
 from .instructions.mab import (
-    mab_warm_up_instruction,
     creative_director_instruction,
 )
 from .instructions.pre_production import (
     creative_brief_instruction,
     casting_instruction,
-    storyline_instruction,
-    storyline_refinement_instruction,
-    storyboard_instruction,
     voiceover_script_instruction,
 )
 from .instructions.verifier import (
@@ -143,8 +138,7 @@ storyline_core_loop = LoopAgent(
 
 # Filter: Prevent storyline loop escalation from stopping the global MAB loop
 storyline_loop_agent = mab_utils.LocalEscalationFilter(
-    name="storyline_loop_agent",
-    sub_agents=[storyline_core_loop]
+    name="storyline_loop_agent", sub_agents=[storyline_core_loop]
 )
 
 visual_casting_agent = llm_agent.LlmAgent(
@@ -382,10 +376,12 @@ mab_loop_agent = LoopAgent(
     max_iterations=num_iterations,
 )
 
+
 async def combined_callback(callback_context, llm_request):
     """Combines user input storage and blob interception."""
     await common_utils.store_user_input_model_callback(callback_context, llm_request)
     return await blob_interceptor_callback(callback_context, llm_request)
+
 
 root_agent = llm_agent.LlmAgent(
     model=LLM_MODEL_NAME,

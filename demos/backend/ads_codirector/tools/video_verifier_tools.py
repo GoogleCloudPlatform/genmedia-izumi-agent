@@ -25,8 +25,7 @@ from ..utils import common_utils, final_video_verifier_model
 
 # The path to the verifier prompt, relative to this file
 _VERIFIER_PROMPT_PATH = (
-    Path(__file__).parent.parent
-    / "instructions/verifier/video_verifier.md"
+    Path(__file__).parent.parent / "instructions/verifier/video_verifier.md"
 )
 
 
@@ -126,7 +125,11 @@ async def evaluate_final_video(tool_context: ToolContext) -> dict:
 
                 # Authoritative Summation: Always recalculate score from breakdown for consistency
                 if "breakdown" in parsed_json:
-                    breakdown_scores = [v for v in parsed_json["breakdown"].values() if isinstance(v, (int, float))]
+                    breakdown_scores = [
+                        v
+                        for v in parsed_json["breakdown"].values()
+                        if isinstance(v, (int, float))
+                    ]
                     if breakdown_scores:
                         parsed_json["score"] = sum(breakdown_scores)
 

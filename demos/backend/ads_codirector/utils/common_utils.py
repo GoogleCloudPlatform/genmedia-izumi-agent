@@ -72,21 +72,21 @@ def resolve_template(template: str, state: dict[str, Any]) -> str:
         # Extract the key, removing any triple/double/single braces
         raw_key = match.group()
         key = raw_key.strip("{} ")
-        
+
         # 1. Try exact match in state
         val = state.get(key)
-        
+
         # 2. Try nested match (dot notation)
         if val is None and "." in key:
             val = _get_nested_value(state, key)
-            
+
         # 3. Handle missing values
         if val is None:
             # If it looks like a Pydantic description (braced JSON), don't flag as missing
             if key.startswith('"') or key.startswith("\n"):
                 return raw_key
-            return raw_key # Keep as is if not found
-            
+            return raw_key  # Keep as is if not found
+
         return str(val)
 
     # Resolve placeholders (handles single, double, and triple braces)
@@ -98,8 +98,9 @@ def resolve_template(template: str, state: dict[str, Any]) -> str:
         if new_result == result:
             break
         result = new_result
-        
+
     return result
+
 
 # Legacy/Internal keys
 PARAMETERS_KEY = STRUCTURED_USER_INPUT_KEY

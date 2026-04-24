@@ -18,9 +18,7 @@ from pathlib import Path
 
 from ...utils import common_utils, final_video_verifier_model
 
-_VERIFIER_RUBRIC_PATH = (
-    Path(__file__).parent / "video_verifier.md"
-)
+_VERIFIER_RUBRIC_PATH = Path(__file__).parent / "video_verifier.md"
 
 # This produces literal single-braced strings for ADK resolution.
 INSTRUCTION_CONTEXT = """

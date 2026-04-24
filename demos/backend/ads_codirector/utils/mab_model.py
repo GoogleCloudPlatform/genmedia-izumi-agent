@@ -86,7 +86,7 @@ class MabIterationLog(pydantic.BaseModel):
     )
     arm_stats: dict[str, dict[str, Any]] | None = pydantic.Field(
         default=None,
-        description="A snapshot of the MAB arm statistics at the end of this iteration."
+        description="A snapshot of the MAB arm statistics at the end of this iteration.",
     )
 
 
@@ -125,8 +125,7 @@ class MabExperimentState(pydantic.BaseModel):
         description="The initial user prompt that kicked off the experiment."
     )
     structured_constraints: dict[str, Any] | None = pydantic.Field(
-        default=None,
-        description="The parsed campaign parameters and constraints."
+        default=None, description="The parsed campaign parameters and constraints."
     )
     user_assets: dict[str, Any] | None = pydantic.Field(
         description="A dictionary of user-provided assets and their annotations."
@@ -139,7 +138,7 @@ class MabExperimentState(pydantic.BaseModel):
     )
     warm_start: MabWarmStart | None = pydantic.Field(
         default=None,
-        description="LLM-initialized expected values for MAB arms (Module S)."
+        description="LLM-initialized expected values for MAB arms (Module S).",
     )
 
 

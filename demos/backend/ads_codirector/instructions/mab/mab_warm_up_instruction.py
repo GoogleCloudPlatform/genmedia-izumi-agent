@@ -20,14 +20,19 @@ from ...utils import common_utils, mab_model
 
 def get_warm_start_instruction(user_prompt: str, structured_constraints: dict) -> str:
     """Dynamically builds the warm-start instruction with theoretical context."""
-    
+
     # Format dimensions and theory for the prompt
     dimensions_context = ""
     # Hardcoded dimensions to match current implementation
     dimensions = {
         "creative_strategy": ["informational", "transformational", "comparative"],
         "narrative_mode": ["analytical", "vignette", "narrative_drama"],
-        "aesthetic_archetype": ["clarity_energy", "cinematic_premium", "minimalist_focus", "kinetic_grit"]
+        "aesthetic_archetype": [
+            "clarity_energy",
+            "cinematic_premium",
+            "minimalist_focus",
+            "kinetic_grit",
+        ],
     }
 
     for dim_name, arms in dimensions.items():

@@ -73,7 +73,9 @@ async def _generate_single_keyframe(
             continue
         fname = ref.replace("asset://", "")
         if annotated_visuals.get(fname, {}).get("semantic_role") == "logo":
-            logger.info(f"Filtering out logo asset '{fname}' from keyframe generation references.")
+            logger.info(
+                f"Filtering out logo asset '{fname}' from keyframe generation references."
+            )
             continue
         cleaned_references.append(fname)
 
@@ -203,7 +205,9 @@ async def produce_refined_keyframes(tool_context: ToolContext) -> ToolResult:
         newly_generated_assets = await asyncio.gather(*tasks)
         from utils.adk import display_asset
 
-        for i, new_asset in zip(scenes_to_generate, newly_generated_assets, strict=False):
+        for i, new_asset in zip(
+            scenes_to_generate, newly_generated_assets, strict=False
+        ):
             best_keyframe_assets[i] = new_asset
             await display_asset(tool_context=tool_context, asset_id=new_asset.id)
 
@@ -221,7 +225,7 @@ async def produce_refined_keyframes(tool_context: ToolContext) -> ToolResult:
 
             # Optimization: Only store essential asset info to avoid state bloat
             asset_data = dataclasses.asdict(best_keyframe_assets[i])
-            asset_data["versions"] = [] # Strip deep history
+            asset_data["versions"] = []  # Strip deep history
             if "image_generate_config" in asset_data:
                 asset_data["image_generate_config"] = None
             if "video_generate_config" in asset_data:
@@ -284,26 +288,35 @@ async def generate_production_videos(tool_context: ToolContext) -> ToolResult:
     annotated_visuals = state.get(common_utils.ANNOTATED_REFERENCE_VISUALS_KEY, {})
     logo_filename = next(
         (
-            fname for fname, meta in annotated_visuals.items()
+            fname
+            for fname, meta in annotated_visuals.items()
             if isinstance(meta, dict) and meta.get("semantic_role") == "logo"
         ),
-        None
+        None,
     )
     product_filename = next(
         (
-            fname for fname, meta in annotated_visuals.items()
+            fname
+            for fname, meta in annotated_visuals.items()
             if isinstance(meta, dict) and meta.get("semantic_role") == "product"
         ),
-        None
+        None,
     )
 
     def _is_safety_error(e: Exception) -> bool:
         err_str = str(e).lower()
-        return any(k in err_str for k in [
-            "safety", "recitation", "usage guidelines", 
-            "could not be submitted", "no video was generated",
-            "violate", "policy"
-        ])
+        return any(
+            k in err_str
+            for k in [
+                "safety",
+                "recitation",
+                "usage guidelines",
+                "could not be submitted",
+                "no video was generated",
+                "violate",
+                "policy",
+            ]
+        )
 
     async def _get_softened_prompt(idx, original_prompt):
         """Helper to invoke Gemini for prompt softening."""
@@ -314,17 +327,19 @@ async def generate_production_videos(tool_context: ToolContext) -> ToolResult:
             "Rewrite the prompt to be **policy-neutral** while preserving 100% of the cinematic action, lighting, and narrative intent. "
             "Use generic but visually equivalent descriptors. Output ONLY the revised prompt text."
         )
-        
+
         softened_resp = await mediagen_service.generate_text_with_gemini(
             user_id=user_id,
             file_name=f"iter_{iteration_num}_scene_{idx}_softened_prompt.txt",
             prompt=f"{softener_instruction}\n\nORIGINAL PROMPT:\n{original_prompt}",
-            purpose="repair"
+            purpose="repair",
         )
-        
+
         blob = await asset_service.get_asset_blob(softened_resp.id)
         softened_prompt = blob.content.decode("utf-8").strip()
-        logger.info(f"Generated neutralized prompt for Scene {idx}: {softened_prompt[:100]}...")
+        logger.info(
+            f"Generated neutralized prompt for Scene {idx}: {softened_prompt[:100]}..."
+        )
         return softened_prompt
 
     async def _gen_vid(idx, scn):
@@ -333,11 +348,15 @@ async def generate_production_videos(tool_context: ToolContext) -> ToolResult:
         )
 
         base_prompt = scn["video_prompt"]["description"]
-        
+
         # ROBUSTNESS pass: Scrub any literal asset filenames that might have leaked into the description
-        scrubbed_prompt = re.sub(r'\b[\w-]+\.(?:png|jpg|jpeg|mp4|mp3)\b', '', base_prompt)
-        scrubbed_prompt = re.sub(r'\biter_\d+_\w+\.(?:png|jpg|jpeg|mp4|mp3)\b', '', scrubbed_prompt)
-        scrubbed_prompt = scrubbed_prompt.replace('  ', ' ').strip()
+        scrubbed_prompt = re.sub(
+            r"\b[\w-]+\.(?:png|jpg|jpeg|mp4|mp3)\b", "", base_prompt
+        )
+        scrubbed_prompt = re.sub(
+            r"\biter_\d+_\w+\.(?:png|jpg|jpeg|mp4|mp3)\b", "", scrubbed_prompt
+        )
+        scrubbed_prompt = scrubbed_prompt.replace("  ", " ").strip()
 
         full_prompt = f"{scrubbed_prompt}\n\nMotion Guidance: {video_instr}"
 
@@ -369,17 +388,19 @@ async def generate_production_videos(tool_context: ToolContext) -> ToolResult:
                         aspect_ratio=aspect_ratio,
                         generate_audio=False,
                         reference_image_filenames=r2v_references,
-                        method="reference_to_video"
+                        method="reference_to_video",
                     )
                 except Exception as r2v_err:
                     if not _is_safety_error(r2v_err):
                         raise r2v_err
-                    
-                    logger.warning(f"Scene {idx} R2V failed (safety/guidelines). Attempting Neutralized I2V Fallback (6s Video + 2s Hold)...")
-                    
+
+                    logger.warning(
+                        f"Scene {idx} R2V failed (safety/guidelines). Attempting Neutralized I2V Fallback (6s Video + 2s Hold)..."
+                    )
+
                     # --- STAGE 2: Neutralized Extrapolation + Hold ---
                     neutralized_prompt = await _get_softened_prompt(idx, full_prompt)
-                    
+
                     i2v_extrap_constraint = (
                         "\n\n**CRITICAL CONSISTENCY CONSTRAINT:**\n"
                         "- This MUST be one contiguous shot starting from the provided first frame.\n"
@@ -394,18 +415,22 @@ async def generate_production_videos(tool_context: ToolContext) -> ToolResult:
                         aspect_ratio=aspect_ratio,
                         generate_audio=False,
                         first_frame_filename=frame_asset.file_name,
-                        method="image_to_video"
+                        method="image_to_video",
                     )
-                    
+
                     # Signal the stitcher to add a 2-second logo hold
-                    logo_asset = await asset_service.get_asset_by_file_name(user_id=user_id, file_name=logo_filename)
+                    logo_asset = await asset_service.get_asset_by_file_name(
+                        user_id=user_id, file_name=logo_filename
+                    )
                     if logo_asset:
                         scn["last_frame_hold_asset_id"] = logo_asset.id
                         scn["last_frame_hold_duration"] = 2.0
                         scn["video_prompt"]["duration_seconds"] = 6
                     else:
-                        logger.error(f"Could not find asset ID for logo '{logo_filename}' for static hold.")
-                
+                        logger.error(
+                            f"Could not find asset ID for logo '{logo_filename}' for static hold."
+                        )
+
                 # Update metadata to reflect actual generated length
                 if "last_frame_hold_asset_id" not in scn:
                     scn["video_prompt"]["duration_seconds"] = 8
@@ -428,15 +453,17 @@ async def generate_production_videos(tool_context: ToolContext) -> ToolResult:
                         aspect_ratio=aspect_ratio,
                         generate_audio=False,
                         first_frame_filename=frame_asset.file_name,
-                        method="image_to_video"
+                        method="image_to_video",
                     )
                 except Exception as i2v_err:
                     if not _is_safety_error(i2v_err):
                         raise i2v_err
-                    
-                    logger.warning(f"Scene {idx} I2V failed (safety/guidelines). Attempting Neutralized Retry...")
+
+                    logger.warning(
+                        f"Scene {idx} I2V failed (safety/guidelines). Attempting Neutralized Retry..."
+                    )
                     neutralized_prompt = await _get_softened_prompt(idx, full_prompt)
-                    
+
                     video_asset = await mediagen_service.generate_video_with_veo(
                         user_id=user_id,
                         file_name=f"iter_{iteration_num}_scene_{idx}_video.mp4",
@@ -445,7 +472,7 @@ async def generate_production_videos(tool_context: ToolContext) -> ToolResult:
                         aspect_ratio=aspect_ratio,
                         generate_audio=False,
                         first_frame_filename=frame_asset.file_name,
-                        method="image_to_video"
+                        method="image_to_video",
                     )
 
         except Exception as e:
@@ -455,6 +482,7 @@ async def generate_production_videos(tool_context: ToolContext) -> ToolResult:
         if video_asset:
             scn["video_prompt"]["asset_id"] = video_asset.id
             from utils.adk import display_asset
+
             await display_asset(tool_context=tool_context, asset_id=video_asset.id)
         else:
             scn["video_prompt"]["asset_id"] = None
@@ -463,11 +491,16 @@ async def generate_production_videos(tool_context: ToolContext) -> ToolResult:
     await asyncio.gather(*tasks)
 
     state[common_utils.STORYBOARD_KEY] = storyboard
-    return tool_success("Scene video generation attempted. Check logs for any individual scene failures.")
+    return tool_success(
+        "Scene video generation attempted. Check logs for any individual scene failures."
+    )
 
 
 async def _generate_global_voiceover(
-    user_id: str, storyboard: dict[str, Any], iteration_num: int, creative_direction: dict[str, str]
+    user_id: str,
+    storyboard: dict[str, Any],
+    iteration_num: int,
+    creative_direction: dict[str, str],
 ):
     """Generates the unified global voiceover for the entire campaign."""
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
@@ -512,7 +545,10 @@ async def _generate_global_voiceover(
 
 
 async def _generate_background_music(
-    user_id: str, storyboard: dict[str, Any], iteration_num: int, creative_direction: dict[str, str]
+    user_id: str,
+    storyboard: dict[str, Any],
+    iteration_num: int,
+    creative_direction: dict[str, str],
 ):
     """Generates the background music for the campaign."""
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
@@ -556,8 +592,12 @@ async def generate_production_audio(tool_context: ToolContext) -> ToolResult:
     creative_direction = state.get(common_utils.CREATIVE_DIRECTION_KEY, {})
 
     await asyncio.gather(
-        _generate_global_voiceover(user_id, storyboard, iteration_num, creative_direction),
-        _generate_background_music(user_id, storyboard, iteration_num, creative_direction),
+        _generate_global_voiceover(
+            user_id, storyboard, iteration_num, creative_direction
+        ),
+        _generate_background_music(
+            user_id, storyboard, iteration_num, creative_direction
+        ),
     )
 
     # UI Sync Trigger
