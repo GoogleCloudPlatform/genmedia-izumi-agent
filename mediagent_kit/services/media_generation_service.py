@@ -97,7 +97,7 @@ IMAGEN_SIZE: Final = "1K"
 
 
 VEO_MODEL: Final = "veo-3.1-generate-001"
-VEO_R2V_MODEL: Final = "veo-3.1-generate-preview"
+VEO_R2V_MODEL: Final = "veo-3.1-generate-001"
 VEO_DURATIONS = Literal[4, 6, 8]
 VEO_DURATION: Final = 4
 VEO_ASPECT_RATIOS = Literal["16:9", "9:16"]

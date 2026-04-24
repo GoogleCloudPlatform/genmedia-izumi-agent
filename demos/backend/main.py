@@ -12,8 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
 import logging
+import os
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 import pydantic.json_schema as pjs
@@ -39,8 +41,25 @@ from mediagent_kit.server import mount_to_fastapi_app
 # Define the path to the agents directory
 agents_dir = os.path.dirname(os.path.abspath(__file__))
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
+
+# Configure logging with Pacific Time timestamps (Safe Implementation)
+class PTFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.fromtimestamp(record.created, tz=ZoneInfo("America/Los_Angeles"))
+        if datefmt:
+            return dt.strftime(datefmt)
+        return dt.isoformat(sep=" ", timespec="milliseconds")
+
+
+# Force initialization of basic logging if no handlers exist
+if not logging.root.handlers:
+    logging.basicConfig(level=logging.INFO)
+
+# Update all existing handlers to use the PTFormatter
+pt_formatter = PTFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+for handler in logging.root.handlers:
+    handler.setFormatter(pt_formatter)
+logging.root.setLevel(logging.INFO)
 
 # Create the config
 kit_config = MediagentKitConfig(
