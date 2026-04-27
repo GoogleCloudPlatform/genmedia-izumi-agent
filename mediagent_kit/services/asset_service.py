@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import datetime
+import os
 import uuid
 from typing import Any
 
@@ -56,6 +57,7 @@ class AssetService(BaseService):
         music_generate_config: types.MusicGenerateConfig | None = None,
         video_generate_config: types.VideoGenerateConfig | None = None,
         speech_generate_config: types.SpeechGenerateConfig | None = None,
+        gcs_path_override: str | None = None,
     ) -> types.Asset:
         """Saves an asset. If an asset with the same user_id and file_name
         already exists, a new version is created. Otherwise, a new asset is created.
@@ -70,6 +72,7 @@ class AssetService(BaseService):
             music_generate_config: The configuration for generating music.
             video_generate_config: The configuration for generating a video.
             speech_generate_config: The configuration for generating speech.
+            gcs_path_override: The GCS path to save the asset to.
 
         Returns:
             The saved asset.
@@ -84,6 +87,7 @@ class AssetService(BaseService):
             music_generate_config=music_generate_config,
             video_generate_config=video_generate_config,
             speech_generate_config=speech_generate_config,
+            gcs_path_override=gcs_path_override,
         )
 
     def save_asset_from_file(
@@ -97,6 +101,7 @@ class AssetService(BaseService):
         music_generate_config: types.MusicGenerateConfig | None = None,
         video_generate_config: types.VideoGenerateConfig | None = None,
         speech_generate_config: types.SpeechGenerateConfig | None = None,
+        gcs_path_override: str | None = None,
     ) -> types.Asset:
         """Saves an asset from a local file path.
 
@@ -110,6 +115,7 @@ class AssetService(BaseService):
             music_generate_config: The configuration for generating music.
             video_generate_config: The configuration for generating a video.
             speech_generate_config: The configuration for generating speech.
+            gcs_path_override: The GCS path to save the asset to.
 
         Returns:
             The saved asset.
@@ -124,6 +130,7 @@ class AssetService(BaseService):
             music_generate_config=music_generate_config,
             video_generate_config=video_generate_config,
             speech_generate_config=speech_generate_config,
+            gcs_path_override=gcs_path_override,
         )
 
     def _save_asset_impl(
@@ -138,6 +145,7 @@ class AssetService(BaseService):
         music_generate_config: types.MusicGenerateConfig | None = None,
         video_generate_config: types.VideoGenerateConfig | None = None,
         speech_generate_config: types.SpeechGenerateConfig | None = None,
+        gcs_path_override: str | None = None,
     ) -> types.Asset:
         """Internal implementation for saving an asset."""
         if not self._gcs_bucket:
@@ -194,7 +202,15 @@ class AssetService(BaseService):
                     f"Warning: Failed to calculate duration for asset {file_name}: {e}"
                 )
 
-        gcs_path = f"assets/{user_id}/{asset_id}/{new_version_number}/{file_name}"
+        if gcs_path_override:
+            gcs_path = gcs_path_override
+        elif os.environ.get("BATCH_JOB_MODE") == "True":
+            gcs_root = os.environ.get("ASSET_GCS_ROOT", "batch_job")
+            # For batch jobs, we flatten the structure and put assets in an 'assets/' subfolder
+            gcs_path = f"{gcs_root}/{user_id}/assets/{file_name}"
+        else:
+            gcs_path = f"assets/{user_id}/{asset_id}/{new_version_number}/{file_name}"
+
         gcs_blob = self._gcs_bucket.blob(gcs_path)
 
         if blob is not None:

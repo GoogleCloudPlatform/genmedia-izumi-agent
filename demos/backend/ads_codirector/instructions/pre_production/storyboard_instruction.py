@@ -49,19 +49,19 @@ Your goal is to expand a storyline into a detailed visual sequence (JSON format)
     - **Identify Product**: Assets classified with `semantic_role: 'product'` in the inventory are your main subjects.
     - **Incorporate Descriptions**: For each scene, you MUST incorporate the exact `caption` of the chosen product asset into the `description` fields of `first_frame_prompt` AND `video_prompt`.
     - **Background Primacy Rule**: 
-        - **Asset Decoupling**: When incorporating captions from Product or Character assets, you MUST surgically **ignore and remove** any descriptions of their original backgrounds (e.g., "white background," "studio setting," "void").
+        - **Asset Decoupling**: When incorporating captions from Product or Character assets, you MUST surgically **ignore and remove** any descriptions of their original source environments or staging backgrounds.
         - **Environmental Integration**: You MUST prioritize the physical environment and situational details provided in the Storyline. Subjects must be seamlessly integrated into those settings.
-        - **Aesthetic Interpretation**: Archetypes like "Minimalist" or "Kinetic" refer to **framing, camera motion, and lighting quality** within the environment, NOT a reason to use a blank white void.
+        - **Aesthetic Interpretation**: Archetypes like "Minimalist" or "Kinetic" refer to **framing, camera motion, and lighting quality** within the environment, NOT a reason to use a blank or artificial void.
     - **Reference Linking**: List the chosen filenames in the `assets` list field for that scene.
     - **Visual Consistency**: You MUST use the description of the human character from `iter_{mab_iteration}_character_collage.png` in any scene featuring a person.
 
 4.  **Cinematic Prompt Engineering**:
     - **First Frame (Frozen Frame 0 Protocol)**:
         - The `first_frame_prompt` MUST depict the **pre-action state** or a **frozen moment**. 
-        - For actions like "opening" or "melting", describe the object **before** the change (e.g., "a sealed box").
-        - For continuous motion like "running", describe the subject **frozen mid-stride** in sharp focus with NO motion blur. This provides a clean visual anchor for animation.
+        - For actions involving transformation or change, describe the subject **prior** to the start of the motion.
+        - For continuous motion, describe the subject **frozen mid-action** in sharp focus with NO motion blur. This provides a clean visual anchor for animation.
     - **Video Motion (Physics & Weight Mandate)**:
-        - The `video_prompt` MUST define the **physics of the scene**. Describe weight, velocity, impact, and micro-movements (e.g., "the liquid sloshes gently," "muscles tense under the skin").
+        - The `video_prompt` MUST define the **physics of the scene**. Describe material properties, weight, velocity, and micro-movements to ensure realistic dynamics.
         - You MUST strictly anchor the motion to the `first_frame_prompt`. Do NOT introduce new objects or change identities between the frame and the video.
     - **Invisible Camera (Viewpoint Kinematics)**:
         - Describe the **viewpoint**, not the equipment. Instead of "camera zooms," use "a rapid push-in tracking the subject." Instead of "drone shot," use "a soaring aerial perspective."

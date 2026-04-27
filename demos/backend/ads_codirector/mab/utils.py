@@ -18,6 +18,7 @@ import asyncio
 import datetime
 import json
 import logging
+import os
 import re
 import shutil
 import tempfile
@@ -37,7 +38,6 @@ from google.genai import types as genai_types
 
 import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset, Html
-from utils.adk import get_user_id_from_context
 
 from ..mab.bandit import EpsilonGreedyBandit, UCBBandit
 from ..utils import common_utils, mab_model
@@ -75,11 +75,18 @@ async def save_mab_state(mab_state: MabExperimentState, user_id: str) -> Asset:
     json_bytes = mab_state.model_dump_json(indent=2).encode("utf-8")
     file_name = f"{mab_state.experiment_id}_mab_state.json"
 
+    gcs_path_override = None
+    if os.environ.get("BATCH_JOB_MODE") == "True":
+        gcs_root = os.environ.get("ASSET_GCS_ROOT", "batch_job")
+        # Save state JSON at the root of the task folder
+        gcs_path_override = f"{gcs_root}/{user_id}/{file_name}"
+
     asset = await asset_service.save_asset(
         user_id=user_id,
         file_name=file_name,
         blob=json_bytes,
         mime_type="application/json",
+        gcs_path_override=gcs_path_override,
     )
     return asset
 
@@ -152,7 +159,7 @@ async def select_mab_arms(tool_context: ToolContext) -> dict[str, str]:
     if not experiment_id:
         raise ValueError("MAB experiment_id not found in tool context state.")
 
-    user_id = get_user_id_from_context(tool_context)
+    user_id = common_utils.get_user_id(tool_context)
     mab_state, _ = await load_mab_state(user_id, experiment_id)
     if not mab_state:
         raise ValueError(
@@ -245,13 +252,16 @@ async def get_storyboard_instruction_with_mab(ctx) -> str:
 
 
 async def log_mab_iteration_results(tool_context: ToolContext) -> str:
-    """Logs the results and updates the MAB state for the iteration."""
+    """Logs the results and resets the 'ready' flag for the next iteration."""
+    # Reset the flag so prepare_iteration_state can run again for the next loop
+    tool_context.state["mab_iteration_ready"] = False
+
     config = get_mab_config()
     experiment_id = tool_context.state.get(common_utils.MAB_EXPERIMENT_ID_KEY)
     if not experiment_id:
         return tool_failure("MAB experiment_id not found in tool context state.")
 
-    user_id = get_user_id_from_context(tool_context)
+    user_id = common_utils.get_user_id(tool_context)
     mab_state, _ = await load_mab_state(user_id, experiment_id)
     if not mab_state:
         return tool_failure(
@@ -370,10 +380,19 @@ async def log_mab_iteration_results(tool_context: ToolContext) -> str:
 async def initialize_mab_experiment(tool_context: ToolContext) -> str:
     """
     Initializes a new MAB experiment.
+    Idempotency: Reuses existing experiment ID if found in state.
     Hardwired: Performs LLM-driven Warm Start analysis if configured in YAML.
     """
+    # 1. Check for existing experiment ID to prevent double initialization
+    existing_id = tool_context.state.get(common_utils.MAB_EXPERIMENT_ID_KEY)
+    if existing_id:
+        logger.info(
+            f"⏭️ [MAB INITIALIZATION SKIP] Experiment already active. ID: {existing_id}"
+        )
+        return f"MAB experiment already initialized with ID: {existing_id}."
+
     experiment_id = str(uuid.uuid4())
-    user_id = get_user_id_from_context(tool_context)
+    user_id = common_utils.get_user_id(tool_context)
     config = get_mab_config()
 
     user_prompt = tool_context.state.get(common_utils.USER_INPUT_KEY, "N/A")
@@ -494,7 +513,7 @@ async def _create_standalone_html_report(
     Downloads all MAB artifacts and generates a standalone HTML report in a temporary directory.
     Returns the path to the generated HTML file.
     """
-    user_id = get_user_id_from_context(tool_context)
+    user_id = common_utils.get_user_id(tool_context)
     asset_service = mediagent_kit.services.aio.get_asset_service()
 
     # Convert Pydantic model to dict for report generator
@@ -680,8 +699,13 @@ async def _upload_html_report(
                 f"Local report file not found at: {report_path}"
             )
         report_content_bytes = report_path.read_bytes()
-        user_id = get_user_id_from_context(tool_context)
+        user_id = common_utils.get_user_id(tool_context)
         asset_service = mediagent_kit.services.aio.get_asset_service()
+
+        gcs_path_override = None
+        if os.environ.get("BATCH_JOB_MODE") == "True":
+            gcs_root = os.environ.get("ASSET_GCS_ROOT", "batch_job")
+            gcs_path_override = f"{gcs_root}/{user_id}/{report_path.name}"
 
         # 1. Save as a user asset to appear in the Assets tab
         report_asset = await asset_service.save_asset(
@@ -689,6 +713,7 @@ async def _upload_html_report(
             file_name=report_path.name,
             blob=report_content_bytes,
             mime_type="text/html",
+            gcs_path_override=gcs_path_override,
         )
 
         # 2. Also save as a tool artifact (original behavior)
@@ -726,7 +751,7 @@ async def _create_canvas_report(
 
         # 2. Parse HTML and resolve asset URIs to asset IDs
         asset_service = mediagent_kit.services.aio.get_asset_service()
-        user_id = get_user_id_from_context(tool_context)
+        user_id = common_utils.get_user_id(tool_context)
         all_user_assets = await asset_service.list_assets(user_id=user_id)
         asset_map = {asset.file_name: asset for asset in all_user_assets}
 
@@ -771,7 +796,7 @@ async def upload_log_to_gcs(tool_context: ToolContext) -> common_utils.ToolResul
                 "MAB experiment_id not found in tool context state."
             )
 
-        user_id = get_user_id_from_context(tool_context)
+        user_id = common_utils.get_user_id(tool_context)
         mab_state, _ = await load_mab_state(user_id, experiment_id)
         if not mab_state:
             return common_utils.tool_failure(
@@ -806,7 +831,7 @@ async def finalize_and_save_reports(
     if not experiment_id:
         return tool_failure("MAB experiment_id not found in tool context state.")
 
-    user_id = get_user_id_from_context(tool_context)
+    user_id = common_utils.get_user_id(tool_context)
     mab_state, _ = await load_mab_state(user_id, experiment_id)
     if not mab_state:
         return tool_failure(
@@ -819,11 +844,19 @@ async def finalize_and_save_reports(
     # Save the JSON report as a primary user asset
     try:
         json_bytes = mab_state.model_dump_json(indent=2).encode("utf-8")
+        file_name = f"mab_report_{experiment_id}.json"
+
+        gcs_path_override = None
+        if os.environ.get("BATCH_JOB_MODE") == "True":
+            gcs_root = os.environ.get("ASSET_GCS_ROOT", "batch_job")
+            gcs_path_override = f"{gcs_root}/{user_id}/{file_name}"
+
         json_asset = await mediagent_kit.services.aio.get_asset_service().save_asset(
             user_id=user_id,
-            file_name=f"mab_report_{experiment_id}.json",
+            file_name=file_name,
             blob=json_bytes,
             mime_type="application/json",
+            gcs_path_override=gcs_path_override,
         )
         results.append(f"Successfully saved JSON report as asset {json_asset.id}.")
     except Exception as e:
@@ -867,16 +900,15 @@ async def finalize_and_save_reports(
 
 
 def prepare_iteration_state(tool_context: ToolContext) -> str:
-    """Atomic management of iteration state: Increments counter and scrubs artifacts."""
+    """
+    Atomic management of iteration state.
+    Always clears local iteration state; conditionally increments MAB counter.
+    """
     state = tool_context.state
+    user_id = common_utils.get_user_id(tool_context)
 
-    # 1. Increment MAB iteration counter
-    # Initial value is -1 (set in initialize_mab_experiment)
-    current_iter = state.get("mab_iteration", -1)
-    new_iter = current_iter + 1
-    state["mab_iteration"] = new_iter
-
-    # 2. Clear iteration-specific state keys
+    # 1. ALWAYS clear iteration-specific state keys
+    # This ensures that even if we restart the SAME iteration, we start fresh.
     keys_to_clear = [
         common_utils.CREATIVE_BRIEF_KEY,
         common_utils.CREATIVE_DIRECTION_KEY,
@@ -887,13 +919,15 @@ def prepare_iteration_state(tool_context: ToolContext) -> str:
         common_utils.VERIFICATION_RESULT_KEY,
         "storyline_evaluation",
     ]
-
     for key in keys_to_clear:
         state[key] = {}
 
+    # 2. ALWAYS reset local refinement and temporary flags
+    state[common_utils.REFINEMENT_HISTORY_KEY] = []
+    state["temp:storyline_done"] = False
+    state[common_utils.CHARACTER_COLLAGE_ID_KEY] = None
+
     # 3. Scrub previous iteration artifacts (collages) from long-lived asset keys
-    # This prevents the '4+ images' error in R2V by ensuring old collages don't persist
-    # also prevents the Storyboard agent from seeing multiple character collages.
     scrubbed_count = 0
     for asset_key in [
         common_utils.USER_ASSETS_KEY,
@@ -901,20 +935,31 @@ def prepare_iteration_state(tool_context: ToolContext) -> str:
     ]:
         assets_dict = state.get(asset_key, {})
         if isinstance(assets_dict, dict):
-            # Remove any keys starting with 'iter_' (e.g. iter_0_character_collage.png)
             keys_before = set(assets_dict.keys())
             state[asset_key] = {
                 k: v for k, v in assets_dict.items() if not k.startswith("iter_")
             }
             scrubbed_count += len(keys_before - set(state[asset_key].keys()))
 
-    # 4. Clear scalar/ID keys
-    state[common_utils.CHARACTER_COLLAGE_ID_KEY] = None
-    state[common_utils.REFINEMENT_HISTORY_KEY] = []
-    state["temp:storyline_done"] = False
+    # 4. CONDITIONAL increment of MAB counter
+    if state.get("mab_iteration_ready"):
+        current_iter = state.get("mab_iteration", 0)
+        logger.info(
+            f"♻️ [ITERATION RESTART] User: {user_id}, Re-preparing MAB iteration: {current_iter}. Local state cleared."
+        )
+        return f"MAB iteration {current_iter} state has been reset for a clean restart."
+
+    current_iter = state.get("mab_iteration", -1)
+    new_iter = current_iter + 1
+    state["mab_iteration"] = new_iter
+    state["mab_iteration_ready"] = True
+
+    logger.info(
+        f"🔄 [ITERATION START] User: {user_id}, Incrementing MAB iteration: {current_iter} -> {new_iter}"
+    )
 
     msg = f"MAB iteration incremented to {new_iter}. State cleared and {scrubbed_count} artifacts scrubbed."
-    logger.info(f"Atomic State Management: {msg}")
+    logger.info(f"✅ [ITERATION READY] {msg}")
     return msg
 
 
@@ -928,7 +973,7 @@ async def check_mab_loop_status(tool_context: ToolContext) -> str:
     if not experiment_id:
         return "STOP - No experiment initialized."
 
-    user_id = get_user_id_from_context(tool_context)
+    user_id = common_utils.get_user_id(tool_context)
     mab_state, _ = await load_mab_state(user_id, experiment_id)
     if not mab_state:
         return "STOP - State lost."
@@ -983,6 +1028,7 @@ class StorylineRefinementChecker(BaseAgent):
 
         # Filter for storyline attempts
         storyline_attempts = [h for h in history if h.get("stage") == "storyline"]
+        # The number of the attempt we just completed
         attempt_num = len(storyline_attempts) + 1
 
         if storyline and evaluation:
@@ -1012,12 +1058,8 @@ class StorylineRefinementChecker(BaseAgent):
             # Replicate "files are copied" (saving text assets)
             try:
                 asset_service = mediagent_kit.services.aio.get_asset_service()
-                # Robust user ID retrieval from InvocationContext
-                user_id = (
-                    ctx.session.user_id
-                    if hasattr(ctx, "session")
-                    else get_user_id_from_context(ctx)
-                )
+                # Robust user ID retrieval
+                user_id = common_utils.get_user_id(ctx)
                 mab_iter = state.get("mab_iteration", 0)
 
                 logger.info(
@@ -1047,15 +1089,19 @@ class StorylineRefinementChecker(BaseAgent):
         # Use the serialized dict to get the score safely
         score = evaluation_dict.get("score", 0) if evaluation and evaluation_dict else 0
 
+        user_id = common_utils.get_user_id(ctx)
+        mab_iter = state.get("mab_iteration", 0)
+
+        # OFF-BY-ONE FIX: Stop IMMEDIATELY if we hit max_attempts
         if score >= threshold or attempt_num >= max_attempts:
             logger.info(
-                f"Storyline refinement loop finished. Score: {score}, Attempts: {attempt_num}"
+                f"🎯 [STORYLINE DONE] User: {user_id}, MAB Iter: {mab_iter}, Score: {score} (target: {threshold}), Attempt: {attempt_num}/{max_attempts}. Terminating loop."
             )
             state["temp:storyline_done"] = True
             yield Event(author=self.name, actions=EventActions(escalate=True))
         else:
             logger.info(
-                f"Storyline refinement loop continuing. Score: {score}, Attempt: {attempt_num}"
+                f"🔄 [STORYLINE CONTINUE] User: {user_id}, MAB Iter: {mab_iter}, Score: {score} (target: {threshold}), Attempt: {attempt_num}/{max_attempts}. Continuing loop."
             )
             yield Event(author=self.name)
 
@@ -1123,7 +1169,7 @@ class CreativeBriefSaver(BaseAgent):
                 user_id = (
                     ctx.session.user_id
                     if hasattr(ctx, "session")
-                    else get_user_id_from_context(ctx)
+                    else common_utils.get_user_id(ctx)
                 )
                 mab_iter = state.get(common_utils.MAB_ITERATION_KEY, 0)
 
@@ -1175,7 +1221,7 @@ class CreativeDirectionSaver(BaseAgent):
                 user_id = (
                     ctx.session.user_id
                     if hasattr(ctx, "session")
-                    else get_user_id_from_context(ctx)
+                    else common_utils.get_user_id(ctx)
                 )
                 mab_iter = state.get(common_utils.MAB_ITERATION_KEY, 0)
 
@@ -1209,7 +1255,7 @@ class StoryboardSaver(BaseAgent):
                 user_id = (
                     ctx.session.user_id
                     if hasattr(ctx, "session")
-                    else get_user_id_from_context(ctx)
+                    else common_utils.get_user_id(ctx)
                 )
                 mab_iter = state.get("mab_iteration", 0)
 

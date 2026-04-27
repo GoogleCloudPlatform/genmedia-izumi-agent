@@ -112,7 +112,6 @@ async def _generate_single_keyframe(
         reference_image_filenames=cleaned_references,
         aspect_ratio=aspect_ratio,
     )
-    scene["first_frame_prompt"]["asset_id"] = asset.id
     return asset
 
 
@@ -173,9 +172,15 @@ async def produce_refined_keyframes(tool_context: ToolContext) -> ToolResult:
     # Identify global reference mapping for logo-filtering
     annotated_visuals = state.get(common_utils.ANNOTATED_REFERENCE_VISUALS_KEY, {})
 
-    # Initialize assets list with None for all scenes
     num_scenes = len(storyboard["scenes"])
-    best_keyframe_assets: list[Asset | None] = [None] * num_scenes
+
+    # Initialize "Champion" tracking for Best-of-N selection
+    champion_score = -1
+    champion_assets: list[Asset | None] = [None] * num_scenes
+    champion_verification: dict[str, Any] = {}
+
+    # Working set that evolves over cycles
+    current_working_assets: list[Asset | None] = [None] * num_scenes
 
     # In Cycle 0, we must generate EVERYTHING.
     scenes_to_generate = list(range(num_scenes))
@@ -201,30 +206,44 @@ async def produce_refined_keyframes(tool_context: ToolContext) -> ToolResult:
             for i in scenes_to_generate
         ]
 
-        # Capture generated assets and update our "best" set
+        # Capture generated assets and update our current working set
         newly_generated_assets = await asyncio.gather(*tasks)
         from utils.adk import display_asset
 
         for i, new_asset in zip(
             scenes_to_generate, newly_generated_assets, strict=False
         ):
-            best_keyframe_assets[i] = new_asset
+            current_working_assets[i] = new_asset
             await display_asset(tool_context=tool_context, asset_id=new_asset.id)
 
-        # 2. Joint Verification (Always on the full set)
+        # 2. Joint Verification (Always on the full working set)
         verification = await _verify_keyframes_jointly(
-            user_id, storyboard, best_keyframe_assets, iteration_num, cycle
+            user_id, storyboard, current_working_assets, iteration_num, cycle
         )
         score = verification.get("score", 0)
         logger.info(f"Joint Score: {score}/100")
 
-        # 3. Store history PER SCENE (matching reference implementation structure)
+        # 3. Champion Update (Best-of-N check)
+        is_new_champion = score > champion_score
+        if is_new_champion:
+            logger.info(
+                f"🏆 New Champion Sequence found! Score improved: {champion_score} -> {score}"
+            )
+            champion_score = score
+            champion_assets = list(current_working_assets)
+            champion_verification = verification
+        else:
+            logger.warning(
+                f"⚠️ Regression or Stagnation. Current score {score} <= Champion score {champion_score}. Keeping Champion."
+            )
+
+        # 4. Store history PER SCENE (matching reference implementation structure)
         for i, scene in enumerate(storyboard["scenes"]):
             if "first_frame_generation_history" not in scene:
                 scene["first_frame_generation_history"] = []
 
             # Optimization: Only store essential asset info to avoid state bloat
-            asset_data = dataclasses.asdict(best_keyframe_assets[i])
+            asset_data = dataclasses.asdict(current_working_assets[i])
             asset_data["versions"] = []  # Strip deep history
             if "image_generate_config" in asset_data:
                 asset_data["image_generate_config"] = None
@@ -237,6 +256,7 @@ async def produce_refined_keyframes(tool_context: ToolContext) -> ToolResult:
                     "cycle": cycle,
                     "regenerated": i in scenes_to_generate,
                     "asset": asset_data,
+                    "is_champion": is_new_champion,
                     "joint_verification": {
                         "score": score,
                         "feedback": verification.get("feedback"),
@@ -250,7 +270,9 @@ async def produce_refined_keyframes(tool_context: ToolContext) -> ToolResult:
             logger.info("Keyframe sequence passed joint verification.")
             break
 
-        # 3. Determine next batch from verifier feedback
+        # 5. Determine next batch from verifier feedback
+        # Even if we didn't pick this as the champion, we still follow the verifier's 
+        # feedback to try and improve the *current* working set.
         scenes_to_generate = verification.get("problematic_scenes", [])
         if not scenes_to_generate:
             logger.info("No problematic scenes flagged, stopping refinement.")
@@ -260,8 +282,20 @@ async def produce_refined_keyframes(tool_context: ToolContext) -> ToolResult:
             f"Refinement needed for scenes {scenes_to_generate}: {verification.get('actionable_feedback')}"
         )
 
+    # FINAL STEP: Assign the Champion assets to the storyboard
+    logger.info(
+        f"🏁 Refinement concluded. Using Champion Sequence with score: {champion_score}"
+    )
+    for i, (scene, asset) in enumerate(zip(storyboard["scenes"], champion_assets)):
+        if asset:
+            scene["first_frame_prompt"]["asset_id"] = asset.id
+        else:
+            logger.error(f"Missing champion asset for Scene {i}")
+
     state[common_utils.STORYBOARD_KEY] = storyboard
-    return tool_success(f"Keyframes produced and refined over {cycle + 1} cycles.")
+    return tool_success(
+        f"Keyframes produced and refined over {cycle + 1} cycles. Final Score: {champion_score}"
+    )
 
 
 async def generate_production_videos(tool_context: ToolContext) -> ToolResult:

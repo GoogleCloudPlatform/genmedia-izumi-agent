@@ -57,7 +57,7 @@ Below are the dimensions you can choose from, along with their theoretical groun
 Based on the brand, product, and target audience, identify which combination of Creative Strategy, Narrative Mode, and Aesthetic Archetype is most likely to resonate and achieve high performance.
 
 **JOINT CONSIDERATION (CRITICAL):**
-You must consider the combination of arms JOINTLY. Certain strategies pair better with specific narrative modes or aesthetics. For example, a 'transformational' strategy often pairs well with 'cinematic_premium' and 'narrative_drama' to create an emotional connection.
+You must consider the combination of arms JOINTLY. Certain strategies pair better with specific narrative modes or aesthetics to create a cohesive experience. Your selection should ensure that the strategy, structure, and visual style all work together to fulfill the campaign goal.
 
 **4. OUTPUT FORMAT**
 Provide your reasoning, then output your final selection for EACH dimension in the following JSON format.

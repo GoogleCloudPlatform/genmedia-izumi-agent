@@ -31,8 +31,8 @@ You MUST use the specific visual attributes, materials, and textures described i
     - **Product Presence**: The product(s) MUST be the "hero" of the story. Ensure it appears in action or as the focus in at least 80% of scenes.
     - **Human Presence**: You MUST also explicitly include a human character who represents the target audience (e.g., as the driver, user, or observer). This character anchors the demographic relevance of the ad.
     - **Situational Context Mandate**: 
-        - **Situational Anchoring**: Every scene MUST explicitly define a physical setting that resonates with the demographics and situational context (e.g., if the ad is about power outages, describe a setting with low light, emergency supplies, or visible breath).
-        - **Setting Progression**: The narrative MUST move through a logical sequence of varied settings (e.g., Scene 1: Snowy driveway -> Scene 2: Entryway -> Scene 3: Dark kitchen -> Scene 4: Warm hearth). 
+        - **Situational Anchoring**: Every scene MUST explicitly define a physical setting that resonates with the demographics and situational context.
+        - **Setting Progression**: The narrative MUST move through a logical sequence of varied settings that follow the narrative arc from setup to resolution.
         - **Coherence & Variety**: Each setting MUST be a logical successor to the previous one to maintain strict narrative continuity. Unless it makes 100% sense for the storyline, AVOID using the exact same background/setting for all scenes to ensure high engagement.
 4.  **Construct Narrative Arc**: Define a clear setup, confrontation, and resolution.
 5.  **Write Scenes**: Describe the visual action, including both the product's performance and the human character's interaction or reaction, and the physical setting.
