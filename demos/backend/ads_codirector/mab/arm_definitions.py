@@ -51,7 +51,7 @@ THEORY_MAP = {
         "Use upbeat, high-tempo audio to suggest transparency and vitality."
     ),
     "cinematic_premium": (
-        "Chiaroscuro lighting (high contrast/heavy shadows) paired with low-temporal motion (slow dolly/reflective pace). "
+        "Chiaroscuro lighting (high contrast/heavy shadows) paired with low-temporal motion (smooth, sweeping perspectives and a reflective pace). "
         "Use orchestral or ambient cinematic audio for a premium, high-end feel."
     ),
     "minimalist_focus": (
@@ -59,7 +59,7 @@ THEORY_MAP = {
         "Focus on extreme detail and texture, paired with clean foley/ASMR-style audio."
     ),
     "kinetic_grit": (
-        "Low-key/shadowy lighting with dynamic, unstable motion (handheld/FPV drone). "
+        "Low-key/shadowy lighting with dynamic, unstable motion (highly immersive, rapid first-person viewpoints with jittery or intense kinetic energy). "
         "Use driving electronic synth audio to suggest intensity and modern authenticity."
     ),
 }

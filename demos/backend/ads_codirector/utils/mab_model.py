@@ -149,10 +149,10 @@ DESCRIPTION = """{
 }"""
 
 WARM_START_DESCRIPTION = """{
-  "reasoning": "Detailed justification for the joint selection...",
+  "reasoning": "Technical justification for why this specific combination of arms was chosen jointly to resonate with the target audience...",
   "recommendations": {
-    "creative_strategy": "informational",
-    "narrative_mode": "analytical",
-    "aesthetic_archetype": "clarity_energy"
+    "creative_strategy": "<selected_strategy_arm>",
+    "narrative_mode": "<selected_mode_arm>",
+    "aesthetic_archetype": "<selected_archetype_arm>"
   }
 }"""

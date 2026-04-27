@@ -49,6 +49,37 @@ CD_VIDEO_KEY = "cd_video"
 CD_AUDIO_KEY = "cd_audio"
 
 
+from google.adk.agents.readonly_context import ReadonlyContext
+
+
+def get_user_id(ctx: Any) -> str:
+    """Robustly extracts user_id from various ADK context types."""
+    user_id = None
+    try:
+        # 1. Try direct user_id attribute (InvocationContext/ToolContext)
+        if hasattr(ctx, "user_id") and ctx.user_id:
+            user_id = ctx.user_id
+        # 2. Try session.user_id (InvocationContext/ReadonlyContext)
+        elif hasattr(ctx, "session") and ctx.session and ctx.session.user_id:
+            user_id = ctx.session.user_id
+        # 3. Try internal invocation context (ToolContext)
+        elif (
+            hasattr(ctx, "_invocation_context")
+            and ctx._invocation_context
+            and ctx._invocation_context.session
+        ):
+            user_id = ctx._invocation_context.session.user_id
+    except Exception:
+        pass
+
+    if not user_id:
+        # Final fallback
+        logger.warning(f"Could not extract user_id from {type(ctx)}. Using fallback.")
+        user_id = "default_user_agent_engine"
+
+    return user_id
+
+
 def resolve_template(template: str, state: dict[str, Any]) -> str:
     """
     Robustly resolves placeholders in a template string using a provided state.

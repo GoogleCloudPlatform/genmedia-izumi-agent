@@ -33,18 +33,18 @@ Your instructions MUST be generic and based strictly on the theoretical definiti
 Analyze the theoretical definitions of the chosen creative strategy, narrative mode, and aesthetic archetype. Synthesize these into four high-level instructional blocks that will guide downstream production agents. Your goal is to ensure semantic coherence and high-fidelity execution of the hypothesized creative vibe.
 
 1.  **storyline_instruction**:
-    - Describe the narrative structure and pacing (e.g., Setup-Confrontation-Resolution vs. Argument-based).
-    - What is the specific narrative arc given the selected `narrative_mode`?
+    - Describe the narrative structure and pacing based on the chosen creative strategy and narrative mode.
+    - What is the specific narrative arc (e.g., the sequence of major story movements)?
     - How should any subject/entity be integrated into this arc?
 
 2.  **keyframe_instruction**:
     - Define the overall visual style, lighting, and texture.
-    - Describe how a "hero" subject should be presented stylistically (e.g., framing, focus, lighting treatment).
+    - Describe how a "hero" subject should be presented stylistically (e.g., spatial positioning, lighting quality, focal treatment).
     - Provide specific visual descriptors that align with the `aesthetic_archetype`.
 
 3.  **video_instruction**:
     - Define the camera kinematics and temporal dynamics.
-    - Describe the desired camera motion (e.g., slow/measured vs. fast/unstable) and the pacing of the cuts.
+    - Describe the desired camera motion (e.g., the nature of movement through space) and the frequency/style of the cuts.
 
 4.  **audio_instruction**:
     - Specify the genre, tempo, and mood for the background music.

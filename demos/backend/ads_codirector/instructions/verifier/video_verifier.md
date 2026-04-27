@@ -19,11 +19,12 @@ Rate the video on these five strict dimensions. The sum of these scores will be 
     *   **Demographic & Situational Resonance:** Do the physical settings and environmental details correctly reflect the geographical and situational context of the target audience?
     *   **Key Message:** How well do the images fulfill the goal of the original user prompt? Do they capture the target audience, the key message, and the desired tone?
 5.  **Logical & Physical Consistency (0-20 pts):** Check the video for violations of real-world intuition and physical laws.
-    * **Newtonian Physics & Kinematics:** Does motion adhere to gravity, momentum, and inertia? (e.g., check for "floating" footsteps, unnatural acceleration, or objects that lack weight).
-    * **Object Affordance & Interaction:** Are objects and tools used according to their design and function? (e.g., holding items correctly, interacting with interfaces logically, appropriate grip).
-    * **Contextual Logic:** Do the elements in the scene make sense relative to each other? (e.g., clothing appropriate for the setting, weather consistency, logical sequence of cause-and-effect).
+    * **Newtonian Physics & Kinematics:** Does motion adhere to gravity, momentum, and inertia?
+    * **Object Affordance & Interaction:** Are objects and tools used according to their design and function?
+    * **Contextual Logic:** Do the elements in the scene make sense relative to each other?
     * **Situational Integrity:** Do the backgrounds and settings across the video form a coherent, logical, yet varied progression? AVOID stagnant or identical backgrounds unless required by the story.
     * **Visual Permanence:** Do objects or characters maintain their shape and identity, or do they unintentionally morph, melt, or vanish between frames?
+
 
 ## STRATEGIC EFFICACY (0-100 Points Each)
 
