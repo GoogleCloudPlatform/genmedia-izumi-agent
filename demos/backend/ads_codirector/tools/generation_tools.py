@@ -271,7 +271,7 @@ async def produce_refined_keyframes(tool_context: ToolContext) -> ToolResult:
             break
 
         # 5. Determine next batch from verifier feedback
-        # Even if we didn't pick this as the champion, we still follow the verifier's 
+        # Even if we didn't pick this as the champion, we still follow the verifier's
         # feedback to try and improve the *current* working set.
         scenes_to_generate = verification.get("problematic_scenes", [])
         if not scenes_to_generate:
