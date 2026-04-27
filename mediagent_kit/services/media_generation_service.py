@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import base64
+import importlib.metadata
 import json
 import logging
 import random
@@ -105,7 +106,15 @@ VEO_ASPECT_RATIO: Final = "16:9"
 VEO_RESOLUTIONS = Literal["720p", "1080p"]
 VEO_RESOLUTION: Final = "720p"
 
-_USER_AGENT = "Izumi-GenMedia-Agent/0.1.0"
+try:
+    VERSION = importlib.metadata.version("genmedia-izumi-agent")
+except importlib.metadata.PackageNotFoundError:
+    try:
+        VERSION = importlib.metadata.version("mediagent-kit")
+    except importlib.metadata.PackageNotFoundError:
+        VERSION = "0.1.0"
+
+_USER_AGENT = f"mediagent-kit/{VERSION} (+https://github.com/GoogleCloudPlatform/genmedia-izumi-agent)"
 
 
 class MediaGenerationService:
