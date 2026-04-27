@@ -26,10 +26,10 @@ def mock_asset_service():
 
 
 def test_generate_all_media_success(mock_tool_context):
-    from demos.backend.ads_x_template.tools.generation.generation_tools import (
+    from demos.backend.ads_x.tools.generation.generation_tools import (
         generate_all_media,
     )
-    from demos.backend.ads_x_template.utils.common.common_utils import (
+    from demos.backend.ads_x.utils.common.common_utils import (
         STORYBOARD_KEY,
         PARAMETERS_KEY,
     )
@@ -59,11 +59,11 @@ def test_generate_all_media_success(mock_tool_context):
 
     # Mock helpers to avoid real API calls
     with patch(
-        "demos.backend.ads_x_template.utils.generation.generation_helpers.generate_background_music",
+        "demos.backend.ads_x.utils.generation.generation_helpers.generate_background_music",
         new_callable=AsyncMock,
     ) as mock_gen_music:
         with patch(
-            "demos.backend.ads_x_template.tools.generation.generation_tools.generate_scene",
+            "demos.backend.ads_x.tools.generation.generation_tools.generate_scene",
             new_callable=AsyncMock,
         ) as mock_gen_scene:
 
@@ -80,10 +80,10 @@ def test_generate_all_media_success(mock_tool_context):
 
 
 def test_generate_all_media_missing_storyboard(mock_tool_context):
-    from demos.backend.ads_x_template.tools.generation.generation_tools import (
+    from demos.backend.ads_x.tools.generation.generation_tools import (
         generate_all_media,
     )
-    from demos.backend.ads_x_template.utils.common.common_utils import PARAMETERS_KEY
+    from demos.backend.ads_x.utils.common.common_utils import PARAMETERS_KEY
 
     mock_tool_context.state[PARAMETERS_KEY] = {}
 
@@ -96,10 +96,10 @@ def test_generate_all_media_missing_storyboard(mock_tool_context):
 
 
 def test_generate_single_scene_success(mock_tool_context):
-    from demos.backend.ads_x_template.tools.generation.generation_tools import (
+    from demos.backend.ads_x.tools.generation.generation_tools import (
         generate_single_scene,
     )
-    from demos.backend.ads_x_template.utils.common.common_utils import (
+    from demos.backend.ads_x.utils.common.common_utils import (
         STORYBOARD_KEY,
         PARAMETERS_KEY,
     )
@@ -121,7 +121,7 @@ def test_generate_single_scene_success(mock_tool_context):
     mock_tool_context.state[PARAMETERS_KEY] = {"template_name": "Custom"}
 
     with patch(
-        "demos.backend.ads_x_template.tools.generation.generation_tools.generate_scene",
+        "demos.backend.ads_x.tools.generation.generation_tools.generate_scene",
         new_callable=AsyncMock,
     ) as mock_gen_scene:
         mock_gen_scene.return_value = [MagicMock()]
@@ -136,10 +136,10 @@ def test_generate_single_scene_success(mock_tool_context):
 
 @pytest.mark.asyncio
 @patch(
-    "demos.backend.ads_x_template.tools.generation.generation_tools.scene_generation_utils.generate_scene_video"
+    "demos.backend.ads_x.tools.generation.generation_tools.scene_generation_utils.generate_scene_video"
 )
 @patch(
-    "demos.backend.ads_x_template.tools.generation.generation_tools.enrichment_utils.enrich_prompt_with_llm"
+    "demos.backend.ads_x.tools.generation.generation_tools.enrichment_utils.enrich_prompt_with_llm"
 )
 @patch("mediagent_kit.services.aio.get_asset_service")
 @patch("mediagent_kit.services.aio.get_media_generation_service")
@@ -149,7 +149,7 @@ async def test_generate_scene_video_success_internal(
     mock_enrich,
     mock_generate_scene_video,
 ):
-    from demos.backend.ads_x_template.tools.generation.generation_tools import (
+    from demos.backend.ads_x.tools.generation.generation_tools import (
         generate_scene_video,
     )
 
@@ -188,14 +188,12 @@ async def test_generate_scene_video_success_internal(
 
 
 @pytest.mark.asyncio
+@patch("demos.backend.ads_x.tools.generation.generation_tools.generate_scene_video")
 @patch(
-    "demos.backend.ads_x_template.tools.generation.generation_tools.generate_scene_video"
+    "demos.backend.ads_x.tools.generation.generation_tools.generation_helpers.generate_scene_voiceover"
 )
 @patch(
-    "demos.backend.ads_x_template.tools.generation.generation_tools.generation_helpers.generate_scene_voiceover"
-)
-@patch(
-    "demos.backend.ads_x_template.tools.generation.generation_tools.scene_generation_utils.generate_scene_first_frame"
+    "demos.backend.ads_x.tools.generation.generation_tools.scene_generation_utils.generate_scene_first_frame"
 )
 @patch("mediagent_kit.services.aio.get_asset_service")
 async def test_generate_scene_success_internal(
@@ -204,7 +202,7 @@ async def test_generate_scene_success_internal(
     mock_generate_scene_voiceover,
     mock_generate_scene_video,
 ):
-    from demos.backend.ads_x_template.tools.generation.generation_tools import (
+    from demos.backend.ads_x.tools.generation.generation_tools import (
         generate_scene,
     )
 

@@ -9,7 +9,7 @@ from google.adk.agents.sequential_agent import SequentialAgent
 def test_agent_definitions():
     """Verify that agents are defined with correct types and names."""
     # Import inside the test to allow PYTHONPATH to be set correctly
-    from ads_x_template.agent import (
+    from ads_x.agent import (
         parameters_agent,
         user_assets_agent,
         storyboard_agent_creative,
@@ -62,7 +62,7 @@ def test_agent_definitions():
 
 def test_agent_tools():
     """Verify that agents have the expected tools."""
-    from ads_x_template.agent import (
+    from ads_x.agent import (
         parameters_agent,
         user_assets_agent,
         storyboard_agent_creative,

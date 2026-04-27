@@ -57,11 +57,11 @@ def mock_canvas_service():
 
 
 @pytest.mark.asyncio
-@patch("ads_x_template.tools.generation.summary_canvas_tool.get_user_id_from_context")
+@patch("ads_x.tools.generation.summary_canvas_tool.get_user_id_from_context")
 @patch("mediagent_kit.services.aio.get_asset_service")
 @patch("mediagent_kit.services.aio.get_canvas_service")
 @patch(
-    "ads_x_template.tools.generation.summary_canvas_tool.template_library.get_template_by_name"
+    "ads_x.tools.generation.summary_canvas_tool.template_library.get_template_by_name"
 )
 async def test_create_campaign_summary_success(
     mock_get_template,
@@ -84,7 +84,7 @@ async def test_create_campaign_summary_success(
     mock_template.scene_structure = []
     mock_get_template.return_value = mock_template
 
-    from ads_x_template.tools.generation.summary_canvas_tool import (
+    from ads_x.tools.generation.summary_canvas_tool import (
         create_campaign_summary,
     )
 
@@ -96,14 +96,14 @@ async def test_create_campaign_summary_success(
 
 
 @pytest.mark.asyncio
-@patch("ads_x_template.tools.generation.summary_canvas_tool.get_user_id_from_context")
+@patch("ads_x.tools.generation.summary_canvas_tool.get_user_id_from_context")
 async def test_create_campaign_summary_missing_storyboard(
     mock_get_user_id,
     mock_tool_context,
 ):
     mock_tool_context.state = {}  # Empty state
 
-    from ads_x_template.tools.generation.summary_canvas_tool import (
+    from ads_x.tools.generation.summary_canvas_tool import (
         create_campaign_summary,
     )
 

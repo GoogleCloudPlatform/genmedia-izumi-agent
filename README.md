@@ -97,7 +97,7 @@ Built for creators, marketers, and developers, this application provides a hands
 
 Izumi isn't a single monolithic script—it's a distributed suite of specialized AI Agents. This repository contains four discrete AI workspaces, each tuned for a specific creative workflow:
 
-**🎬 Ads-X Template (Flagship)**
+**🎬 Ads-X (Flagship)**
 - Our most powerful enterprise orchestrator.
 - Gives brands granular control over the timing, pacing, and visual progression of an ad.
 - **AI Director Mode:** Autonomously devises narrative pacing while enforcing brand guidelines.
@@ -319,7 +319,7 @@ Izumi is a multi-agent video framework that enables automated multi-shot video g
     <tr>
       <td align="center" style="padding: 12px; background: linear-gradient(135deg, #3742fa 0%, #2f3542 100%); border-radius: 10px; color: white; width: 50%;">
         🤖 Specialized Agents<br/>
-        <small>ads_x_template • creative_toolbox • elements_to_video</small>
+        <small>ads_x • creative_toolbox • elements_to_video</small>
       </td>
       <td width="10"></td>
       <td align="center" style="padding: 12px; background: linear-gradient(135deg, #8c7ae6 0%, #9c88ff 100%); border-radius: 10px; color: white; width: 50%;">

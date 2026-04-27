@@ -20,10 +20,10 @@ def mock_asset_service():
 
 
 def test_rewrite_group_script_success(mock_mediagen_service, mock_asset_service):
-    from demos.backend.ads_x_template.tools.generation.voiceover_tools import (
+    from demos.backend.ads_x.tools.generation.voiceover_tools import (
         rewrite_group_script,
     )
-    from demos.backend.ads_x_template.utils.storyboard.storyboard_model import (
+    from demos.backend.ads_x.utils.storyboard.storyboard_model import (
         VoiceoverGroup,
     )
 
@@ -64,10 +64,10 @@ def test_rewrite_group_script_success(mock_mediagen_service, mock_asset_service)
 
 
 def test_generate_group_voiceover_success(mock_mediagen_service, mock_asset_service):
-    from demos.backend.ads_x_template.tools.generation.voiceover_tools import (
+    from demos.backend.ads_x.tools.generation.voiceover_tools import (
         generate_group_voiceover,
     )
-    from demos.backend.ads_x_template.utils.storyboard.storyboard_model import (
+    from demos.backend.ads_x.utils.storyboard.storyboard_model import (
         VoiceoverGroup,
     )
 
@@ -81,7 +81,7 @@ def test_generate_group_voiceover_success(mock_mediagen_service, mock_asset_serv
 
     # Mock rewrite_group_script to return a string
     with patch(
-        "demos.backend.ads_x_template.tools.generation.voiceover_tools.rewrite_group_script",
+        "demos.backend.ads_x.tools.generation.voiceover_tools.rewrite_group_script",
         new_callable=AsyncMock,
     ) as mock_rewrite:
         mock_rewrite.return_value = "Rewritten script"

@@ -28,7 +28,7 @@ def mock_media_gen_service():
 def test_ingest_assets_existing_descriptions(
     mock_tool_context, mock_asset_service, mock_media_gen_service
 ):
-    from demos.backend.ads_x_template.tools.user_assets.user_assets_tools import (
+    from demos.backend.ads_x.tools.user_assets.user_assets_tools import (
         ingest_assets,
     )
 
@@ -62,7 +62,7 @@ def test_ingest_assets_existing_descriptions(
             result = asyncio.run(ingest_assets(mock_tool_context))
 
             assert result["status"] == "succeeded"
-            from demos.backend.ads_x_template.utils.common.common_utils import (
+            from demos.backend.ads_x.utils.common.common_utils import (
                 USER_ASSETS_KEY,
             )
 
@@ -77,7 +77,7 @@ def test_ingest_assets_existing_descriptions(
 def test_ingest_assets_generate_descriptions(
     mock_tool_context, mock_asset_service, mock_media_gen_service
 ):
-    from demos.backend.ads_x_template.tools.user_assets.user_assets_tools import (
+    from demos.backend.ads_x.tools.user_assets.user_assets_tools import (
         ingest_assets,
     )
 
@@ -112,7 +112,7 @@ def test_ingest_assets_generate_descriptions(
 
             assert result["status"] == "succeeded"
             mock_media_gen_service.generate_text_with_gemini.assert_called_once()
-            from demos.backend.ads_x_template.utils.common.common_utils import (
+            from demos.backend.ads_x.utils.common.common_utils import (
                 USER_ASSETS_KEY,
             )
 
@@ -122,7 +122,7 @@ def test_ingest_assets_generate_descriptions(
 def test_ingest_assets_generate_virtual_creator(
     mock_tool_context, mock_asset_service, mock_media_gen_service
 ):
-    from demos.backend.ads_x_template.tools.user_assets.user_assets_tools import (
+    from demos.backend.ads_x.tools.user_assets.user_assets_tools import (
         ingest_assets,
     )
 
@@ -134,10 +134,10 @@ def test_ingest_assets_generate_virtual_creator(
             return_value=mock_media_gen_service,
         ):
             with patch(
-                "demos.backend.ads_x_template.utils.parameters.parameters_model.Parameters.model_validate"
+                "demos.backend.ads_x.utils.parameters.parameters_model.Parameters.model_validate"
             ) as mock_validate:
                 with patch(
-                    "demos.backend.ads_x_template.tools.user_assets.user_assets_tools.get_user_id_from_context",
+                    "demos.backend.ads_x.tools.user_assets.user_assets_tools.get_user_id_from_context",
                     return_value="test_user",
                 ):
 
@@ -185,7 +185,7 @@ def test_ingest_assets_generate_virtual_creator(
                     mock_media_gen_service.generate_text_with_gemini.assert_called_once()
                     mock_media_gen_service.generate_image_with_gemini.assert_called_once()
 
-                    from demos.backend.ads_x_template.utils.common.common_utils import (
+                    from demos.backend.ads_x.utils.common.common_utils import (
                         VIRTUAL_CREATOR_KEY,
                     )
 

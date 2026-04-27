@@ -1,5 +1,5 @@
 import pytest
-from demos.backend.ads_x_template.utils.storyboard.pacing_blueprints import (
+from demos.backend.ads_x.utils.storyboard.pacing_blueprints import (
     get_pacing_options_json,
     get_blueprint_for_count,
     matches_any_preset,

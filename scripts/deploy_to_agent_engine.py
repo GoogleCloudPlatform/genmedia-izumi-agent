@@ -70,7 +70,7 @@ os.chdir(tmp_bundle_dir)
 
 # Import the agent object from the bundle
 try:
-    from ads_x_template.agent import root_agent
+    from ads_x.agent import root_agent
 except ImportError as e:
     print(f"❌ Error importing agent from bundle: {e}")
     shutil.rmtree(tmp_bundle_dir)
@@ -97,7 +97,7 @@ requirements = [
 
 # 4. Define extra packages
 extra_packages = [
-    "ads_x_template",
+    "ads_x",
     "mediagent_kit",
 ]
 
@@ -116,7 +116,7 @@ print("📦 Packaging and deploying to Agent Engine...")
 try:
     remote_agent = agent_engines.create(
         agent_engine=root_agent,
-        display_name="Ads-X Template Agent",
+        display_name="Ads-X Agent",
         description="Cinematic Ad Generation Agent with Templated and Creative modes.",
         requirements=requirements,
         extra_packages=extra_packages,

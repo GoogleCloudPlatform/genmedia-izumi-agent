@@ -22,7 +22,7 @@ Izumi isn't a single monolithic script—it's a distributed suite of specialized
 
 | Agent | Best For | Control Level | Key Tech |
 | :--- | :--- | :--- | :--- |
-| **🎬 [Ads-X Template](./ads_x_template)** | Enterprise ads with strict timing and brand guidelines. | High (Template-driven) | Gemini, Imagen, Veo |
+| **🎬 [Ads-X](./ads_x)** | Enterprise ads with dual profiles: strict template timing or dynamic AI Director pacing. | High / Dynamic | Gemini, Imagen, Veo |
 | **🧬 [Elements to Video](./elements_to_video)** | Maintaining character or product consistency across shots. | Medium | Gemini, Imagen, Veo |
 | **🎨 [Creative Toolbox](./creative_toolbox)** | One-off asset generation and experimentation. | Manual/Chat | Gemini, Imagen, Veo |
 
@@ -55,7 +55,7 @@ The backend leverages a standardized toolchain provided by the `mediagent_kit` w
 To add a new specialized agent to the ecosystem, follow these detailed steps:
 
 1. **Create the Agent Directory**: 
-   Create a new directory under `demos/backend/` (e.g., `demos/backend/my_new_agent`). We recommend following the pattern established by `ads_x_template`:
+   Create a new directory under `demos/backend/` (e.g., `demos/backend/my_new_agent`). We recommend following the pattern established by `ads_x`:
    ```text
    my_new_agent/
    ├── __init__.py

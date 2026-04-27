@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
-from demos.backend.ads_x_template.utils.generation.generation_helpers import (
+from demos.backend.ads_x.utils.generation.generation_helpers import (
     generate_background_music,
     generate_scene_voiceover,
     build_global_context_string,
@@ -75,7 +75,7 @@ async def test_generate_scene_voiceover_success(
 @pytest.mark.asyncio
 @patch("mediagent_kit.services.aio.get_media_generation_service")
 @patch(
-    "demos.backend.ads_x_template.utils.common.enrichment_utils.shorten_script",
+    "demos.backend.ads_x.utils.common.enrichment_utils.shorten_script",
     new_callable=AsyncMock,
 )
 async def test_generate_scene_voiceover_too_long_shorten(

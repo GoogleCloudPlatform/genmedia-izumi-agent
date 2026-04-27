@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
-from ads_x_template.utils.common.scene_generation_utils import (
+from ads_x.utils.common.scene_generation_utils import (
     generate_scene_first_frame,
     generate_scene_video,
 )
@@ -10,7 +10,7 @@ from ads_x_template.utils.common.scene_generation_utils import (
 @pytest.mark.asyncio
 @patch("mediagent_kit.services.aio.get_media_generation_service")
 @patch(
-    "ads_x_template.utils.common.enrichment_utils.enrich_prompt_with_llm",
+    "ads_x.utils.common.enrichment_utils.enrich_prompt_with_llm",
     new_callable=AsyncMock,
 )
 async def test_generate_scene_first_frame_success(
@@ -76,7 +76,7 @@ async def test_generate_scene_video_success(mock_get_media_gen_service):
 @pytest.mark.asyncio
 @patch("mediagent_kit.services.aio.get_media_generation_service")
 @patch(
-    "ads_x_template.utils.common.enrichment_utils.enrich_prompt_with_llm",
+    "ads_x.utils.common.enrichment_utils.enrich_prompt_with_llm",
     new_callable=AsyncMock,
 )
 async def test_generate_scene_first_frame_failure(

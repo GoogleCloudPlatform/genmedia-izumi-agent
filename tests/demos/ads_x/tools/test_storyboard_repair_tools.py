@@ -25,7 +25,7 @@ def mock_asset_service():
 
 
 def test_finalize_and_persist_storyboard_valid(mock_tool_context):
-    from demos.backend.ads_x_template.tools.storyboard.storyboard_repair_tools import (
+    from demos.backend.ads_x.tools.storyboard.storyboard_repair_tools import (
         finalize_and_persist_storyboard,
     )
 
@@ -92,7 +92,7 @@ def test_finalize_and_persist_storyboard_valid(mock_tool_context):
 def test_finalize_and_persist_storyboard_repair(
     mock_tool_context, mock_mediagen_service, mock_asset_service
 ):
-    from demos.backend.ads_x_template.tools.storyboard.storyboard_repair_tools import (
+    from demos.backend.ads_x.tools.storyboard.storyboard_repair_tools import (
         finalize_and_persist_storyboard,
     )
 
@@ -178,7 +178,7 @@ def test_finalize_and_persist_storyboard_repair(
 
 
 def test_finalize_and_persist_storyboard_validation_failure(mock_tool_context):
-    from demos.backend.ads_x_template.tools.storyboard.storyboard_repair_tools import (
+    from demos.backend.ads_x.tools.storyboard.storyboard_repair_tools import (
         finalize_and_persist_storyboard,
     )
 

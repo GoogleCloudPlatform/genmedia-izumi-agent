@@ -23,7 +23,7 @@ Unlike the highly structured templates which orchestrate rigid, end-to-end comme
 
 ## 🧩 Architectural Role
 
-- **When to invoke `ads_x_template`**: Use for end-to-end, multi-scene marketing campaign orchestration.
+- **When to invoke `ads_x`**: Use for end-to-end, multi-scene marketing campaign orchestration.
 - **When to invoke `creative_toolbox`**: Use for rapid prototyping, generating single creative assets on demand, iterating a flawed concept, or experimenting with prompt engineering semantics before placing assets on a timeline.
 
 ## 🛠️ The Tools

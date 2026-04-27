@@ -1,13 +1,13 @@
 <div align="center">
-  <h1>🎬 Ads-X Template</h1>
+  <h1>🎬 Ads-X</h1>
   <p><strong>The Flagship Campaign Orchestrator</strong></p>
 </div>
 
 ---
 
-## 📖 What is the Template Agent?
+## 📖 What is Ads-X Agent?
 
-The `ads_x_template` is Izumi's flagship, production-grade video orchestrator providing granular, enterprise-level pacing and structural constraints.
+The `ads_x` is Izumi's flagship, production-grade video orchestrator providing granular, enterprise-level pacing and structural constraints.
 
 The defining characteristic of this agent is its capacity to run in two distinct operational profiles tailored for different marketing needs: **Template Mode** and **AI Director Mode**.
 

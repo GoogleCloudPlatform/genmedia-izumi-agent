@@ -7,7 +7,7 @@
 
 ## 📖 Overview
 
-The `mediagent_kit/services` directory is the heavy-lifting engine of the backend orchestration framework. It provides the isolated controller classes that connect our conceptual agent frameworks (`creative_toolbox`, `ads_x_template`) to the persistent Google Cloud Platform infrastructure.
+The `mediagent_kit/services` directory is the heavy-lifting engine of the backend orchestration framework. It provides the isolated controller classes that connect our conceptual agent frameworks (`creative_toolbox`, `ads_x`) to the persistent Google Cloud Platform infrastructure.
 
 Using the Factory Design Pattern (`service_factory.py`), backend tasks request instances of these services to execute long-running asynchronous ML jobs, construct FFmpeg assembly pipelines natively without locking the API threads, and manage Firestore data blobs securely.
 

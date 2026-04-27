@@ -11,10 +11,10 @@ def mock_tool_context():
 
 
 def test_map_strategy_to_metadata_custom(mock_tool_context):
-    from demos.backend.ads_x_template.tools.strategy.strategy_tools import (
+    from demos.backend.ads_x.tools.strategy.strategy_tools import (
         map_strategy_to_metadata,
     )
-    from demos.backend.ads_x_template.utils.common.common_utils import PARAMETERS_KEY
+    from demos.backend.ads_x.utils.common.common_utils import PARAMETERS_KEY
 
     # Setup state with Parameters
     mock_tool_context.state[PARAMETERS_KEY] = {
@@ -39,10 +39,10 @@ def test_map_strategy_to_metadata_custom(mock_tool_context):
 
 
 def test_map_strategy_to_metadata_sanitize(mock_tool_context):
-    from demos.backend.ads_x_template.tools.strategy.strategy_tools import (
+    from demos.backend.ads_x.tools.strategy.strategy_tools import (
         map_strategy_to_metadata,
     )
-    from demos.backend.ads_x_template.utils.common.common_utils import PARAMETERS_KEY
+    from demos.backend.ads_x.utils.common.common_utils import PARAMETERS_KEY
 
     # Setup state with Parameters and template != Custom
     mock_tool_context.state[PARAMETERS_KEY] = {
@@ -59,7 +59,7 @@ def test_map_strategy_to_metadata_sanitize(mock_tool_context):
 
 
 def test_map_strategy_to_metadata_no_params(mock_tool_context):
-    from demos.backend.ads_x_template.tools.strategy.strategy_tools import (
+    from demos.backend.ads_x.tools.strategy.strategy_tools import (
         map_strategy_to_metadata,
     )
 

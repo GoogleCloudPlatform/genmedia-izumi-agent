@@ -83,5 +83,6 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_FILE="logs/app_$TIMESTAMP.log"
 
 echo "Starting application... Logging to $LOG_FILE"
+export PATH="$HOME/.local/bin:$PATH"
 cd demos/backend
 uv run uvicorn main:app --reload --use-colors --app-dir . --reload-dir . --reload-dir ../../mediagent_kit 2>&1 | tee "../../$LOG_FILE"

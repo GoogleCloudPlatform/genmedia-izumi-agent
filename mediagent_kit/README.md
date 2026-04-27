@@ -12,7 +12,7 @@
 
 ## 📖 Overview
 
-The `mediagent_kit` is the core Python Software Development Kit (SDK) that powers the entire GenMedia Izumi architecture. While the orchestrator pipelines (like `ads_x_template` and `creative_toolbox`) define *what* video an agent should make, the `mediagent_kit` defines exactly *how* to safely and asynchronously communicate with Google Cloud infrastructure to execute it.
+The `mediagent_kit` is the core Python Software Development Kit (SDK) that powers the entire GenMedia Izumi architecture. While the orchestrator pipelines (like `ads_x` and `creative_toolbox`) define *what* video an agent should make, the `mediagent_kit` defines exactly *how* to safely and asynchronously communicate with Google Cloud infrastructure to execute it.
 
 By completely decoupling this layer from the specific front-end or back-end implementations, the `mediagent_kit` empowers developers to instantiate secure Vertex AI generation wrappers, ffmpeg handlers, and database listeners natively in their own applications.
 
@@ -21,7 +21,7 @@ By completely decoupling this layer from the specific front-end or back-end impl
 ```mermaid
 graph TD
     subgraph Demos
-        D2[Ads-X Template]
+        D2[Ads-X]
     end
     subgraph mediagent_kit
         API[api: REST Controllers]

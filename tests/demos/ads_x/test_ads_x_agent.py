@@ -3,7 +3,7 @@ from google.adk.agents import llm_agent, sequential_agent
 
 
 def test_ads_x_agent_definitions():
-    from ads_x_template.agent import (
+    from ads_x.agent import (
         parameters_agent,
         user_assets_agent,
         storyboard_agent_creative,

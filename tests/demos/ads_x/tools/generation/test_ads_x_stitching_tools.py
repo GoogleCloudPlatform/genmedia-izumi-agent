@@ -56,15 +56,13 @@ def mock_canvas_service():
 
 
 @pytest.mark.asyncio
-@patch("ads_x_template.tools.generation.stitching_tools.get_user_id_from_context")
-@patch("ads_x_template.tools.generation.stitching_tools.get_session_id_from_context")
+@patch("ads_x.tools.generation.stitching_tools.get_user_id_from_context")
+@patch("ads_x.tools.generation.stitching_tools.get_session_id_from_context")
 @patch("mediagent_kit.services.aio.get_asset_service")
 @patch("mediagent_kit.services.aio.get_video_stitching_service")
 @patch("mediagent_kit.services.aio.get_canvas_service")
-@patch("ads_x_template.tools.generation.stitching_tools.display_asset")
-@patch(
-    "ads_x_template.tools.generation.stitching_tools.template_library.get_template_by_name"
-)
+@patch("ads_x.tools.generation.stitching_tools.display_asset")
+@patch("ads_x.tools.generation.stitching_tools.template_library.get_template_by_name")
 async def test_stitch_final_video_success(
     mock_get_template,
     mock_display_asset,
@@ -91,7 +89,7 @@ async def test_stitch_final_video_success(
 
     mock_display_asset.return_value = "Success"
 
-    from ads_x_template.tools.generation.stitching_tools import stitch_final_video
+    from ads_x.tools.generation.stitching_tools import stitch_final_video
 
     result = await stitch_final_video(mock_tool_context)
 
@@ -102,8 +100,8 @@ async def test_stitch_final_video_success(
 
 
 @pytest.mark.asyncio
-@patch("ads_x_template.tools.generation.stitching_tools.get_user_id_from_context")
-@patch("ads_x_template.tools.generation.stitching_tools.get_session_id_from_context")
+@patch("ads_x.tools.generation.stitching_tools.get_user_id_from_context")
+@patch("ads_x.tools.generation.stitching_tools.get_session_id_from_context")
 async def test_stitch_final_video_missing_storyboard(
     mock_get_session_id,
     mock_get_user_id,
@@ -111,7 +109,7 @@ async def test_stitch_final_video_missing_storyboard(
 ):
     mock_tool_context.state = {}  # Empty state
 
-    from ads_x_template.tools.generation.stitching_tools import stitch_final_video
+    from ads_x.tools.generation.stitching_tools import stitch_final_video
 
     result = await stitch_final_video(mock_tool_context)
 
@@ -120,15 +118,13 @@ async def test_stitch_final_video_missing_storyboard(
 
 
 @pytest.mark.asyncio
-@patch("ads_x_template.tools.generation.stitching_tools.get_user_id_from_context")
-@patch("ads_x_template.tools.generation.stitching_tools.get_session_id_from_context")
+@patch("ads_x.tools.generation.stitching_tools.get_user_id_from_context")
+@patch("ads_x.tools.generation.stitching_tools.get_session_id_from_context")
 @patch("mediagent_kit.services.aio.get_asset_service")
 @patch("mediagent_kit.services.aio.get_video_stitching_service")
 @patch("mediagent_kit.services.aio.get_canvas_service")
-@patch("ads_x_template.tools.generation.stitching_tools.display_asset")
-@patch(
-    "ads_x_template.tools.generation.stitching_tools.template_library.get_template_by_name"
-)
+@patch("ads_x.tools.generation.stitching_tools.display_asset")
+@patch("ads_x.tools.generation.stitching_tools.template_library.get_template_by_name")
 async def test_stitch_final_video_ugc_logic(
     mock_get_template,
     mock_display_asset,
@@ -155,7 +151,7 @@ async def test_stitch_final_video_ugc_logic(
 
     mock_display_asset.return_value = "Success"
 
-    from ads_x_template.tools.generation.stitching_tools import stitch_final_video
+    from ads_x.tools.generation.stitching_tools import stitch_final_video
 
     result = await stitch_final_video(mock_tool_context)
 

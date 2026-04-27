@@ -30,7 +30,7 @@ def mock_asset_service():
 def test_extract_campaign_parameters_success(
     mock_tool_context, mock_media_gen_service, mock_asset_service
 ):
-    from demos.backend.ads_x_template.tools.parameters.parameters_tools import (
+    from demos.backend.ads_x.tools.parameters.parameters_tools import (
         extract_campaign_parameters,
     )
 
@@ -84,7 +84,7 @@ def test_extract_campaign_parameters_success(
 def test_extract_campaign_parameters_json_cleaning(
     mock_tool_context, mock_media_gen_service, mock_asset_service
 ):
-    from demos.backend.ads_x_template.tools.parameters.parameters_tools import (
+    from demos.backend.ads_x.tools.parameters.parameters_tools import (
         extract_campaign_parameters,
     )
 

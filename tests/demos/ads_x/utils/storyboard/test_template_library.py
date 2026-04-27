@@ -14,7 +14,7 @@
 
 """Tests for template_library.py."""
 
-from demos.backend.ads_x_template.utils.storyboard.template_library import (
+from demos.backend.ads_x.utils.storyboard.template_library import (
     get_all_templates,
     get_template_by_name,
     suggest_template,

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch, AsyncMock
-from demos.backend.ads_x_template.utils.common.enrichment_utils import (
+from demos.backend.ads_x.utils.common.enrichment_utils import (
     enrich_prompt_with_llm,
     shorten_script,
 )

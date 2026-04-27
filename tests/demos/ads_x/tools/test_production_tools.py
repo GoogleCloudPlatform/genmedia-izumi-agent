@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 
 
 def test_recommend_production_recipe_social_native():
-    from demos.backend.ads_x_template.tools.storyboard.production_tools import (
+    from demos.backend.ads_x.tools.storyboard.production_tools import (
         recommend_production_recipe,
     )
 
@@ -16,7 +16,7 @@ def test_recommend_production_recipe_social_native():
 
 
 def test_recommend_production_recipe_commercial_premium():
-    from demos.backend.ads_x_template.tools.storyboard.production_tools import (
+    from demos.backend.ads_x.tools.storyboard.production_tools import (
         recommend_production_recipe,
     )
 
@@ -27,7 +27,7 @@ def test_recommend_production_recipe_commercial_premium():
 
 
 def test_recommend_production_recipe_with_theme():
-    from demos.backend.ads_x_template.tools.storyboard.production_tools import (
+    from demos.backend.ads_x.tools.storyboard.production_tools import (
         recommend_production_recipe,
     )
 
