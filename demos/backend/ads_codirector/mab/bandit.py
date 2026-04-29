@@ -99,13 +99,17 @@ class EpsilonGreedyBandit:
     def update_reward(
         self,
         iteration_num: int,
-        mab_choices: dict[str, Any],
+        mab_choices: dict[str, str],
         verification_result: dict[str, Any],
     ) -> dict[str, Any]:
+        # pylint: disable=unused-argument
         """Updates the reward and history for the chosen arms and returns the new state."""
         # FACTORED REWARD: Extract dimension-specific efficacy scores if available
         # This aligns with the 'Independent Credit Assignment' requirement in the paper.
-        efficacy_scores = verification_result.get("mab_efficacy_scores", {})
+        if isinstance(verification_result, dict):
+            efficacy_scores = verification_result.get("mab_efficacy_scores", {})
+        else:
+            efficacy_scores = getattr(verification_result, "mab_efficacy_scores", {})
 
         # Robustly extract the global score as fallback
         if isinstance(verification_result, dict):
@@ -238,13 +242,17 @@ class UCBBandit:
     def update_reward(
         self,
         iteration_num: int,
-        mab_choices: dict[str, Any],
+        mab_choices: dict[str, str],
         verification_result: dict[str, Any],
     ) -> dict[str, Any]:
+        # pylint: disable=unused-argument
         """Updates the reward and history for the chosen arms and returns the new state."""
         # FACTORED REWARD: Extract dimension-specific efficacy scores if available
         # This aligns with the 'Independent Credit Assignment' requirement in the paper.
-        efficacy_scores = verification_result.get("mab_efficacy_scores", {})
+        if isinstance(verification_result, dict):
+            efficacy_scores = verification_result.get("mab_efficacy_scores", {})
+        else:
+            efficacy_scores = getattr(verification_result, "mab_efficacy_scores", {})
 
         # Robustly extract the global score as fallback
         if isinstance(verification_result, dict):

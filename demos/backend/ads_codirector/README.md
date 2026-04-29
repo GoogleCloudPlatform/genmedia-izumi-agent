@@ -19,7 +19,8 @@ The Co-Director implements three foundational research concepts:
 2.  **Global Optimization via MAB**: Uses a **Multi-Armed Bandit** to sample creative configurations. It employs a **Factored Reward Signal** to independently update expected values for Strategy, Mode, and Aesthetics, effectively bypassing the credit assignment problem.
 3.  **Local Agentic Self-Refinement**: Implements "feedback descent" to iteratively refine storylines and keyframes. Intermediate artifacts are evaluated by MLLMs and regenerated based on textual feedback before propagating downstream.
 
-> **Read the full paper**: [Co-Director: Agentic Generative Video Storytelling](https://arxiv.org/abs/TODO) (Arxiv TODO)
+> **Project Webpage**: [https://co-director-agent.github.io/](https://co-director-agent.github.io/)
+> **Read the full paper**: [Co-Director: Agentic Generative Video Storytelling](https://arxiv.org/abs/2604.24842) (arXiv:2604.24842)
 
 ---
 

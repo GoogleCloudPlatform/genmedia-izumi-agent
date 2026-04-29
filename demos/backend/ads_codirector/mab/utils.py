@@ -29,10 +29,8 @@ from typing import Any, AsyncGenerator
 import yaml
 from google.adk.agents import BaseAgent
 from google.adk.agents.invocation_context import InvocationContext
-from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.events import Event, EventActions
 from google.adk.tools import ToolContext
-from google.adk.utils import instructions_utils
 from google.adk.utils.context_utils import Aclosing
 from google.genai import types as genai_types
 
@@ -40,7 +38,7 @@ import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset, Html
 
 from ..mab.bandit import EpsilonGreedyBandit, UCBBandit
-from ..utils import common_utils, mab_model
+from ..utils import common_utils
 from ..utils.common_utils import tool_failure, tool_success, ToolResult
 from ..utils.mab_model import (
     ArmsSelected,
@@ -57,10 +55,10 @@ _MAB_CONFIG_PATH = Path(__file__).parent.parent / "config.yaml"
 class DateTimeEncoder(json.JSONEncoder):
     """Custom JSON encoder for datetime objects."""
 
-    def default(self, obj):
-        if isinstance(obj, datetime.datetime | datetime.date | datetime.time):
-            return obj.isoformat()
-        return super().default(obj)
+    def default(self, o):
+        if isinstance(o, datetime.datetime | datetime.date | datetime.time):
+            return o.isoformat()
+        return super().default(o)
 
 
 def get_mab_config():
@@ -488,7 +486,7 @@ async def initialize_mab_experiment(tool_context: ToolContext) -> str:
             logger.info(f"[MAB Warm Start] Recommendations: {recommendations}")
             logger.info(f"[MAB Warm Start] Reasoning: {reasoning}")
 
-            log_msg += f" Warm-up completed using joint strategy analysis."
+            log_msg += " Warm-up completed using joint strategy analysis."
 
         except Exception as e:
             logger.error(
