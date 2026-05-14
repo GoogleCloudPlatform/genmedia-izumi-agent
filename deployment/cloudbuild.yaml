@@ -63,6 +63,10 @@ steps:
     - '${_LOCATION}'
     - '--timeout'
     - '3600'
+    - '--set-env-vars'
+    - 'FIRESTORE_DATABASE_ID=${_FIRESTORE_DATABASE_ID},GOOGLE_CLOUD_PROJECT=${_PROJECT_ID},ASSET_SERVICE_GCS_BUCKET=${_ASSET_SERVICE_GCS_BUCKET},ARTIFACT_SERVICE_GCS_BUCKET=${_ARTIFACT_SERVICE_GCS_BUCKET},GOOGLE_CLOUD_LOCATION=global,GOOGLE_GENAI_USE_VERTEXAI=True'
+
+# Frontend deploy removed
 
 # Specify the images to be built
 images:
@@ -74,6 +78,9 @@ substitutions:
   _LOCATION: 'us-central1'
   _ARTIFACT_REGISTRY_REPO: 'genmedia-images'
   _IMAGE_NAME: 'genmedia-agent'
+  _FIRESTORE_DATABASE_ID: ''
+  _ASSET_SERVICE_GCS_BUCKET: ''
+  _ARTIFACT_SERVICE_GCS_BUCKET: ''
   _PROJECT_ID: ''
   _SERVICE_NAME: ''
   _CLOUD_BUILD_SA_RESOURCE_NAME: ''

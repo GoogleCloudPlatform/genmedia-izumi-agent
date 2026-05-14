@@ -53,12 +53,18 @@ def load_config() -> Config:
     Loads configuration from the correct .env file and returns a Config object.
     """
     app_env = os.environ.get("APP_ENV", "local")
-    dotenv_path = f".env.{app_env}"
+    current_dir = os.path.dirname(__file__)
+    dotenv_path = os.path.join(current_dir, f".env.{app_env}")
 
     if os.path.exists(dotenv_path):
         load_dotenv(dotenv_path=dotenv_path, override=True)
     else:
-        load_dotenv()
+        # Fallback to checking in current working directory
+        dotenv_path = f".env.{app_env}"
+        if os.path.exists(dotenv_path):
+            load_dotenv(dotenv_path=dotenv_path, override=True)
+        else:
+            load_dotenv()
 
     if "pytest" not in sys.modules:
         check_firestore_emulator()

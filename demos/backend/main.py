@@ -87,11 +87,11 @@ eval_set_results_manager = LocalEvalSetResultsManager(agents_dir=agents_dir)
 
 
 class FilteredAgentLoader(AgentLoader):
-    """Subclass of AgentLoader that ignores non-agent directories like 'utils'."""
+    """Subclass of AgentLoader that ignores non-agent directories like 'utils' and 'dist'."""
 
     def list_agents(self) -> list[str]:
         agents = super().list_agents()
-        return [a for a in agents if a not in ["utils"]]
+        return [a for a in agents if a not in ["utils", "dist"]]
 
 
 # Instantiate the other default services
@@ -165,4 +165,12 @@ app.openapi = make_openapi(app)
 # This mounts the API endpoints and the default kit UIs (ADK Web, Debug UI)
 mount_to_fastapi_app(app)
 
-# Frontend is served independently.
+# Serve frontend static files
+from fastapi.staticfiles import StaticFiles
+import os
+
+dist_path = os.path.join(os.path.dirname(__file__), "dist")
+if os.path.exists(dist_path):
+    app.mount("/", StaticFiles(directory=dist_path, html=True), name="static")
+else:
+    print(f"[mediagent_kit] Static files directory not found at {dist_path}")

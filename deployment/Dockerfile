@@ -12,6 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Stage 1: Build the frontend
+FROM node:20-alpine AS frontend-builder
+WORKDIR /app/demos/frontend
+COPY demos/frontend/package*.json ./
+RUN npm install
+COPY demos/frontend ./
+RUN npm run build
+
+# Stage 2: Build the backend
 FROM python:3.12.9-slim
 WORKDIR /app
 
@@ -31,14 +40,20 @@ ENV APP_ENV=${APP_ENV}
 
 # Copy dependency definition and the local mediagent_kit dependency
 COPY demos/backend/pyproject.toml /app/demos/backend/
+COPY demos/backend/uv.lock /app/demos/backend/
 COPY mediagent_kit /app/mediagent_kit
+COPY pyproject.toml /app/
+COPY uv.lock /app/
 
-# Install dependencies (uv sync will look at ../mediagent_kit as per tool.uv.sources in pyproject.toml)
+# Install dependencies (uv sync will look at ../.. as per tool.uv.sources in pyproject.toml)
 WORKDIR /app/demos/backend
 RUN uv sync --no-dev --no-cache
 
 # Copy the rest of the application files
 COPY demos/backend /app/demos/backend
+
+# Copy frontend build artifacts
+COPY --from=frontend-builder /app/demos/frontend/dist /app/demos/backend/dist
 
 # Change ownership
 RUN chown -R myuser:myuser /app
