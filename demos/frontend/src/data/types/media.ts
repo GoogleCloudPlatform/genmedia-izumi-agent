@@ -56,6 +56,7 @@ export type GeminiImageAspectRatio =
 export const GeminiImageModel = {
   GEMINI_2_5_FLASH_IMAGE: 'gemini-2.5-flash-image',
   GEMINI_3_PRO_IMAGE: 'gemini-3-pro-image-preview',
+  GEMINI_3_1_FLASH_IMAGE: 'gemini-3.1-flash-image-preview',
 } as const;
 export type GeminiImageModel =
   (typeof GeminiImageModel)[keyof typeof GeminiImageModel];
