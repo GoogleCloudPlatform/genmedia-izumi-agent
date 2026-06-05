@@ -22,6 +22,7 @@ from google.adk.tools import ToolContext
 from utils.adk import get_user_id_from_context
 from ...utils.common import common_utils
 from ...utils.storyboard import template_library
+from ...utils.common.creative_studio_adapter import with_creative_studio_adapter, get_asset_service, get_active_adapter, get_canvas_service
 
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
@@ -164,6 +165,8 @@ CSS = """
 """
 
 
+
+@with_creative_studio_adapter
 async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
     """Generates a visual HTML summary of the campaign and saves it as a Canvas."""
     import logging
@@ -172,13 +175,30 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
     logger.error(
         "⭐⭐⭐ [NATIVE TOOL INVOCATION] `create_campaign_summary` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
     )
+    
+    adapter = get_active_adapter()
+    if adapter and adapter.use_studio:
+        config = mediagent_kit.services._get_service_factory().get_config()
+        creative_studio_frontend_url = config.creative_studio_frontend_url
+        if creative_studio_frontend_url:
+            creative_studio_frontend_url = creative_studio_frontend_url.rstrip("/")
+            storyboard_id = tool_context.state.get("current_storyboard_id")
+            if storyboard_id:
+                deep_link = f"{creative_studio_frontend_url}/asset-detail/{storyboard_id}"
+                return tool_success(f"[View Campaign Summary in Creative Studio]({deep_link})")
+            else:
+                logger.warning("storyboard_id not found in tool_context.state")
+
+        logger.info("Creative Studio mode active. Bypassing campaign summary HTML generation.")
+        return tool_success("Campaign summary successfully synchronized directly to Creative Studio workspace.")
+
     storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
     if not storyboard:
         return tool_failure("No storyboard found in state.")
 
     user_id = get_user_id_from_context(tool_context)
-    asset_service = mediagent_kit.services.aio.get_asset_service()
-    canvas_service = mediagent_kit.services.aio.get_canvas_service()
+    asset_service = get_asset_service()
+    canvas_service = get_canvas_service()
 
     # Get Template Definition
     template_name = storyboard.get("template_name", "Custom")

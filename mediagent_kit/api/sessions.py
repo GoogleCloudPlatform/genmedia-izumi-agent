@@ -17,11 +17,10 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends
 from google.adk.sessions.session import Session
+from google.adk.sessions.base_session_service import BaseSessionService
 
-from mediagent_kit.services.aio import (
-    FirestoreSessionService,
-    get_firestore_session_service,
-)
+from mediagent_kit.services.aio import get_session_service
+from mediagent_kit.services import _get_service_factory
 
 logger = logging.getLogger(__name__)
 
@@ -31,8 +30,8 @@ router = APIRouter()
 EVAL_SESSION_ID_PREFIX = "___eval___session___"
 
 
-def get_session_service() -> FirestoreSessionService:
-    return get_firestore_session_service()
+def get_api_session_service() -> BaseSessionService:
+    return get_session_service()
 
 
 @router.get(
@@ -42,12 +41,17 @@ def get_session_service() -> FirestoreSessionService:
 )
 async def list_sessions(
     user_id: str,
-    session_service: Annotated[FirestoreSessionService, Depends(get_session_service)],
+    session_service: Annotated[BaseSessionService, Depends(get_api_session_service)],
+    app_name: str | None = None,
 ) -> list[Session]:
     """
     Lists all sessions for a specific user.
     """
-    response = await session_service.list_sessions(user_id=user_id)
+    if not app_name:
+        config = _get_service_factory().get_config()
+        app_name = config.agent_engine_id or "mediagent"
+
+    response = await session_service.list_sessions(app_name=app_name, user_id=user_id)
 
     filtered_sessions = []
     for session in response.sessions:

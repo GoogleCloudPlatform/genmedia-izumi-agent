@@ -430,10 +430,14 @@ class MediaGenerationService:
         ]
         contents.append(types.Part.from_text(text=prompt))
 
-        client = self._get_genai_client()
-        response = self._generate_gemini_text_content(
-            client=client, model=model, contents=contents
-        )
+        try:
+            client = self._get_genai_client()
+            response = self._generate_gemini_text_content(
+                client=client, model=model, contents=contents
+            )
+        except Exception as e:
+            logger.error(f"Gemini API call failed: {e}")
+            raise RuntimeError(f"Gemini generation failed: {e}") from e
 
         if response.prompt_feedback and response.prompt_feedback.block_reason:
             error_message = f"Text generation failed. The prompt was blocked for reason: {response.prompt_feedback.block_reason.name}"

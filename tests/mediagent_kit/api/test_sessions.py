@@ -17,8 +17,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock
 
-from mediagent_kit.api.sessions import router, get_session_service
-from mediagent_kit.services.aio import FirestoreSessionService
+from mediagent_kit.api.sessions import router, get_api_session_service
+from google.adk.sessions.base_session_service import BaseSessionService
 
 app = FastAPI()
 app.include_router(router)
@@ -26,12 +26,12 @@ app.include_router(router)
 
 @pytest.fixture
 def mock_session_service():
-    return AsyncMock(spec=FirestoreSessionService)
+    return AsyncMock(spec=BaseSessionService)
 
 
 @pytest.fixture
 def client(mock_session_service):
-    app.dependency_overrides[get_session_service] = lambda: mock_session_service
+    app.dependency_overrides[get_api_session_service] = lambda: mock_session_service
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

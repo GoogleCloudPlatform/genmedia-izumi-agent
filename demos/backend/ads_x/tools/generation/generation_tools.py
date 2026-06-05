@@ -27,6 +27,7 @@ import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 
 from ...utils.common import common_utils, enrichment_utils, scene_generation_utils
+from ...utils.common.creative_studio_adapter import get_asset_service, get_media_generation_service, with_creative_studio_adapter
 from ...utils.storyboard import template_library, storyboard_model
 from ...utils.generation import grouping_utils, generation_helpers
 from . import voiceover_tools
@@ -57,13 +58,13 @@ async def generate_scene_video(
     # Idempotency: Skip if already generated
     if video_prompt_data.get("asset_id"):
         logger.info(f"Video for scene {index} already exists. Skipping generation.")
-        asset_service = mediagent_kit.services.aio.get_asset_service()
+        asset_service = get_asset_service()
         video_asset = await asset_service.get_asset(video_prompt_data["asset_id"])
         return [first_frame_asset, video_asset] if first_frame_asset else [video_asset]
 
     logger.info(f"Generating video for scene {index}")
-    mediagent_service = mediagent_kit.services.aio.get_media_generation_service()
-    asset_service = mediagent_kit.services.aio.get_asset_service()
+    mediagent_service = get_media_generation_service()
+    asset_service = get_asset_service()
     voiceover_text = scene.get("voiceover_prompt", {}).get("text", "")
 
     if not first_frame_asset:
@@ -149,7 +150,7 @@ async def generate_scene(
         logger.info(
             f"First frame for scene {index} already exists. Skipping generation."
         )
-        asset_service = mediagent_kit.services.aio.get_asset_service()
+        asset_service = get_asset_service()
         first_frame_asset = await asset_service.get_asset(
             first_frame_prompt["asset_id"]
         )
@@ -216,6 +217,7 @@ async def generate_scene(
     return results
 
 
+@with_creative_studio_adapter
 async def generate_all_media(tool_context: ToolContext) -> ToolResult:
     """Generates the media for all scenes in the storyboard."""
     logger.error(
@@ -414,6 +416,7 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
     )
 
 
+@with_creative_studio_adapter
 async def generate_single_scene(
     tool_context: ToolContext, scene_index: int
 ) -> ToolResult:

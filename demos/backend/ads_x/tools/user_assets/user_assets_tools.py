@@ -33,6 +33,10 @@ tool_success = common_utils.tool_success
 tool_failure = common_utils.tool_failure
 
 
+from ...utils.common.creative_studio_adapter import with_creative_studio_adapter, get_asset_service, get_media_generation_service
+
+
+@with_creative_studio_adapter
 async def ingest_assets(tool_context: ToolContext) -> ToolResult:
     """Ingests user-provided assets."""
     user_id = get_user_id_from_context(tool_context)
@@ -41,8 +45,8 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
     )
     logger.info(f"Ingesting assets for user_id: {user_id}")
 
-    asset_service = mediagent_kit.services.aio.get_asset_service()
-    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
+    asset_service = get_asset_service()
+    mediagen_service = get_media_generation_service()
 
     # 1. List all assets for the user
     all_assets = await asset_service.list_assets(user_id=user_id)
@@ -59,6 +63,16 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
     }
 
     user_assets: dict[str, str] = {}
+    if (
+        tool_context.state
+        and common_utils.USER_ASSETS_KEY in tool_context.state
+    ):
+        session_user_assets = tool_context.state[common_utils.USER_ASSETS_KEY]
+        logger.info(f"assets to preserve {session_user_assets}") # Remove
+        if isinstance(session_user_assets, dict):
+            user_assets.update(session_user_assets)
+            logger.info(f"Preserved {len(session_user_assets)} user assets from session state.")
+
     assets_to_describe = []
 
     for asset in image_assets:

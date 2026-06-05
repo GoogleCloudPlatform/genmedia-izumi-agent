@@ -34,6 +34,9 @@ tool_success = common_utils.tool_success
 tool_failure = common_utils.tool_failure
 
 
+from ...utils.common.creative_studio_adapter import with_creative_studio_adapter, get_asset_service, get_canvas_service
+
+@with_creative_studio_adapter
 async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
     """Combines the generated media from the storyboard into a final video."""
     logger.error(
@@ -48,7 +51,7 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
     user_id = get_user_id_from_context(tool_context)
     session_id = get_session_id_from_context(tool_context)
 
-    asset_service = mediagent_kit.services.aio.get_asset_service()
+    asset_service = get_asset_service()
     video_stitching_service = mediagent_kit.services.aio.get_video_stitching_service()
 
     # Identify if current run is UGC
@@ -251,8 +254,7 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
         transitions=transitions,
     )
 
-    # Canvas Logic
-    canvas_service = mediagent_kit.services.aio.get_canvas_service()
+    canvas_service = get_canvas_service()
     canvas = await canvas_service.create_canvas(
         user_id=user_id,
         title=timeline.title,
@@ -275,13 +277,21 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
 
     import os
 
-    IZUMI_BASE_URL = os.environ.get("IZUMI_STUDIO_URL")
-    if not IZUMI_BASE_URL:
-        # Fallback to backend service URL if in Cloud Run, otherwise Local
-        IZUMI_BASE_URL = os.environ.get(
-            "CLOUD_RUN_SERVICE_URL", "http://localhost:5173"
-        )
-    izumi_deep_link = f"{IZUMI_BASE_URL}/studio/#/project/{user_id}/chat/{session_id}?contentTab=canvas&canvasId={canvas.id}"
-    success_message = f"[View Video Timeline in Izumi Studio]({izumi_deep_link})"
+    config = mediagent_kit.services._get_service_factory().get_config()
+    creative_studio_frontend_url = config.creative_studio_frontend_url
+
+    if creative_studio_frontend_url:
+        creative_studio_frontend_url = creative_studio_frontend_url.rstrip("/")
+        deep_link = f"{creative_studio_frontend_url}/asset-detail/{stitched_asset.id}"
+        success_message = f"[View Video Timeline in Creative Studio]({deep_link})"
+    else:
+        IZUMI_BASE_URL = os.environ.get("IZUMI_STUDIO_URL")
+        if not IZUMI_BASE_URL:
+            # Fallback to backend service URL if in Cloud Run, otherwise Local
+            IZUMI_BASE_URL = os.environ.get(
+                "CLOUD_RUN_SERVICE_URL", "http://localhost:5173"
+            )
+        izumi_deep_link = f"{IZUMI_BASE_URL}/studio/#/project/{user_id}/chat/{session_id}?contentTab=canvas&canvasId={canvas.id}"
+        success_message = f"[View Video Timeline in Izumi Studio]({izumi_deep_link})"
 
     return tool_success(success_message)

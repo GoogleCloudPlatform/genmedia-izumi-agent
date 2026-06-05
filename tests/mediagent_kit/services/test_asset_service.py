@@ -196,3 +196,121 @@ def test_delete_asset(service, mock_bucket):
 
         mock_gcs_blob.delete.assert_called_once()
         mock_doc_ref.delete.assert_called_once()
+
+
+def test_creative_studio_get_asset_blob(mock_db, mock_bucket, mock_config):
+    from mediagent_kit.services.creative_studio_asset_service import CreativeStudioAssetService
+
+    mock_config.creative_studio_backend_url = "https://example.com"
+    mock_config.google_cloud_project = "test-project"
+
+    with patch.object(AssetService, "_get_collection") as mock_get_col:
+        service = CreativeStudioAssetService(mock_db, mock_bucket, mock_config)
+    mock_bucket.name = "test-bucket"
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "id": "asset-123",
+        "metadata": {
+            "fileName": "test_image.png",
+            "mimeType": "image/png"
+        },
+        "gcsUris": ["gs://creative-studio-bucket/path/to/test_image.png"]
+    }
+
+    with patch("mediagent_kit.services.creative_studio_asset_service.httpx.Client") as mock_client_cls, \
+         patch("google.cloud.storage.Client") as mock_storage_client_cls, \
+         patch("mediagent_kit.services.creative_studio_asset_service.get_google_id_token", return_value="mock-id-token"):
+
+        mock_client = MagicMock()
+        mock_client.get.return_value = mock_response
+        mock_client_cls.return_value.__enter__.return_value = mock_client
+
+        mock_storage_client = MagicMock()
+        mock_storage_bucket = MagicMock()
+        mock_storage_blob = MagicMock()
+        mock_storage_blob.download_as_bytes.return_value = b"raw image bytes"
+
+        mock_storage_client.bucket.return_value = mock_storage_bucket
+        mock_storage_bucket.blob.return_value = mock_storage_blob
+        mock_storage_client_cls.return_value = mock_storage_client
+
+        from mediagent_kit.utils.context import set_request_context, reset_request_context
+        token = set_request_context(user_auth_token="dummy-auth-token", workspace_id="workspace-123")
+        try:
+            blob = service.get_asset_blob(
+                asset_id="asset-123"
+            )
+        finally:
+            reset_request_context(token)
+
+        assert blob.content == b"raw image bytes"
+        assert blob.file_name == "test_image.png"
+        assert blob.mime_type == "image/png"
+
+        mock_client.get.assert_called_once_with(
+            "https://example.com/api/gallery/item/asset-123",
+            headers={
+                "X-User-Authorization": "Bearer dummy-auth-token",
+                "Content-Type": "application/json",
+                "Authorization": "Bearer mock-id-token"
+            },
+            timeout=30.0
+        )
+        mock_storage_client_cls.assert_called_once_with(project="test-project")
+        mock_storage_client.bucket.assert_called_once_with("creative-studio-bucket")
+        mock_storage_bucket.blob.assert_called_once_with("path/to/test_image.png")
+
+
+def test_creative_studio_save_asset_with_context(mock_db, mock_bucket, mock_config):
+    from mediagent_kit.services.creative_studio_asset_service import CreativeStudioAssetService
+
+    mock_config.creative_studio_backend_url = "https://example.com"
+    mock_config.google_cloud_project = "test-project"
+
+    with patch.object(AssetService, "_get_collection") as mock_get_col:
+        service = CreativeStudioAssetService(mock_db, mock_bucket, mock_config)
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "id": "asset-123",
+        "created_at": "2026-06-03T12:00:00Z",
+        "gcs_uri": "gs://creative-studio-bucket/path/to/test_video.mp4"
+    }
+
+    with patch("mediagent_kit.services.creative_studio_asset_service.httpx.Client") as mock_client_cls, \
+         patch("mediagent_kit.services.creative_studio_asset_service.get_google_id_token", return_value="mock-id-token"):
+
+        mock_client = MagicMock()
+        mock_client.post.return_value = mock_response
+        mock_client_cls.return_value.__enter__.return_value = mock_client
+
+        from mediagent_kit.utils.context import set_request_context, reset_request_context
+        token = set_request_context(user_auth_token="dummy-auth-token", workspace_id="workspace-123")
+        try:
+            asset = service.save_asset(
+                user_id="user-123",
+                file_name="test_video.mp4",
+                blob=b"raw video bytes",
+                mime_type="video/mp4"
+            )
+        finally:
+            reset_request_context(token)
+
+        assert asset is not None
+        assert asset.id == "asset-123"
+        assert asset.file_name == "test_video.mp4"
+
+        mock_client.post.assert_called_once()
+        call_kwargs = mock_client.post.call_args.kwargs
+        assert call_kwargs["headers"] == {
+            "X-User-Authorization": "Bearer dummy-auth-token",
+            "Authorization": "Bearer mock-id-token"
+        }
+        assert call_kwargs["data"] == {
+            "workspaceId": "workspace-123",
+            "scope": "private",
+            "assetType": "generic_video"
+        }

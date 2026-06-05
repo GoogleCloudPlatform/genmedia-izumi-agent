@@ -135,7 +135,7 @@ generation_agent = llm_agent.LlmAgent(
     name="generation_agent",
     description="Agent that generates all media and stitches them together.",
     model="gemini-2.5-flash",
-    instruction=generation_instruction.INSTRUCTION,
+    instruction=generation_instruction.get_generation_instruction,
     tools=[
         FunctionTool(generation_tools.generate_all_media),
         FunctionTool(stitching_tools.stitch_final_video),

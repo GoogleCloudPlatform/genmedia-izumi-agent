@@ -14,7 +14,25 @@
 
 """Instructions for the Ads X template agent."""
 
-INSTRUCTION = """
+from google.adk.agents.readonly_context import ReadonlyContext
+import mediagent_kit
+
+def get_generation_instruction(ctx: ReadonlyContext) -> str:
+    config = mediagent_kit.services._get_service_factory().get_config()
+    creative_studio_frontend_url = config.creative_studio_frontend_url
+
+    if creative_studio_frontend_url:
+        link_note = "Creative Studio"
+        studio_name = "Creative Studio"
+        link_1 = "*   [View Video in Creative Studio]([Insert exact Video Link from stitch_final_video])"
+        link_2 = "*   [View Storyboard and timeline in Creative Studio]([Insert exact Summary Link from create_campaign_summary])"
+    else:
+        link_note = "Izumi Studio"
+        studio_name = "Izumi Studio"
+        link_1 = "*   [View Video Timeline in Izumi Studio]([Insert exact Video Link from stitch_final_video])"
+        link_2 = "*   [View Campaign Summary in Izumi Studio]([Insert exact Summary Link from create_campaign_summary])"
+
+    return f"""
 You are the **Media Generation & Delivery Agent**.
 
 **Your Goal:**
@@ -29,10 +47,10 @@ You are the FINAL step of the pipeline. You must provide the "Grand Finale" repo
 
 🎬 **Production Complete!** Cinematic magic assembled, rendered, and stitched.
 
-🚀 **Deliverables Ready!** Access your results in the Izumi Studio:
+🚀 **Deliverables Ready!** Access your results in the {studio_name}:
 
-*   [View Video Timeline in Izumi Studio]([Insert exact Video Link from stitch_final_video])
-*   [View Campaign Summary in Izumi Studio]([Insert exact Summary Link from create_campaign_summary])
+{link_1}
+{link_2}
 
-*(Note: The links open the visual dashboard in Izumi Studio)*
+*(Note: The links open the visual dashboard in {link_note})*
 """

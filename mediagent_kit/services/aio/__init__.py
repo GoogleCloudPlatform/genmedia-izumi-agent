@@ -20,6 +20,7 @@ from .async_services import (
     AsyncVideoStitchingService,
 )
 from .firestore_session_service import FirestoreSessionService
+from google.adk.sessions.base_session_service import BaseSessionService
 from .service_factory import AsyncServiceFactory
 
 _async_service_factory: AsyncServiceFactory | None = None
@@ -60,6 +61,10 @@ def get_firestore_session_service() -> FirestoreSessionService:
     return _get_async_service_factory().get_firestore_session_service()
 
 
+def get_session_service() -> BaseSessionService:
+    return _get_async_service_factory().get_session_service()
+
+
 __all__ = [
     "AsyncAssetService",
     "AsyncCanvasService",
@@ -67,9 +72,11 @@ __all__ = [
     "AsyncMediaGenerationService",
     "AsyncVideoStitchingService",
     "FirestoreSessionService",
+    "BaseSessionService",
     "get_asset_service",
     "get_canvas_service",
     "get_firestore_session_service",
+    "get_session_service",
     "get_job_service",
     "get_media_generation_service",
     "get_video_stitching_service",

@@ -172,6 +172,84 @@ async def test_blob_interceptor_callback_with_blob(mock_get_asset_service):
     assert result is None
 
 
+@pytest.mark.asyncio
+@patch("utils.adk.Client")
+@patch("mediagent_kit.services.aio.get_asset_service")
+async def test_blob_interceptor_callback_with_session_artifact(mock_get_asset_service, mock_client_cls):
+    mock_callback_context = MagicMock()
+    mock_llm_request = MagicMock()
+
+    mock_part = MagicMock()
+    mock_part.text = " <start_of_user_uploaded_file: test_artifact.png> user message <end_of_user_uploaded_file: test_artifact.png> "
+    del mock_part.inline_data  # Ensure it behaves as a text part, not a blob part
+
+    mock_content = MagicMock()
+    mock_content.role = "user"
+    mock_content.parts = [mock_part]
+
+    mock_llm_request.contents = [mock_content]
+
+    mock_state = {
+        "parameters": {},
+        "user_assets": {}
+    }
+    mock_callback_context.state = mock_state
+
+    mock_asset_service_inst = MagicMock()
+    mock_get_asset_service.return_value = mock_asset_service_inst
+
+    saved_assets = []
+    async def mock_save_asset(user_id, mime_type, file_name, blob, **kwargs):
+        saved_assets.append({
+            "user_id": user_id,
+            "mime_type": mime_type,
+            "file_name": file_name,
+            "blob": blob
+        })
+        return "asset_id_123"
+
+    mock_asset_service_inst.save_asset = mock_save_asset
+
+    mock_artifact_part = MagicMock()
+    mock_artifact_part.inline_data.mime_type = "image/png"
+    mock_artifact_part.inline_data.data = b"artifact raw bytes"
+
+    async def mock_load_artifact(filename, version=None):
+        if filename == "test_artifact.png":
+            return mock_artifact_part
+        return None
+
+    mock_callback_context.load_artifact = mock_load_artifact
+
+    # Mock GenAI client for generate_image_description call
+    mock_client_inst = MagicMock()
+    mock_client_cls.return_value = mock_client_inst
+    mock_response = MagicMock()
+    mock_response.text = "A beautiful test image description."
+    async def mock_generate_content(*args, **kwargs):
+        return mock_response
+    mock_client_inst.aio.models.generate_content = mock_generate_content
+
+    from utils.adk import blob_interceptor_callback
+
+    result = await blob_interceptor_callback(mock_callback_context, mock_llm_request)
+    assert result is None
+    
+    # Assert asset service save was called correctly
+    assert len(saved_assets) == 1
+    assert saved_assets[0]["file_name"] == "test_artifact.png"
+    assert saved_assets[0]["mime_type"] == "image/png"
+    assert saved_assets[0]["blob"] == b"artifact raw bytes"
+
+    # Assert description was generated and registered in session state
+    assert mock_state["user_assets"]["test_artifact.png"] == "A beautiful test image description."
+
+    # Assert tags were cleaned up and system note was appended
+    assert "start_of_user_uploaded_file" not in mock_part.text
+    assert "end_of_user_uploaded_file" not in mock_part.text
+    assert "System note: The file 'test_artifact.png' was uploaded as an asset to Creative Studio." in mock_part.text
+
+
 @patch("utils.tracing.CloudTraceSpanExporter.export")
 def test_exporter_export_large_payload(mock_super_export):
     with patch("utils.tracing.storage.Client") as mock_storage_client_cls:

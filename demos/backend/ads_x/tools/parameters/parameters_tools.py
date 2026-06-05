@@ -28,6 +28,9 @@ from ...instructions.parameters import (
 logger = logging.getLogger(__name__)
 
 
+from ...utils.common.creative_studio_adapter import with_creative_studio_adapter, get_asset_service, get_media_generation_service
+
+@with_creative_studio_adapter
 async def extract_campaign_parameters(
     tool_context: ToolContext, user_brief: str
 ) -> str:
@@ -41,7 +44,7 @@ async def extract_campaign_parameters(
     )
     logger.info("Extracting campaign parameters via background tool...")
 
-    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
+    mediagen_service = get_media_generation_service()
     user_id = tool_context.state.get("user_id", "default_user")
 
     from utils.adk import get_session_id_from_context
@@ -60,7 +63,7 @@ async def extract_campaign_parameters(
     )
 
     # Get the blob content
-    asset_service = mediagent_kit.services.aio.get_asset_service()
+    asset_service = get_asset_service()
     blob = await asset_service.get_asset_blob(extraction_result.id)
     raw_json = blob.content.decode().strip()
 

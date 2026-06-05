@@ -23,6 +23,7 @@ from .assets import (
     SpeechGenerateConfig,
     TextGenerateConfig,
     VideoGenerateConfig,
+    CreativeStudioAsset,
 )
 from .canvases import Canvas, Html
 from .jobs import Job, JobStatus, JobType
@@ -57,4 +58,5 @@ __all__ = [
     "VideoClip",
     "VideoGenerateConfig",
     "VideoTimeline",
+    "CreativeStudioAsset",
 ]

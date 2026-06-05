@@ -17,11 +17,17 @@ This package contains the services used by the application.
 
 from mediagent_kit.services import aio
 from mediagent_kit.services.asset_service import AssetService
+from mediagent_kit.services.creative_studio_asset_service import (
+    CreativeStudioAssetService,
+)
 from mediagent_kit.services.base_service import BaseService
 from mediagent_kit.services.canvas_service import CanvasService
 from mediagent_kit.services.job_orchestrator_service import JobOrchestratorService
 from mediagent_kit.services.job_service import JobService
 from mediagent_kit.services.media_generation_service import MediaGenerationService
+from mediagent_kit.services.creative_studio_media_generation_service import (
+    CreativeStudioMediaGenerationService,
+)
 from mediagent_kit.services.service_factory import ServiceFactory
 from mediagent_kit.services.video_stitching_service import VideoStitchingService
 from mediagent_kit.utils.background_job_runner import AbstractBackgroundJobRunner
@@ -78,11 +84,13 @@ def get_video_stitching_service() -> VideoStitchingService:
 
 __all__ = [
     "AssetService",
+    "CreativeStudioAssetService",
     "BaseService",
     "CanvasService",
     "JobOrchestratorService",
     "JobService",
     "MediaGenerationService",
+    "CreativeStudioMediaGenerationService",
     "ServiceFactory",
     "VideoStitchingService",
     "_get_job_orchestrator_service",

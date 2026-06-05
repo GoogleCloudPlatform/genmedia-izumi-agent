@@ -190,3 +190,48 @@ def test_ingest_assets_generate_virtual_creator(
                     )
 
                     assert VIRTUAL_CREATOR_KEY in mock_tool_context.state
+
+
+def test_ingest_assets_preserves_session_assets(
+    mock_tool_context, mock_asset_service, mock_media_gen_service
+):
+    from demos.backend.ads_x.tools.user_assets.user_assets_tools import (
+        ingest_assets,
+    )
+
+    with patch(
+        "mediagent_kit.services.aio.get_asset_service", return_value=mock_asset_service
+    ):
+        with patch(
+            "mediagent_kit.services.aio.get_media_generation_service",
+            return_value=mock_media_gen_service,
+        ):
+            # Setup session state with existing assets
+            mock_tool_context.state = {
+                "user_assets": {
+                    "session_file.png": "Description generated from callback"
+                },
+                "parameters": {
+                    "campaign_name": "Test Campaign",
+                    "campaign_brief": "Test Brief",
+                    "generate_virtual_creator": False
+                }
+            }
+
+            # Simulate no assets listed from DB
+            mock_asset_service.list_assets.return_value = []
+
+            import asyncio
+            result = asyncio.run(ingest_assets(mock_tool_context))
+
+            assert result["status"] == "succeeded"
+            from demos.backend.ads_x.utils.common.common_utils import (
+                USER_ASSETS_KEY,
+            )
+
+            # Assert that the session assets were preserved and populated in state
+            assert "session_file.png" in mock_tool_context.state[USER_ASSETS_KEY]
+            assert (
+                mock_tool_context.state[USER_ASSETS_KEY]["session_file.png"]
+                == "Description generated from callback"
+            )

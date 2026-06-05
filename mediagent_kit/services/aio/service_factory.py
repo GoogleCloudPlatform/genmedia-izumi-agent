@@ -17,7 +17,8 @@ import functools
 from mediagent_kit.services import service_factory as sync_service_factory
 from mediagent_kit.services.aio import async_services as services
 from mediagent_kit.services.aio.firestore_session_service import FirestoreSessionService
-
+from google.adk.sessions.base_session_service import BaseSessionService
+from google.adk.sessions import VertexAiSessionService
 
 class AsyncServiceFactory:
     def __init__(self, sync_factory: sync_service_factory.ServiceFactory):
@@ -54,3 +55,15 @@ class AsyncServiceFactory:
             asset_service=self.get_asset_service(),
             config=self._sync_factory.get_config(),
         )
+
+    @functools.cache
+    def get_session_service(self) -> BaseSessionService:
+        config = self._sync_factory.get_config()
+        if config.use_agent_engine:
+            return VertexAiSessionService(
+                project=config.google_cloud_project,
+                location=config.google_cloud_location,
+                agent_engine_id=config.agent_engine_id,
+            )
+        else:
+            return self.get_firestore_session_service()

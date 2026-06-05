@@ -57,3 +57,30 @@ def test_ads_x_agent_definitions():
     # Verify Root Agent
     assert root_agent.name == "ads_x_agent"
     assert len(root_agent.sub_agents) == 1
+
+
+from unittest.mock import MagicMock, patch
+
+@patch("mediagent_kit.services._get_service_factory")
+def test_generation_instruction_dynamic_resolution(mock_get_service_factory):
+    from ads_x.instructions.generation.generation_instruction import get_generation_instruction
+
+    mock_config = MagicMock()
+    mock_config.creative_studio_frontend_url = None
+    mock_factory = MagicMock()
+    mock_factory.get_config.return_value = mock_config
+    mock_get_service_factory.return_value = mock_factory
+
+    ctx = MagicMock()
+    
+    # When creative_studio_frontend_url is None
+    inst_izumi = get_generation_instruction(ctx)
+    assert "Izumi Studio" in inst_izumi
+    assert "Creative Studio" not in inst_izumi
+
+    # When creative_studio_frontend_url is set
+    mock_config.creative_studio_frontend_url = "https://test.creative.studio"
+    inst_cs = get_generation_instruction(ctx)
+    assert "Creative Studio" in inst_cs
+    assert "Izumi Studio" not in inst_cs
+

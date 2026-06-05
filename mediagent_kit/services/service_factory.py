@@ -25,6 +25,9 @@ from google.cloud import storage  # type: ignore
 
 from mediagent_kit.config import MediagentKitConfig
 from mediagent_kit.services.asset_service import AssetService
+from mediagent_kit.services.creative_studio_asset_service import (
+    CreativeStudioAssetService,
+)
 from mediagent_kit.services.canvas_service import CanvasService
 from mediagent_kit.services.job_orchestrator_service import JobOrchestratorService
 from mediagent_kit.services.job_service import JobService
@@ -73,6 +76,12 @@ class ServiceFactory:
     @functools.cache
     def get_asset_service(self) -> AssetService:
         """Returns a singleton instance of the AssetService."""
+        if self.get_config().use_creative_studio:
+            return CreativeStudioAssetService(
+                db=self._get_db(),
+                gcs_bucket=self._get_gcs_bucket(),
+                config=self.get_config(),
+            )
         return AssetService(
             db=self._get_db(),
             gcs_bucket=self._get_gcs_bucket(),
@@ -96,6 +105,14 @@ class ServiceFactory:
     @functools.cache
     def get_media_generation_service(self) -> MediaGenerationService:
         """Returns a singleton instance of the MediaGenerationService."""
+        if self.get_config().use_creative_studio:
+            from mediagent_kit.services.creative_studio_media_generation_service import (
+                CreativeStudioMediaGenerationService,
+            )
+
+            return CreativeStudioMediaGenerationService(  # type: ignore
+                asset_service=self.get_asset_service(), config=self.get_config()
+            )
         return MediaGenerationService(
             asset_service=self.get_asset_service(), config=self.get_config()
         )

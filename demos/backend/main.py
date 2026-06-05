@@ -67,13 +67,17 @@ kit_config = MediagentKitConfig(
     google_cloud_location=settings.GOOGLE_CLOUD_LOCATION,
     asset_service_gcs_bucket=settings.ASSET_SERVICE_GCS_BUCKET,
     firestore_database_id=settings.FIRESTORE_DATABASE_ID,
+    use_creative_studio=settings.USE_CREATIVE_STUDIO,
+    creative_studio_backend_url=settings.CREATIVE_STUDIO_BACKEND_URL,
+    creative_studio_frontend_url=settings.CREATIVE_STUDIO_FRONTEND_URL,
+    use_agent_engine=settings.USE_AGENT_ENGINE,
+    agent_engine_id=settings.AGENT_ENGINE_ID,
 )
-
 # Initialize the kit
 mediagent_kit.initialize(kit_config)
 
-# Instantiate your custom FirestoreSessionService
-session_service = mediagent_kit.services.aio.get_firestore_session_service()
+# Instantiate the dynamically configured SessionService (Firestore or Agent Platform)
+session_service = mediagent_kit.services.aio.get_session_service()
 
 # Instantiate the ArtifactService
 if settings.ASSET_SERVICE_GCS_BUCKET:

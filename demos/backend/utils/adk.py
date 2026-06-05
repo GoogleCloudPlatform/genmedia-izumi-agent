@@ -13,11 +13,15 @@
 # limitations under the License.
 
 import logging
+import re
 import uuid
 
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.tools import ToolContext
-from google.genai import types as genai_types
+from google.adk.agents.callback_context import CallbackContext
+from google.genai import Client, types as genai_types
+
+from ads_x.utils.common.creative_studio_adapter import with_creative_studio_adapter, get_asset_service
 
 import mediagent_kit
 
@@ -106,7 +110,25 @@ async def display_asset(tool_context: ToolContext, asset_id: str) -> str:
         return f"Asset {asset_id} saved (Artifact display skipped)."
 
 
-async def blob_interceptor_callback(callback_context, llm_request):
+async def generate_image_description(blob_data: bytes, mime_type: str) -> str:
+    """Generates a description for the image bytes using Gemini."""
+    try:
+        client = Client()
+        response = await client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[
+                genai_types.Part.from_bytes(data=blob_data, mime_type=mime_type),
+                "Describe the visual details of this image concisely for use as a reference asset in an ad campaign. Focus on the main subject, colors, and style."
+            ]
+        )
+        return response.text.strip()
+    except Exception as e:
+        logger.error(f"Failed to generate description for asset using Gemini: {e}")
+        return "A user-uploaded reference visual."
+
+
+@with_creative_studio_adapter
+async def blob_interceptor_callback(callback_context: CallbackContext, llm_request):
     """
     Intercepts user messages to find and save blobs as assets.
     If a blob is found, it is saved.
@@ -115,18 +137,17 @@ async def blob_interceptor_callback(callback_context, llm_request):
     # Initialize campaign state to prevent KeyError in instructions
     if (
         callback_context
-        and callback_context._invocation_context
-        and callback_context._invocation_context.session
+        and callback_context.state
     ):
-        session = callback_context._invocation_context.session
-        if "parameters" not in session.state:
-            session.state["parameters"] = {}
-        if "user_assets" not in session.state:
-            session.state["user_assets"] = {}
-        if "storyboard" not in session.state:
-            session.state["storyboard"] = {}
-        if "forced_metadata" not in session.state:
-            session.state["forced_metadata"] = {}
+        state = callback_context.state
+        if "parameters" not in state:
+            state["parameters"] = {}
+        if "user_assets" not in state:
+            state["user_assets"] = {}
+        if "storyboard" not in state:
+            state["storyboard"] = {}
+        if "forced_metadata" not in state:
+            state["forced_metadata"] = {}
 
     # llm_request is expected to be an LlmRequest object, but we omit the
     # type hint to avoid import errors on older ADK versions.
@@ -137,7 +158,11 @@ async def blob_interceptor_callback(callback_context, llm_request):
 
     if hasattr(last_content, "role") and last_content.role == "user":
         if hasattr(last_content, "parts"):
+            asset_service = get_asset_service()
+            user_id = get_user_id_from_context(callback_context)
+
             for i, part in enumerate(last_content.parts):
+                # Scenario A: Multimodal inline blob part
                 if hasattr(part, "inline_data") and part.inline_data:
                     blob = part.inline_data
                     mime_type = blob.mime_type
@@ -154,9 +179,6 @@ async def blob_interceptor_callback(callback_context, llm_request):
                     )
 
                     try:
-                        asset_service = mediagent_kit.services.aio.get_asset_service()
-                        user_id = get_user_id_from_context(callback_context)
-
                         await asset_service.save_asset(
                             user_id=user_id,
                             mime_type=mime_type,
@@ -173,6 +195,53 @@ async def blob_interceptor_callback(callback_context, llm_request):
 
                     except Exception as e:
                         logger.error(f"Failed to save blob as asset: {e}")
+
+                # Scenario B: Text reference to user-uploaded session artifact
+                elif hasattr(part, "text") and part.text:
+                    matches = re.findall(r'<start_of_user_uploaded_file:\s*([^>]+)>', part.text)
+                    if matches:
+                        clean_text = part.text
+                        for file_name in matches:
+                            file_name = file_name.strip()
+                            logger.info(f"Intercepted session artifact reference: '{file_name}'. Loading from callback_context...")
+                            try:
+                                artifact_part = await callback_context.load_artifact(file_name)
+                                logger.info(f"Loaded artifact raw object: {repr(artifact_part)}")
+                                        
+                                if artifact_part and getattr(artifact_part, "inline_data", None):
+                                    blob_data = artifact_part.inline_data.data
+                                    mime_type = artifact_part.inline_data.mime_type
+                                    
+                                    logger.info(f"Uploading session artifact '{file_name}' to Creative Studio...")
+                                    await asset_service.save_asset(
+                                        user_id=user_id,
+                                        mime_type=mime_type,
+                                        file_name=file_name,
+                                        blob=blob_data,
+                                    )
+                                    logger.info(f"Successfully saved session artifact as asset: {file_name}")
+                                    # TODO: Delete this if going forward we do a list assets from project
+                                    # Generate description and save to session state
+                                    description = await generate_image_description(blob_data, mime_type)
+                                    user_assets = dict(callback_context.state.get("user_assets") or {})
+                                    user_assets[file_name] = description
+                                    callback_context.state["user_assets"] = user_assets
+                                    logger.info(f"Registered asset '{file_name}' to session state with description: {description}")
+
+                                    # Clean up start/end tags from the prompt text
+                                    clean_text = re.sub(
+                                        rf'<start_of_user_uploaded_file:\s*{re.escape(file_name)}>', r'', clean_text
+                                    )
+                                    clean_text = re.sub(
+                                        rf'<end_of_user_uploaded_file:\s*{re.escape(file_name)}>', r'', clean_text
+                                    )
+                                    clean_text += f"\n(System note: The file '{file_name}' was uploaded as an asset to Creative Studio. Use it as a reference asset for media generation as needed.)"
+                                else:
+                                    logger.error(f"Failed to load session artifact '{file_name}' or it has no inline_data.")
+                            except Exception as e:
+                                logger.error(f"Failed to process session artifact '{file_name}': {e}", exc_info=True)
+                        
+                        part.text = clean_text
 
     # Return None to allow the agent to proceed with the model call.
     return None

@@ -56,9 +56,20 @@ def initialize_from_env() -> None:
     )
     bucket = os.getenv("ASSET_SERVICE_GCS_BUCKET")
     db_id = os.getenv("FIRESTORE_DATABASE_ID", "(default)")
+    use_creative_studio = os.getenv("USE_CREATIVE_STUDIO", "False").lower() in [
+        "true",
+        "1",
+    ]
+    backend_url = os.getenv("CREATIVE_STUDIO_BACKEND_URL")
+    frontend_url = os.getenv("CREATIVE_STUDIO_FRONTEND_URL")
+    use_agent_engine = os.getenv("USE_AGENT_ENGINE", "False").lower() in [
+        "true",
+        "1",
+    ]
+    agent_engine_id = os.getenv("AGENT_ENGINE_ID") or os.getenv("GOOGLE_CLOUD_AGENT_ENGINE_ID")
 
     print(
-        f"[mediagent_kit] Attempting auto-initialization with project_id={project_id}, location={location}, bucket={bucket}"
+        f"[mediagent_kit] Attempting auto-initialization with project_id={project_id}, location={location}, bucket={bucket}, use_creative_studio={use_creative_studio}, backend_url={backend_url}, frontend_url={frontend_url}, use_agent_engine={use_agent_engine}"
     )
 
     if not project_id:
@@ -74,6 +85,11 @@ def initialize_from_env() -> None:
                 google_cloud_location=location,
                 asset_service_gcs_bucket=bucket,
                 firestore_database_id=db_id,
+                use_creative_studio=use_creative_studio,
+                creative_studio_backend_url=backend_url,
+                creative_studio_frontend_url=frontend_url,
+                use_agent_engine=use_agent_engine,
+                agent_engine_id=agent_engine_id,
             )
         )
         print("[mediagent_kit] Auto-initialization successful.")

@@ -162,3 +162,55 @@ async def test_stitch_final_video_ugc_logic(
     # The timeline is passed to stitch_video, we can inspect it.
     called_timeline = mock_stitching_service.stitch_video.call_args[1]["timeline"]
     assert len(called_timeline.audio_clips) > 0  # Should have audio clips
+
+
+@pytest.mark.asyncio
+@patch("ads_x.tools.generation.stitching_tools.get_user_id_from_context")
+@patch("ads_x.tools.generation.stitching_tools.get_session_id_from_context")
+@patch("mediagent_kit.services.aio.get_asset_service")
+@patch("mediagent_kit.services.aio.get_video_stitching_service")
+@patch("mediagent_kit.services.aio.get_canvas_service")
+@patch("ads_x.tools.generation.stitching_tools.display_asset")
+@patch("ads_x.tools.generation.stitching_tools.template_library.get_template_by_name")
+@patch("mediagent_kit.services._get_service_factory")
+async def test_stitch_final_video_creative_studio_frontend(
+    mock_get_service_factory,
+    mock_get_template,
+    mock_display_asset,
+    mock_get_canvas_service,
+    mock_get_stitching_service,
+    mock_get_asset_service,
+    mock_get_session_id,
+    mock_get_user_id,
+    mock_tool_context,
+    mock_asset_service,
+    mock_stitching_service,
+    mock_canvas_service,
+):
+    mock_get_user_id.return_value = "user_123"
+    mock_get_session_id.return_value = "session_123"
+    mock_get_asset_service.return_value = mock_asset_service
+    mock_get_stitching_service.return_value = mock_stitching_service
+    mock_get_canvas_service.return_value = mock_canvas_service
+
+    # Mock config with creative_studio_frontend_url set
+    mock_config = MagicMock()
+    mock_config.creative_studio_frontend_url = "https://my-creative-studio.web.app"
+    mock_factory = MagicMock()
+    mock_factory.get_config.return_value = mock_config
+    mock_get_service_factory.return_value = mock_factory
+
+    mock_template = MagicMock()
+    mock_template.industry_type = "Standard"
+    mock_get_template.return_value = mock_template
+
+    mock_display_asset.return_value = "Success"
+
+    from ads_x.tools.generation.stitching_tools import stitch_final_video
+
+    result = await stitch_final_video(mock_tool_context)
+
+    assert result["status"] == "succeeded"
+    assert "View Video Timeline in Creative Studio" in result["result"]
+    assert "https://my-creative-studio.web.app/asset-detail/stitched_vid_1" in result["result"]
+

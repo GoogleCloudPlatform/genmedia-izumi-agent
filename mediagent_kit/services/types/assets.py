@@ -391,3 +391,8 @@ class AssetBlob:
     content: bytes
     file_name: str
     mime_type: str
+
+@dataclasses.dataclass
+class CreativeStudioAsset(Asset):
+    workspace_id: str
+    item_type: typing.Literal["media_item", "source_asset"]

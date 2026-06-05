@@ -25,6 +25,11 @@ class MediagentKitConfig:
     google_cloud_location: str | None = None
     asset_service_gcs_bucket: str | None = None
     firestore_database_id: str | None = None
+    use_creative_studio: bool = False
+    creative_studio_backend_url: str | None = None
+    creative_studio_frontend_url: str | None = None
+    use_agent_engine: bool = False
+    agent_engine_id: str | None = None
     models: dict = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):

@@ -31,6 +31,11 @@ class Config:
     RETRY_MAX_ATTEMPTS: int = 5
     RETRY_INITIAL_DELAY_SECONDS: float = 30.0
     FIRESTORE_DATABASE_ID: str = ""
+    USE_CREATIVE_STUDIO: bool = False
+    CREATIVE_STUDIO_BACKEND_URL: str = ""
+    CREATIVE_STUDIO_FRONTEND_URL: str = ""
+    USE_AGENT_ENGINE: bool = False
+    AGENT_ENGINE_ID: str = ""
 
 
 def check_firestore_emulator():
@@ -83,6 +88,15 @@ def load_config() -> Config:
             os.environ.get("RETRY_INITIAL_DELAY_SECONDS", "30.0")
         ),
         FIRESTORE_DATABASE_ID=os.environ.get("FIRESTORE_DATABASE_ID", ""),
+        USE_CREATIVE_STUDIO=os.environ.get("USE_CREATIVE_STUDIO", "False").lower()
+        in ["true", "1"],
+        CREATIVE_STUDIO_BACKEND_URL=os.environ.get("CREATIVE_STUDIO_BACKEND_URL", ""),
+        CREATIVE_STUDIO_FRONTEND_URL=os.environ.get("CREATIVE_STUDIO_FRONTEND_URL", ""),
+        USE_AGENT_ENGINE=os.environ.get("USE_AGENT_ENGINE", "False").lower()
+        in ["true", "1"],
+        AGENT_ENGINE_ID=os.environ.get(
+            "AGENT_ENGINE_ID", os.environ.get("GOOGLE_CLOUD_AGENT_ENGINE_ID", "")
+        ),
     )
 
 
