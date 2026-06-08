@@ -23,11 +23,12 @@ request_context_var: contextvars.ContextVar[dict[str, Any] | None] = contextvars
 )
 
 
-def set_request_context(user_auth_token: str | None, workspace_id: Any | None) -> contextvars.Token:
+def set_request_context(user_auth_token: str | None, workspace_id: Any | None, transient_cache: dict[str, Any] | None = None) -> contextvars.Token:
     """Sets credentials in the active asyncio/thread context."""
     return request_context_var.set({
         "user_auth_token": user_auth_token,
         "workspace_id": workspace_id,
+        "transient_cache": transient_cache if transient_cache is not None else {},
     })
 
 

@@ -21,7 +21,8 @@ from google.adk.tools import ToolContext
 from google.adk.agents.callback_context import CallbackContext
 from google.genai import Client, types as genai_types
 
-from ads_x.utils.common.creative_studio_adapter import with_creative_studio_adapter, get_asset_service
+from ads_x.utils.common.creative_studio_adapter import with_creative_studio_adapter
+import mediagent_kit.services.aio
 
 import mediagent_kit
 
@@ -158,7 +159,7 @@ async def blob_interceptor_callback(callback_context: CallbackContext, llm_reque
 
     if hasattr(last_content, "role") and last_content.role == "user":
         if hasattr(last_content, "parts"):
-            asset_service = get_asset_service()
+            asset_service = mediagent_kit.services.aio.get_asset_service()
             user_id = get_user_id_from_context(callback_context)
 
             for i, part in enumerate(last_content.parts):

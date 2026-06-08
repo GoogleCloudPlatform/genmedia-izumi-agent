@@ -21,7 +21,7 @@ import mediagent_kit
 
 from ...utils.common import common_utils
 from ...utils.storyboard import storyboard_model
-from ...utils.common.creative_studio_adapter import get_asset_service, get_media_generation_service
+import mediagent_kit.services.aio
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +81,7 @@ async def finalize_and_persist_storyboard(
         )
 
         # 3. Trigger Repair Turn using mediagent_kit
-        mediagen_service = get_media_generation_service()
+        mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
         user_id = tool_context.state.get("user_id", "default_user")
         uid = uuid.uuid4().hex[:8]
         repair_result = await mediagen_service.generate_text_with_gemini(
@@ -100,7 +100,7 @@ async def finalize_and_persist_storyboard(
         # For simplicity, let's assume the repair model returns the FULL valid JSON.
 
         repair_blob = (
-            await get_asset_service().get_asset_blob(
+            await mediagent_kit.services.aio.get_asset_service().get_asset_blob(
                 repair_result.id
             )
         )

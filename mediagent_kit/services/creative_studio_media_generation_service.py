@@ -23,7 +23,7 @@ import uuid
 
 import httpx
 
-from typing import Final, Literal
+from typing import Final, Literal, Any
 
 from google import genai
 from google.cloud import texttospeech, texttospeech_v1beta1
@@ -122,9 +122,51 @@ _USER_AGENT = f"mediagent-kit/{VERSION} (+https://github.com/GoogleCloudPlatform
 class CreativeStudioMediaGenerationService(MediaGenerationService):
     """Media generation service subclass for integration with a custom Creative Studio media backend."""
 
-    def __init__(self, asset_service: CreativeStudioAssetService, config: MediagentKitConfig):
+    def __init__(
+        self,
+        asset_service: CreativeStudioAssetService,
+        config: MediagentKitConfig,
+        workspace_id: str | int | None = None,
+        user_auth_token: str | None = None,
+        transient_cache: dict[str, Any] | None = None,
+    ):
         self._asset_service = asset_service
         self._config = config
+        self.__workspace_id = workspace_id
+        self.__user_auth_token = user_auth_token
+        self.__transient_cache = transient_cache
+
+    @property
+    def _workspace_id(self) -> Any:
+        if self.__workspace_id is not None:
+            return self.__workspace_id
+        from mediagent_kit.utils.context import get_request_context
+        ctx = get_request_context()
+        return ctx.get("workspace_id") if ctx else None
+
+    @property
+    def _user_auth_token(self) -> str | None:
+        if self.__user_auth_token is not None:
+            return self.__user_auth_token
+        from mediagent_kit.utils.context import get_request_context
+        ctx = get_request_context()
+        return ctx.get("user_auth_token") if ctx else None
+
+    @property
+    def _transient_cache(self) -> dict[str, Any]:
+        if self.__transient_cache is not None:
+            return self.__transient_cache
+        from mediagent_kit.utils.context import get_request_context
+        ctx = get_request_context()
+        return ctx.get("transient_cache") if (ctx and ctx.get("transient_cache") is not None) else {}
+
+    def _cache_asset(self, asset: asset_types.Asset):
+        """Caches the generated Asset in the transient cache."""
+        if asset and hasattr(asset, "id") and self._transient_cache is not None:
+            if hasattr(asset, "to_dict"):
+                self._transient_cache[asset.id] = asset.to_dict()
+            else:
+                self._transient_cache[asset.id] = asset
 
     def _get_headers(self, user_auth_token: str, url: str) -> dict:
         headers = {
@@ -206,24 +248,25 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         self,
         model: str,
         prompt: str,
-        workspace_id: str,
-        user_auth_token: str,
         file_name: str,
         voice_name: TTS_VOICES | None = None,
         language_code: str | None = None,
         negative_prompt: str | None = None,
-    ) -> bytes:
+    ) -> asset_types.Asset:
         """Calls the Lyria API and returns the generated music as bytes."""
-        user_auth_header = f"Bearer {user_auth_token}"
+        if not self._workspace_id or not self._user_auth_token:
+            raise ValueError("workspace_id and user_auth_token must be provided at initialization")
+            
+        user_auth_header = f"Bearer {self._user_auth_token}"
         
         # API Request variables
         url = f"{self._config.creative_studio_backend_url}/api/audios/generate"
 
-        creative_studio_headers = self._get_headers(user_auth_token, url)
+        creative_studio_headers = self._get_headers(self._user_auth_token, url)
         if voice_name:
             creative_studio_audio_dto = {
                 "prompt": prompt,
-                "workspaceId": workspace_id,
+                "workspaceId": self._workspace_id,
                 "model": model,
                 "fileName": file_name,
                 "sampleCount": 1,
@@ -234,7 +277,7 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         else:
             creative_studio_audio_dto = {
                 "prompt": prompt,
-                "workspaceId": workspace_id,
+                "workspaceId": self._workspace_id,
                 "model": model,
                 "fileName": file_name,
                 "negativePrompt": negative_prompt,
@@ -286,9 +329,22 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
                             negative_prompt=negative_prompt,
                         )
                     
-                    return self._asset_service.to_asset(
+                    duration_seconds = final_item.get("durationSeconds")
+                    if duration_seconds is None and gcs_uri:
+                        try:
+                            logger.info(f"durationSeconds missing in backend response for audio {item_id}. Probing GCS file: {gcs_uri}")
+                            audio_bytes = self._asset_service._download_from_gcs(gcs_uri)
+                            from mediagent_kit.utils.media_tools import get_media_metadata_from_blob
+                            ext = gcs_uri.split(".")[-1] if "." in gcs_uri else "wav"
+                            metadata = get_media_metadata_from_blob(audio_bytes, ext)
+                            duration_seconds = metadata.duration
+                            logger.info(f"Successfully probed audio duration: {duration_seconds}s")
+                        except Exception as probe_err:
+                            logger.error(f"Failed to probe audio duration from GCS: {probe_err}")
+
+                    asset = self._asset_service.to_asset(
                         asset_id=item_id,
-                        workspace_id=workspace_id,
+                        workspace_id=str(self._workspace_id),
                         file_name=file_name,
                         gcs_uri=gcs_uri,
                         created_at=datetime.datetime.now(),
@@ -296,10 +352,13 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
                         music_generate_config=music_generate_config,
                         speech_generate_config=speech_generate_config,
                         item_type="media_item",
+                        duration_seconds=duration_seconds,
                     )
+                    self._cache_asset(asset)
+                    return asset
                 else:
                     error_msg = final_item.get("errorMessage") or "Unknown error"
-                    logger.error(f"Error generating image: {error_msg}")
+                    logger.error(f"Error generating audio: {error_msg}")
                     raise Exception(error_msg)
                 
         except httpx.HTTPStatusError as exc:
@@ -314,15 +373,15 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         *,
         model: str,
         prompt: str,
-        workspace_id: str,
-        user_auth_token: str,
         file_name: str,
         aspect_ratio: str,
         image_size: str,
         reference_image_filenames: list[str] = [],
     ) -> asset_types.CreativeStudioAsset:
         """Helper to orchestrate Creative Studio image generation API calls and poll for completion."""
-        user_auth_header = f"Bearer {user_auth_token}"
+        if not self._workspace_id or not self._user_auth_token:
+            raise ValueError("workspace_id and user_auth_token must be provided at initialization")
+
 
         # 1. Gather reference assets if provided
         reference_assets = []
@@ -330,10 +389,13 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         source_media_items = []
         if reference_image_filenames:
             reference_assets = [
-                self._asset_service.get_asset_by_file_name(ref_name, workspace_id, user_auth_token)
+                self._asset_service.get_asset_by_file_name(ref_name)
                 for ref_name in reference_image_filenames
             ]
             for asset in reference_assets:
+                if not asset:
+                    logger.warning("Reference asset not found, skipping...")
+                    continue
                 if asset.item_type == "source_asset":
                     source_asset_ids.append(asset.id)
                 elif asset.item_type == "media_item":
@@ -349,10 +411,10 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
 
         # 2. Setup endpoint, headers and DTO payload
         url = f"{self._config.creative_studio_backend_url}/api/images/generate-images"
-        headers = self._get_headers(user_auth_token, url)
+        headers = self._get_headers(self._user_auth_token, url)
         creative_studio_image_dto = {
             "prompt": prompt,
-            "workspaceId": workspace_id,
+            "workspaceId": self._workspace_id,
             "generationModel": model,
             "aspectRatio": aspect_ratio,
             "numberOfMedia": 1,
@@ -400,9 +462,9 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
                         reference_images=reference_assets if reference_assets else None,
                     )
 
-                    return self._asset_service.to_asset(
+                    asset = self._asset_service.to_asset(
                         asset_id=item_id,
-                        workspace_id=workspace_id,
+                        workspace_id=str(self._workspace_id),
                         file_name=file_name,
                         gcs_uri=gcs_uri,
                         created_at=datetime.datetime.now(),
@@ -410,6 +472,8 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
                         image_generate_config=image_generate_config,
                         item_type="media_item",
                     )
+                    self._cache_asset(asset)
+                    return asset
                 else:
                     error_msg = final_item.get("errorMessage") or "Unknown error"
                     logger.error(f"Error generating image: {error_msg}")
@@ -428,10 +492,9 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
     def generate_music_with_lyria(
         self,
         *,
+        user_id: str,
         file_name: str,
         prompt: str,
-        workspace_id: str,
-        user_auth_token: str,
         negative_prompt: str | None = None,
         purpose: str | None = None,
         model: str | None = None,
@@ -458,8 +521,6 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         asset = self._call_creative_studio_audio_generation(
             model=model,
             prompt=prompt,
-            workspace_id=workspace_id,
-            user_auth_token=user_auth_token,
             file_name=file_name,
             negative_prompt=negative_prompt,
         )
@@ -471,12 +532,11 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
     def generate_image_with_imagen(
         self,
         *,
+        user_id: str,
         file_name: str,
         prompt: str,
-        workspace_id: str,
-        user_auth_token: str,
-        aspect_ratio: GEMINI_IMAGE_ASPECT_RATIOS = GEMINI_IMAGE_ASPECT_RATIO,
-        image_size: GEMINI_SIZES = GEMINI_SIZE,
+        aspect_ratio: IMAGEN_ASPECT_RATIOS = IMAGEN_ASPECT_RATIO,
+        image_size: IMAGEN_SIZES = IMAGEN_SIZE,
         purpose: str | None = None,
         model: str | None = None,
     ) -> asset_types.CreativeStudioAsset:
@@ -504,8 +564,6 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         return self._call_creative_studio_image_generation(
             model=model,
             prompt=prompt,
-            workspace_id=workspace_id,
-            user_auth_token=user_auth_token,
             file_name=file_name,
             aspect_ratio=aspect_ratio,
             image_size=image_size,
@@ -531,10 +589,9 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
     def generate_text_with_gemini(
         self,
         *,
+        user_id: str,
         file_name: str,
         prompt: str,
-        workspace_id: str,
-        user_auth_token: str,
         reference_image_filenames: list[str] = [],
         purpose: str | None = None,
         model: str | None = None,
@@ -561,7 +618,7 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         )
 
         reference_assets = [
-            self._asset_service.get_asset_by_file_name(ref_name, workspace_id, user_auth_token)
+            self._asset_service.get_asset_by_file_name(ref_name)
             for ref_name in reference_image_filenames
         ]
         contents = [
@@ -608,13 +665,14 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
                 )
                 asset = self._asset_service.to_asset(
                     asset_id=str(uuid.uuid4()),
-                    workspace_id=workspace_id,
+                    workspace_id=str(self._workspace_id) if self._workspace_id else user_id,
                     file_name=file_name,
                     gcs_uri="",
                     created_at=datetime.datetime.now(),
                     text_generate_config=text_generate_config,
                 )
                 asset._content = generated_text.encode()
+                self._cache_asset(asset)
                 logger.info(f"Successfully generated text: {file_name}")
                 return asset
 
@@ -625,13 +683,12 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
     def generate_image_with_gemini(
         self,
         *,
+        user_id: str,
         file_name: str,
         prompt: str,
-        workspace_id: str,
-        user_auth_token: str,
         reference_image_filenames: list[str] = [],
         aspect_ratio: GEMINI_IMAGE_ASPECT_RATIOS = GEMINI_IMAGE_ASPECT_RATIO,
-        image_size: IMAGEN_SIZES = IMAGEN_SIZE,
+        image_size: GEMINI_SIZES = GEMINI_SIZE,
         purpose: str | None = None,
         model: str | None = None,
     ) -> asset_types.Asset:
@@ -660,8 +717,6 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         return self._call_creative_studio_image_generation(
             model=model,
             prompt=prompt,
-            workspace_id=workspace_id,
-            user_auth_token=user_auth_token,
             file_name=file_name,
             aspect_ratio=aspect_ratio,
             image_size=image_size,
@@ -673,11 +728,10 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
     def generate_speech_single_speaker(
         self,
         *,
+        user_id: str,
         file_name: str,
         text: str,
         voice_name: TTS_VOICES,
-        workspace_id: str,
-        user_auth_token: str,
         language_code: str = "en-US",
         prompt: str = "",
         purpose: str | None = None,
@@ -707,8 +761,6 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         asset = self._call_creative_studio_audio_generation(
             model=model,
             prompt=text,
-            workspace_id=workspace_id,
-            user_auth_token=user_auth_token,
             file_name=file_name,
             language_code=language_code,
             voice_name=voice_name,
@@ -791,10 +843,9 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
     def generate_video_with_veo(
         self,
         *,
+        user_id: str,
         file_name: str,
         prompt: str,
-        workspace_id: str,
-        user_auth_token: str,
         duration_seconds: VEO_DURATIONS = VEO_DURATION,
         aspect_ratio: VEO_ASPECT_RATIOS = VEO_ASPECT_RATIO,
         resolution: VEO_RESOLUTIONS = VEO_RESOLUTION,
@@ -829,7 +880,7 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         # 1. Gather reference assets if provided and build DTO payload
         creative_studio_video_dto = {
             "prompt": prompt,
-            "workspaceId": workspace_id,
+            "workspaceId": self._workspace_id,
             "generationModel": model,
             "aspectRatio": aspect_ratio,
             "numberOfMedia": 1,
@@ -843,11 +894,11 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         if method == "image_to_video":
             source_media_items = []
             if first_frame_filename:
-                first_frame_asset = self._asset_service.get_asset_by_file_name(first_frame_filename, workspace_id, user_auth_token)
+                first_frame_asset = self._asset_service.get_asset_by_file_name(first_frame_filename)
 
-                if first_frame_asset.item_type == "source_asset":
+                if first_frame_asset and first_frame_asset.item_type == "source_asset":
                     creative_studio_video_dto["startImageAssetId"] = first_frame_asset.id
-                elif first_frame_asset.item_type == "media_item":
+                elif first_frame_asset and first_frame_asset.item_type == "media_item":
                     source_media_items.append({
                         "mediaItemId": first_frame_asset.id,
                         "mediaIndex": 0,
@@ -855,15 +906,15 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
                     })
                 else:
                     logger.warning(
-                        f"Asset {first_frame_asset.file_name} is not a supported asset type for video generation {first_frame_asset.item_type}."
+                        f"Asset {first_frame_filename} not found or unsupported."
                     )
 
             if last_frame_filename:
-                last_frame_asset = self._asset_service.get_asset_by_file_name(last_frame_filename, workspace_id, user_auth_token)
+                last_frame_asset = self._asset_service.get_asset_by_file_name(last_frame_filename)
 
-                if last_frame_asset.item_type == "source_asset":
+                if last_frame_asset and last_frame_asset.item_type == "source_asset":
                     creative_studio_video_dto["endImageAssetId"] = last_frame_asset.id
-                elif last_frame_asset.item_type == "media_item":
+                elif last_frame_asset and last_frame_asset.item_type == "media_item":
                     source_media_items.append({
                         "mediaItemId": last_frame_asset.id,
                         "mediaIndex": 0,
@@ -871,7 +922,7 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
                     })
                 else:
                     logger.warning(
-                        f"Asset {last_frame_asset.file_name} is not a supported asset type for video generation {last_frame_asset.item_type}."
+                        f"Asset {last_frame_filename} not found or unsupported."
                     )
 
             if source_media_items:
@@ -882,10 +933,12 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
             source_media_items = []
             if reference_image_filenames:
                 reference_assets = [
-                    self._asset_service.get_asset_by_file_name(ref_name, workspace_id, user_auth_token)
+                    self._asset_service.get_asset_by_file_name(ref_name)
                     for ref_name in reference_image_filenames
                 ]
                 for asset in reference_assets:
+                    if not asset:
+                        continue
                     if asset.item_type == "source_asset":
                         source_asset_ids.append(asset.id)
                     elif asset.item_type == "media_item":
@@ -906,8 +959,7 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
         
         # 2. Setup endpoint, headers
         url = f"{self._config.creative_studio_backend_url}/api/videos/generate-videos"
-        user_auth_header = f"Bearer {user_auth_token}"
-        headers = self._get_headers(user_auth_token, url)
+        headers = self._get_headers(self._user_auth_token, url)
         
         # 3. Call endpoint and await completion
         try:
@@ -950,13 +1002,14 @@ class CreativeStudioMediaGenerationService(MediaGenerationService):
 
                     return self._asset_service.to_asset(
                         asset_id=item_id,
-                        workspace_id=workspace_id,
+                        workspace_id=self._workspace_id,
                         file_name=file_name,
                         gcs_uri=gcs_uri,
                         created_at=datetime.datetime.now(), # We can replace this with createdAt inside the final item
                         mime_type="video/mp4",
                         video_generate_config=video_generate_config,
                         item_type="media_item",
+                        duration_seconds=final_item.get("durationSeconds") or duration_seconds,
                     )
                 else:
                     error_msg = final_item.get("errorMessage") or "Unknown error"

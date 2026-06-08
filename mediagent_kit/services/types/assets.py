@@ -396,3 +396,89 @@ class AssetBlob:
 class CreativeStudioAsset(Asset):
     workspace_id: str
     item_type: typing.Literal["media_item", "source_asset"]
+
+    @classmethod
+    def from_dict(
+        cls, doc: dict, asset_service: "AssetService", fetch_references: bool = True
+    ) -> "CreativeStudioAsset":
+        """Creates a CreativeStudioAsset object from a generic dictionary."""
+        asset = Asset.from_firestore(doc, asset_service, fetch_references)
+        
+        versions = asset.versions
+        if not versions and "versions" in doc:
+            for v_data in doc["versions"]:
+                # Reconstruct configs from the dict without fetching any external references
+                text_config = None
+                if text_config_data := v_data.get("text_generate_config"):
+                    text_config = TextGenerateConfig(
+                        model=text_config_data.get("model"),
+                        prompt=text_config_data.get("prompt"),
+                    )
+
+                image_config = None
+                if image_config_data := v_data.get("image_generate_config"):
+                    image_config = ImageGenerateConfig(
+                        model=image_config_data.get("model"),
+                        prompt=image_config_data.get("prompt"),
+                        aspect_ratio=image_config_data.get("aspect_ratio"),
+                    )
+
+                music_config = None
+                if music_config_data := v_data.get("music_generate_config"):
+                    music_config = MusicGenerateConfig(**music_config_data)
+
+                video_config = None
+                if video_config_data := v_data.get("video_generate_config"):
+                    video_config = VideoGenerateConfig(
+                        model=video_config_data.get("model"),
+                        prompt=video_config_data.get("prompt"),
+                        aspect_ratio=video_config_data.get("aspect_ratio"),
+                        duration_seconds=video_config_data.get("duration_seconds"),
+                        resolution=video_config_data.get("resolution"),
+                        generate_audio=video_config_data.get("generate_audio"),
+                    )
+
+                speech_config = None
+                if speech_config_data := v_data.get("speech_generate_config"):
+                    speech_config = SpeechGenerateConfig(**speech_config_data)
+
+                versions.append(
+                    AssetVersion(
+                        asset_id=v_data["asset_id"],
+                        version_number=v_data["version_number"],
+                        gcs_uri=v_data["gcs_uri"],
+                        create_time=v_data["create_time"],
+                        text_generate_config=text_config,
+                        image_generate_config=image_config,
+                        music_generate_config=music_config,
+                        video_generate_config=video_config,
+                        speech_generate_config=speech_config,
+                        duration_seconds=v_data.get("duration_seconds"),
+                    )
+                )
+
+        creative_studio_asset = cls(
+            id=asset.id,
+            user_id=asset.user_id,
+            mime_type=asset.mime_type,
+            file_name=asset.file_name,
+            current_version=asset.current_version,
+            versions=versions,
+            workspace_id=doc.get("workspace_id"),
+            item_type=doc.get("item_type"),
+        )
+        if "_content_b64" in doc:
+            import base64
+            creative_studio_asset._content = base64.b64decode(doc["_content_b64"])
+        return creative_studio_asset
+
+    def to_dict(self) -> dict:
+        """Converts the CreativeStudioAsset object to a generic dictionary."""
+        data = self.to_firestore()
+        data["workspace_id"] = self.workspace_id
+        data["item_type"] = self.item_type
+        data["_type"] = "CreativeStudioAsset"
+        if hasattr(self, "_content") and isinstance(self._content, bytes):
+            import base64
+            data["_content_b64"] = base64.b64encode(self._content).decode("utf-8")
+        return data

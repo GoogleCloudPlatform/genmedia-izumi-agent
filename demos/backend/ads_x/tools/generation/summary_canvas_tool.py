@@ -22,7 +22,8 @@ from google.adk.tools import ToolContext
 from utils.adk import get_user_id_from_context
 from ...utils.common import common_utils
 from ...utils.storyboard import template_library
-from ...utils.common.creative_studio_adapter import with_creative_studio_adapter, get_asset_service, get_active_adapter, get_canvas_service
+from ...utils.common.creative_studio_adapter import with_creative_studio_adapter
+import mediagent_kit.services.aio
 
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
@@ -176,8 +177,8 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
         "⭐⭐⭐ [NATIVE TOOL INVOCATION] `create_campaign_summary` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
     )
     
-    adapter = get_active_adapter()
-    if adapter and adapter.use_studio:
+    config = mediagent_kit.services._get_service_factory().get_config()
+    if config.use_creative_studio:
         config = mediagent_kit.services._get_service_factory().get_config()
         creative_studio_frontend_url = config.creative_studio_frontend_url
         if creative_studio_frontend_url:
@@ -197,8 +198,8 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
         return tool_failure("No storyboard found in state.")
 
     user_id = get_user_id_from_context(tool_context)
-    asset_service = get_asset_service()
-    canvas_service = get_canvas_service()
+    asset_service = mediagent_kit.services.aio.get_asset_service()
+    canvas_service = mediagent_kit.services.aio.get_canvas_service()
 
     # Get Template Definition
     template_name = storyboard.get("template_name", "Custom")

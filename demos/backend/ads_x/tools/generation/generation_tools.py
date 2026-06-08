@@ -27,7 +27,8 @@ import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 
 from ...utils.common import common_utils, enrichment_utils, scene_generation_utils
-from ...utils.common.creative_studio_adapter import get_asset_service, get_media_generation_service, with_creative_studio_adapter
+import mediagent_kit.services.aio
+from ...utils.common.creative_studio_adapter import with_creative_studio_adapter
 from ...utils.storyboard import template_library, storyboard_model
 from ...utils.generation import grouping_utils, generation_helpers
 from . import voiceover_tools
@@ -58,13 +59,13 @@ async def generate_scene_video(
     # Idempotency: Skip if already generated
     if video_prompt_data.get("asset_id"):
         logger.info(f"Video for scene {index} already exists. Skipping generation.")
-        asset_service = get_asset_service()
+        asset_service = mediagent_kit.services.aio.get_asset_service()
         video_asset = await asset_service.get_asset(video_prompt_data["asset_id"])
         return [first_frame_asset, video_asset] if first_frame_asset else [video_asset]
 
     logger.info(f"Generating video for scene {index}")
-    mediagent_service = get_media_generation_service()
-    asset_service = get_asset_service()
+    mediagent_service = mediagent_kit.services.aio.get_media_generation_service()
+    asset_service = mediagent_kit.services.aio.get_asset_service()
     voiceover_text = scene.get("voiceover_prompt", {}).get("text", "")
 
     if not first_frame_asset:
@@ -150,7 +151,7 @@ async def generate_scene(
         logger.info(
             f"First frame for scene {index} already exists. Skipping generation."
         )
-        asset_service = get_asset_service()
+        asset_service = mediagent_kit.services.aio.get_asset_service()
         first_frame_asset = await asset_service.get_asset(
             first_frame_prompt["asset_id"]
         )
@@ -257,13 +258,17 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
             group_tasks = []
             for i, group in enumerate(voiceover_groups):
                 first_scene_idx = group.scene_indices[0]
-                style_description = storyboard["scenes"][first_scene_idx][
-                    "voiceover_prompt"
-                ].get("description", "A professional commercial voiceover.")
+                first_scene = storyboard["scenes"][first_scene_idx]
+                vo_prompt = first_scene.get("voiceover_prompt", {})
+                gender = vo_prompt.get("gender")
+                voice_name = "Enceladus" if gender == "male" else "Aoede"
+                style_description = vo_prompt.get("description", "A professional commercial voiceover.")
+                
                 group_tasks.append(
                     voiceover_tools.generate_group_voiceover(
                         user_id=user_id,
                         group=group,
+                        voice_name=voice_name,
                         style_prompt=style_description,
                         group_index=i,
                     )

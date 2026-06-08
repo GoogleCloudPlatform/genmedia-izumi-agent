@@ -34,7 +34,8 @@ tool_success = common_utils.tool_success
 tool_failure = common_utils.tool_failure
 
 
-from ...utils.common.creative_studio_adapter import with_creative_studio_adapter, get_asset_service, get_canvas_service
+from ...utils.common.creative_studio_adapter import with_creative_studio_adapter
+import mediagent_kit.services.aio
 
 @with_creative_studio_adapter
 async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
@@ -51,7 +52,7 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
     user_id = get_user_id_from_context(tool_context)
     session_id = get_session_id_from_context(tool_context)
 
-    asset_service = get_asset_service()
+    asset_service = mediagent_kit.services.aio.get_asset_service()
     video_stitching_service = mediagent_kit.services.aio.get_video_stitching_service()
 
     # Identify if current run is UGC
@@ -254,7 +255,7 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
         transitions=transitions,
     )
 
-    canvas_service = get_canvas_service()
+    canvas_service = mediagent_kit.services.aio.get_canvas_service()
     canvas = await canvas_service.create_canvas(
         user_id=user_id,
         title=timeline.title,

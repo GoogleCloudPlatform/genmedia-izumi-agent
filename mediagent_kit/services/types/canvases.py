@@ -43,6 +43,11 @@ class Canvas:
             raise ValueError("Only one of video_timeline or html can be set.")
 
     @classmethod
+    def from_dict(cls, doc: dict, asset_service: "AssetService") -> "Canvas":
+        """Creates a Canvas object from a generic dictionary."""
+        return cls.from_firestore(doc, asset_service)
+
+    @classmethod
     def from_firestore(cls, doc: dict, asset_service: "AssetService") -> "Canvas":
         from .timeline import VideoTimeline
 
@@ -65,6 +70,10 @@ class Canvas:
             video_timeline=video_timeline,
             html=html,
         )
+
+    def to_dict(self) -> dict:
+        """Converts the Canvas object to a generic dictionary."""
+        return self.to_firestore()
 
     def to_firestore(self) -> dict:
         video_timeline_dict = (

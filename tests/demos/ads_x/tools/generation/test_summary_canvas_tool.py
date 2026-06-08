@@ -114,15 +114,17 @@ async def test_create_campaign_summary_missing_storyboard(
 
 
 @pytest.mark.asyncio
-@patch("ads_x.tools.generation.summary_canvas_tool.get_active_adapter")
+@patch("mediagent_kit.services._get_service_factory")
 async def test_create_campaign_summary_creative_studio_bypassed(
-    mock_get_active_adapter,
+    mock_get_service_factory,
     mock_tool_context,
 ):
-    # Mock active adapter to return use_studio=True
-    mock_adapter = MagicMock()
-    mock_adapter.use_studio = True
-    mock_get_active_adapter.return_value = mock_adapter
+    mock_config = MagicMock()
+    mock_config.use_creative_studio = True
+    mock_config.creative_studio_frontend_url = None
+    mock_factory = MagicMock()
+    mock_factory.get_config.return_value = mock_config
+    mock_get_service_factory.return_value = mock_factory
 
     from ads_x.tools.generation.summary_canvas_tool import (
         create_campaign_summary,
@@ -135,20 +137,14 @@ async def test_create_campaign_summary_creative_studio_bypassed(
 
 
 @pytest.mark.asyncio
-@patch("ads_x.tools.generation.summary_canvas_tool.get_active_adapter")
 @patch("mediagent_kit.services._get_service_factory")
 async def test_create_campaign_summary_creative_studio_frontend(
     mock_get_service_factory,
-    mock_get_active_adapter,
     mock_tool_context,
 ):
-    # Mock active adapter to return use_studio=True
-    mock_adapter = MagicMock()
-    mock_adapter.use_studio = True
-    mock_get_active_adapter.return_value = mock_adapter
-
     # Mock config with creative_studio_frontend_url set
     mock_config = MagicMock()
+    mock_config.use_creative_studio = True
     mock_config.creative_studio_frontend_url = "https://my-creative-studio.web.app"
     mock_factory = MagicMock()
     mock_factory.get_config.return_value = mock_config

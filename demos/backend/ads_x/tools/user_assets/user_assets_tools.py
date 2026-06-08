@@ -33,7 +33,8 @@ tool_success = common_utils.tool_success
 tool_failure = common_utils.tool_failure
 
 
-from ...utils.common.creative_studio_adapter import with_creative_studio_adapter, get_asset_service, get_media_generation_service
+from ...utils.common.creative_studio_adapter import with_creative_studio_adapter
+import mediagent_kit.services.aio
 
 
 @with_creative_studio_adapter
@@ -45,8 +46,8 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
     )
     logger.info(f"Ingesting assets for user_id: {user_id}")
 
-    asset_service = get_asset_service()
-    mediagen_service = get_media_generation_service()
+    asset_service = mediagent_kit.services.aio.get_asset_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
     # 1. List all assets for the user
     all_assets = await asset_service.list_assets(user_id=user_id)

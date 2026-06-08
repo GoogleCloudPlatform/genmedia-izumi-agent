@@ -74,28 +74,61 @@ class ServiceFactory:
         return None
 
     @functools.cache
-    def get_asset_service(self) -> AssetService:
-        """Returns a singleton instance of the AssetService."""
-        if self.get_config().use_creative_studio:
-            return CreativeStudioAssetService(
-                db=self._get_db(),
-                gcs_bucket=self._get_gcs_bucket(),
-                config=self.get_config(),
-            )
+    def _get_standard_asset_service(self) -> AssetService:
+        """Returns a singleton instance of the standard AssetService."""
         return AssetService(
             db=self._get_db(),
             gcs_bucket=self._get_gcs_bucket(),
             config=self.get_config(),
         )
 
+    def get_asset_service(self) -> AssetService:
+        """Returns an instance of the AssetService. Dynamically creates CS asset service if configured."""
+        if self.get_config().use_creative_studio:
+            from mediagent_kit.utils.context import get_request_context
+            ctx = get_request_context()
+            workspace_id = ctx.get("workspace_id") if ctx else None
+            user_auth_token = ctx.get("user_auth_token") if ctx else None
+            transient_cache = ctx.get("transient_cache") if ctx else None
+
+            return CreativeStudioAssetService(
+                db=self._get_db(),
+                gcs_bucket=self._get_gcs_bucket(),
+                config=self.get_config(),
+                workspace_id=workspace_id,
+                user_auth_token=user_auth_token,
+                transient_cache=transient_cache,
+            )
+        return self._get_standard_asset_service()
+
     @functools.cache
-    def get_canvas_service(self) -> CanvasService:
-        """Returns a singleton instance of the CanvasService."""
+    def _get_standard_canvas_service(self) -> CanvasService:
+        """Returns a singleton instance of the standard CanvasService."""
         return CanvasService(
             db=self._get_db(),
-            asset_service=self.get_asset_service(),
+            asset_service=self._get_standard_asset_service(),
             config=self.get_config(),
         )
+
+    def get_canvas_service(self) -> CanvasService:
+        """Returns an instance of the CanvasService."""
+        if self.get_config().use_creative_studio:
+            from mediagent_kit.utils.context import get_request_context
+            from mediagent_kit.services.creative_studio_canvas_service import CreativeStudioCanvasService
+            ctx = get_request_context()
+            workspace_id = ctx.get("workspace_id") if ctx else None
+            user_auth_token = ctx.get("user_auth_token") if ctx else None
+            transient_cache = ctx.get("transient_cache") if ctx else None
+
+            return CreativeStudioCanvasService(
+                db=self._get_db(),
+                asset_service=self.get_asset_service(),
+                config=self.get_config(),
+                workspace_id=workspace_id,
+                user_auth_token=user_auth_token,
+                transient_cache=transient_cache,
+            )
+        return self._get_standard_canvas_service()
 
     @functools.cache
     def get_job_service(self) -> JobService:
@@ -103,19 +136,32 @@ class ServiceFactory:
         return JobService(db=self._get_db(), config=self.get_config())
 
     @functools.cache
+    def _get_standard_media_generation_service(self) -> MediaGenerationService:
+        """Returns a singleton instance of the standard MediaGenerationService."""
+        return MediaGenerationService(
+            asset_service=self._get_standard_asset_service(), config=self.get_config()
+        )
+
     def get_media_generation_service(self) -> MediaGenerationService:
-        """Returns a singleton instance of the MediaGenerationService."""
+        """Returns an instance of the MediaGenerationService."""
         if self.get_config().use_creative_studio:
             from mediagent_kit.services.creative_studio_media_generation_service import (
                 CreativeStudioMediaGenerationService,
             )
+            from mediagent_kit.utils.context import get_request_context
+            ctx = get_request_context()
+            workspace_id = ctx.get("workspace_id") if ctx else None
+            user_auth_token = ctx.get("user_auth_token") if ctx else None
+            transient_cache = ctx.get("transient_cache") if ctx else None
 
             return CreativeStudioMediaGenerationService(  # type: ignore
-                asset_service=self.get_asset_service(), config=self.get_config()
+                asset_service=self.get_asset_service(),
+                config=self.get_config(),
+                workspace_id=workspace_id,
+                user_auth_token=user_auth_token,
+                transient_cache=transient_cache,
             )
-        return MediaGenerationService(
-            asset_service=self.get_asset_service(), config=self.get_config()
-        )
+        return self._get_standard_media_generation_service()
 
     @functools.cache
     def get_video_stitching_service(self) -> VideoStitchingService:

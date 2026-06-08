@@ -23,7 +23,7 @@ from mediagent_kit.services.types import Asset
 
 from ...instructions.generation import generation_prompts
 from . import enrichment_utils
-from .creative_studio_adapter import get_media_generation_service
+import mediagent_kit.services.aio
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ async def generate_scene_first_frame(
 ) -> Tuple[Asset, str]:
     """Generates the first frame for one scene. Returns (Asset, final_prompt_text)."""
     logger.info(f"Generating first frame for scene {index} (UGC: {is_ugc})")
-    mediagen_service = get_media_generation_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
     original_prompt_desc = first_frame_prompt.get("description", "")
     reference_asset_names = [
@@ -109,7 +109,7 @@ async def generate_scene_video(
     uid: str = "",
 ) -> Asset:
     """Generates the video for one scene."""
-    mediagen_service = get_media_generation_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
     voiceover_text = scene.get("voiceover_prompt", {}).get("text", "")
 

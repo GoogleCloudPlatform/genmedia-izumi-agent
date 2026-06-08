@@ -20,7 +20,7 @@ from typing import Any, Dict, Tuple
 
 import mediagent_kit.services.aio
 from ...instructions.generation import generation_prompts
-from .creative_studio_adapter import get_asset_service, get_media_generation_service
+import mediagent_kit.services.aio
 
 logger = logging.getLogger(__name__)
 
@@ -72,8 +72,8 @@ async def enrich_prompt_with_llm(
 
     raw_input = " | ".join(parts)
 
-    mediagen_service = get_media_generation_service()
-    asset_service = get_asset_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
+    asset_service = mediagent_kit.services.aio.get_asset_service()
 
     # Select the correct base instruction
     if prompt_type == "image":
@@ -197,7 +197,7 @@ async def enrich_prompt_with_llm(
 
 async def shorten_script(text: str, target_duration: float, user_id: str) -> str:
     """Uses an LLM to shorten a script to a target duration."""
-    mediagen_service = get_media_generation_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
     prompt = (
         "You are a professional script editor. Your task is to shorten the following"
         f" text to fit within a {target_duration:.1f} second time limit, while"
@@ -213,7 +213,7 @@ async def shorten_script(text: str, target_duration: float, user_id: str) -> str
             reference_image_filenames=[],
             model="gemini-2.5-flash",
         )
-        asset_service = get_asset_service()
+        asset_service = mediagent_kit.services.aio.get_asset_service()
         blob = await asset_service.get_asset_blob(response_asset.id)
         shortened_text = blob.content.decode().strip()
         logger.info(

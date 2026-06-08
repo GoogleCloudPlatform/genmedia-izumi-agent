@@ -21,7 +21,7 @@ import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 
 from ..common import enrichment_utils
-from ..common.creative_studio_adapter import get_asset_service, get_media_generation_service
+import mediagent_kit.services.aio
 
 logger = logging.getLogger(__name__)
 
@@ -35,11 +35,11 @@ async def generate_background_music(
     # Idempotency: Skip if already generated
     if background_music_prompt.get("asset_id"):
         logger.info("Background music already exists. Skipping generation.")
-        asset_service = get_asset_service()
+        asset_service = mediagent_kit.services.aio.get_asset_service()
         return await asset_service.get_asset(background_music_prompt["asset_id"])
 
     logger.info(f"Generating background music for user {user_id}")
-    mediagen_service = get_media_generation_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
     music_prompt = background_music_prompt["description"]
     filename = f"background_music_{uid}.mp3" if uid else "background_music.mp3"
 
@@ -68,11 +68,11 @@ async def generate_scene_voiceover(
     # Idempotency: Skip if already generated
     if voiceover_prompt.get("asset_id"):
         logger.info(f"Voiceover for scene {index} already exists. Skipping generation.")
-        asset_service = get_asset_service()
+        asset_service = mediagent_kit.services.aio.get_asset_service()
         return await asset_service.get_asset(voiceover_prompt["asset_id"])
 
     logger.info(f"Generating voiceover for scene {index}")
-    mediagen_service = get_media_generation_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
     # Safely extract text
     original_text = voiceover_prompt.get("text", "").strip()

@@ -22,7 +22,7 @@ import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 
 from ...utils.storyboard.storyboard_model import VoiceoverGroup
-from ...utils.common.creative_studio_adapter import get_asset_service, get_media_generation_service
+import mediagent_kit.services.aio
 
 logger = logging.getLogger(__name__)
 
@@ -69,8 +69,8 @@ async def rewrite_group_script(
     user_id: str, group: VoiceoverGroup, group_index: int = 0
 ) -> str:
     """Uses an LLM to rewrite a group's choppy scripts into a flowing narrative."""
-    mediagen_service = get_media_generation_service()
-    asset_service = get_asset_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
+    asset_service = mediagent_kit.services.aio.get_asset_service()
 
     # Format inputs for the prompt
     formatted_texts = []
@@ -117,8 +117,8 @@ async def rewrite_group_script(
 
 async def _shorten_group_script(user_id: str, text: str, target_duration: float) -> str:
     """Uses LLM to condense a script to fit a target duration."""
-    mediagen_service = get_media_generation_service()
-    asset_service = get_asset_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
+    asset_service = mediagent_kit.services.aio.get_asset_service()
 
     pause_instruction = (
         "Keep [short pause], [medium pause], and [long pause] tags if present."
@@ -158,7 +158,7 @@ async def generate_group_voiceover(
     group_index: int = 0,
 ) -> Optional[Asset]:
     """Generates the audio asset for a voiceover group with duration optimization."""
-    mediagen_service = get_media_generation_service()
+    mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
     # 1. Initial Rewrite
     current_text = await rewrite_group_script(user_id, group, group_index=group_index)
