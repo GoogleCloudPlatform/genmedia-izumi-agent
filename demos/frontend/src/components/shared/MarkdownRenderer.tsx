@@ -66,8 +66,27 @@ const MarkdownRenderer: Components = {
     </ListItem>
   ),
   blockquote: (props) => (
-    <Paper sx={{ p: 2, my: 2, bgcolor: 'grey.200' }}>
-      <Typography component="blockquote">{props.children}</Typography>
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        my: 2,
+        bgcolor: 'rgba(99, 102, 241, 0.08)',
+        borderLeft: (theme) => `4px solid ${theme.palette.primary.main}`,
+        borderRadius: 1,
+      }}
+    >
+      <Typography
+        component="blockquote"
+        sx={{
+          color: 'text.primary',
+          m: 0,
+          fontStyle: 'italic',
+          '& p': { m: 0 },
+        }}
+      >
+        {props.children}
+      </Typography>
     </Paper>
   ),
   pre: (props) => (
