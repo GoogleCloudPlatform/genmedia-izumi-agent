@@ -11,14 +11,49 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""
-This package contains the services used by the application.
+"""mediagent_kit services package.
+
+Two layers coexist here (both are exported):
+
+  * **Legacy concrete services**: ``AssetService``, ``CanvasService``,
+    ``JobService``, ``JobOrchestratorService``,
+    ``MediaGenerationService``, ``VideoStitchingService``. These are
+    the existing process-singleton services used by current agents.
+    Accessed via top-level helpers ``get_asset_service()``,
+    ``get_canvas_service()``, etc.
+
+  * **Unified abstract interfaces and the request-scoped session
+    pattern**: ``AssetServiceInterface``,
+    ``HtmlCanvasServiceInterface``, ``VideoTimelineServiceInterface``,
+    ``StoryboardServiceInterface``,
+    ``MediaGenerationServiceInterface``, plus ``AgentSession``. These
+    define the cross-backend contract (Izumi Native + Creative Studio
+    + future backends) per
+    ``unified_media_agent_interface_spec_v1.md``. Concrete
+    implementations land in follow-up CLs as ``izumi/*Service`` and
+    ``creative_studio/*Service`` submodules.
+
+  * **Typed error taxonomy**: see ``errors.MediagentError`` and its
+    subclasses. Concrete backends translate their backend-specific
+    failures into these so callers can write backend-agnostic error
+    handling.
+
+The legacy and unified layers coexist by design; the unified layer
+is the forward path and the legacy layer is incrementally retired.
 """
 
-from mediagent_kit.services import aio
+from mediagent_kit.services import aio, errors, interfaces
 from mediagent_kit.services.asset_service import AssetService
 from mediagent_kit.services.base_service import BaseService
 from mediagent_kit.services.canvas_service import CanvasService
+from mediagent_kit.services.interfaces import (
+    AgentSession,
+    AssetServiceInterface,
+    HtmlCanvasServiceInterface,
+    MediaGenerationServiceInterface,
+    StoryboardServiceInterface,
+    VideoTimelineServiceInterface,
+)
 from mediagent_kit.services.job_orchestrator_service import JobOrchestratorService
 from mediagent_kit.services.job_service import JobService
 from mediagent_kit.services.media_generation_service import MediaGenerationService
@@ -77,6 +112,7 @@ def get_video_stitching_service() -> VideoStitchingService:
 
 
 __all__ = [
+    # Legacy concrete services
     "AssetService",
     "BaseService",
     "CanvasService",
@@ -93,4 +129,13 @@ __all__ = [
     "get_job_service",
     "get_media_generation_service",
     "get_video_stitching_service",
+    # Unified abstract interfaces (concrete impls in follow-up CLs)
+    "AgentSession",
+    "AssetServiceInterface",
+    "HtmlCanvasServiceInterface",
+    "MediaGenerationServiceInterface",
+    "StoryboardServiceInterface",
+    "VideoTimelineServiceInterface",
+    "errors",
+    "interfaces",
 ]
