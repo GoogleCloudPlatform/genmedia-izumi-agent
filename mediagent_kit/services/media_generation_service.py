@@ -367,14 +367,37 @@ class MediaGenerationService:
         client: genai.Client,
         model: str,
         contents: list,
+        temperature: float | None = None,
+        include_thoughts: bool = False,
+        thinking_budget: int | None = None,
     ) -> types.GenerateContentResponse:
+        # temperature=None -> do NOT set it (preserves the historical API-default
+        # behavior for every existing caller). A caller that wants deterministic
+        # output (e.g. an evaluation judge) passes temperature=0 explicitly.
+        config_kwargs: dict = {
+            "response_modalities": ["TEXT"],
+            "candidate_count": 1,
+        }
+        if temperature is not None:
+            config_kwargs["temperature"] = temperature
+        # Thinking config (Gemini 2.5+/3.x). When include_thoughts=True the
+        # model returns its internal reasoning as a separate Part with
+        # part.thought=True alongside the normal response Part. Default
+        # (False / None) preserves the historical behavior -- the model
+        # may still think internally, we just don't ask for the thoughts
+        # back. Useful for evaluation/debugging where seeing WHY the
+        # model said what it said matters.
+        if include_thoughts or thinking_budget is not None:
+            thinking_kwargs: dict = {}
+            if include_thoughts:
+                thinking_kwargs["include_thoughts"] = True
+            if thinking_budget is not None:
+                thinking_kwargs["thinking_budget"] = thinking_budget
+            config_kwargs["thinking_config"] = types.ThinkingConfig(**thinking_kwargs)
         return client.models.generate_content(
             model=model,
             contents=contents,
-            config=types.GenerateContentConfig(
-                response_modalities=["TEXT"],
-                candidate_count=1,
-            ),
+            config=types.GenerateContentConfig(**config_kwargs),
         )
 
     def _get_asset(self, user_id: str, file_name: str) -> asset_types.Asset:
@@ -396,8 +419,26 @@ class MediaGenerationService:
         reference_image_filenames: list[str] = [],
         purpose: str | None = None,
         model: str | None = None,
+        temperature: float | None = None,
+        include_thoughts: bool = False,
+        thinking_budget: int | None = None,
     ) -> asset_types.Asset:
-        """Generates text using Gemini, with an optional set of reference images."""
+        """Generates text using Gemini, with an optional set of reference images.
+
+        ``temperature`` defaults to None, meaning the API default is used (the
+        historical behavior — unchanged for all existing callers). Pass 0 for
+        deterministic / reproducible output (e.g. an evaluation judge).
+
+        ``include_thoughts`` (Gemini 2.5+/3.x): when True, the model's
+        internal reasoning is returned alongside the visible response. The
+        thoughts are saved as a sidecar asset named ``{file_name}.thoughts``
+        so the main asset's blob stays a clean parseable response (e.g.
+        autoraters that expect JSON don't break). Default False preserves
+        the historical behavior for all existing callers.
+
+        ``thinking_budget``: per-call cap on internal reasoning tokens. None
+        means model default. Higher = more deliberate (and more tokens billed).
+        """
         if model is None:
             text_config = self._config.models.get("text", {})
             if purpose and purpose in text_config:
@@ -432,7 +473,12 @@ class MediaGenerationService:
 
         client = self._get_genai_client()
         response = self._generate_gemini_text_content(
-            client=client, model=model, contents=contents
+            client=client,
+            model=model,
+            contents=contents,
+            temperature=temperature,
+            include_thoughts=include_thoughts,
+            thinking_budget=thinking_budget,
         )
 
         if response.prompt_feedback and response.prompt_feedback.block_reason:
@@ -452,7 +498,23 @@ class MediaGenerationService:
             and response.candidates[0].content
             and (parts := response.candidates[0].content.parts)
         ):
-            generated_text = "".join(part.text for part in parts if part.text)
+            # Split parts into "thoughts" (model's internal reasoning, only
+            # present when include_thoughts=True) and "response" (the visible
+            # output we want returned to the caller). Historical behavior is
+            # preserved when include_thoughts=False -- there will be no
+            # thought parts, and generated_text matches the prior all-parts
+            # concatenation.
+            response_text_parts: list[str] = []
+            thought_text_parts: list[str] = []
+            for part in parts:
+                if not part.text:
+                    continue
+                if part.thought:
+                    thought_text_parts.append(part.text)
+                else:
+                    response_text_parts.append(part.text)
+            generated_text = "".join(response_text_parts)
+            thoughts_text = "".join(thought_text_parts)
             if generated_text:
                 text_generate_config = asset_types.TextGenerateConfig(
                     model=model,
@@ -466,6 +528,32 @@ class MediaGenerationService:
                     mime_type="text/plain",
                     text_generate_config=text_generate_config,
                 )
+                # Save thoughts as a sidecar asset so callers that want to
+                # inspect the chain of thought can fetch it via the standard
+                # asset service. Sidecar file_name = "{file_name}.thoughts".
+                # No-op when there are no thoughts (default behavior).
+                if thoughts_text:
+                    try:
+                        self._asset_service.save_asset(
+                            user_id=user_id,
+                            file_name=f"{file_name}.thoughts",
+                            blob=thoughts_text.encode(),
+                            mime_type="text/plain",
+                            text_generate_config=text_generate_config,
+                        )
+                        logger.info(
+                            "Saved thoughts sidecar: %s.thoughts (%d chars)",
+                            file_name,
+                            len(thoughts_text),
+                        )
+                    except Exception as e:
+                        # Sidecar save is best-effort -- failure here must
+                        # not break the primary asset path.
+                        logger.warning(
+                            "Failed to save thoughts sidecar for %s: %s",
+                            file_name,
+                            e,
+                        )
                 logger.info(f"Successfully generated text: {file_name}")
                 return asset
 
@@ -718,8 +806,15 @@ class MediaGenerationService:
         method: Literal["image_to_video", "reference_to_video"] = "image_to_video",
         purpose: str | None = None,
         model: str | None = None,
+        enhance_prompt: bool = True,
     ) -> asset_types.Asset:
-        """Generates a video using Veo and saves it as a user-scoped asset."""
+        """Generates a video using Veo and saves it as a user-scoped asset.
+
+        ``enhance_prompt`` toggles Veo's own server-side prompt rewriting
+        (default True, the historical behavior). Set False to send the prompt
+        verbatim — useful for controlled experiments where an upstream step has
+        already produced the final prompt and a second rewrite would confound it.
+        """
         if model is None:
             config = self._config.models.get("video", {})
             if purpose and purpose in config:
@@ -814,7 +909,7 @@ class MediaGenerationService:
             number_of_videos=1,
             duration_seconds=duration_seconds,
             person_generation=types.PersonGeneration.ALLOW_ALL,
-            enhance_prompt=True,
+            enhance_prompt=enhance_prompt,
             generate_audio=generate_audio,
             last_frame=last_frame_to_pass,
             reference_images=(
