@@ -17,8 +17,11 @@ from .async_services import (
     AsyncCanvasService,
     AsyncJobService,
     AsyncMediaGenerationService,
+    AsyncStoryboardService,
     AsyncVideoStitchingService,
+    AsyncVideoTimelineService,
 )
+from mediagent_kit.config import MediagentKitConfig
 from .firestore_session_service import FirestoreSessionService
 from .service_factory import AsyncServiceFactory
 
@@ -56,8 +59,24 @@ def get_video_stitching_service() -> AsyncVideoStitchingService:
     return _get_async_service_factory().get_video_stitching_service()
 
 
+def get_storyboard_service() -> AsyncStoryboardService:
+    return _get_async_service_factory().get_storyboard_service()
+
+
+def get_video_timeline_service() -> AsyncVideoTimelineService:
+    return _get_async_service_factory().get_video_timeline_service()
+
+
+def get_timeline_service() -> AsyncVideoTimelineService:
+    return _get_async_service_factory().get_timeline_service()
+
+
 def get_firestore_session_service() -> FirestoreSessionService:
     return _get_async_service_factory().get_firestore_session_service()
+
+
+def get_config() -> MediagentKitConfig:
+    return _get_async_service_factory()._sync_factory.get_config()
 
 
 __all__ = [
@@ -65,12 +84,18 @@ __all__ = [
     "AsyncCanvasService",
     "AsyncJobService",
     "AsyncMediaGenerationService",
+    "AsyncStoryboardService",
     "AsyncVideoStitchingService",
+    "AsyncVideoTimelineService",
     "FirestoreSessionService",
     "get_asset_service",
     "get_canvas_service",
+    "get_config",
     "get_firestore_session_service",
     "get_job_service",
     "get_media_generation_service",
+    "get_storyboard_service",
+    "get_timeline_service",
     "get_video_stitching_service",
+    "get_video_timeline_service",
 ]

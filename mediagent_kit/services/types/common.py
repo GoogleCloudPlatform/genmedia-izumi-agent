@@ -282,6 +282,7 @@ class ScopedVideoTimeline(BaseModel):
     workspace_id: str
     user_id: Optional[str] = None
     session_id: Optional[str] = None
+    storyboard_id: Optional[str] = None
     title: str
     video_clips: list[TimelineVideoClip]
     transitions: list[Optional[Transition]] = Field(default_factory=list)

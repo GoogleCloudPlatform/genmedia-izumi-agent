@@ -12,16 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import asyncio
 import logging
 import uuid
 
 from google.adk.agents.readonly_context import ReadonlyContext
+from google.adk.agents.context import Context
+from google.adk.models import LlmRequest
 from google.adk.tools import ToolContext
 from google.genai import types as genai_types
 
 import mediagent_kit
 
 logger = logging.getLogger(__name__)
+
+DESCRIPTION_INSTRUCTION = """\
+Provide a concise (1-2 sentence) summary of this image for an advertising campaign, focusing on its key visual elements.
+If visible in the image, include the product's name and price.
+The description should be brief but contain essential product details.
+"""
 
 
 def get_user_id_from_context(context: ReadonlyContext) -> str:
@@ -52,7 +61,13 @@ def get_session_id_from_context(context: ReadonlyContext) -> str:
             and context._invocation_context
             and context._invocation_context.session
         ):
-            session_id = context._invocation_context.session.session_id
+            session = context._invocation_context.session
+            id_val = getattr(session, "id", None)
+            sid_val = getattr(session, "session_id", None)
+            if isinstance(id_val, str):
+                session_id = id_val
+            elif isinstance(sid_val, str):
+                session_id = sid_val
     except Exception:
         pass
 
@@ -106,30 +121,68 @@ async def display_asset(tool_context: ToolContext, asset_id: str) -> str:
         return f"Asset {asset_id} saved (Artifact display skipped)."
 
 
-async def blob_interceptor_callback(callback_context, llm_request):
-    """
-    Intercepts user messages to find and save blobs as assets.
-    If a blob is found, it is saved.
-    Execution then continues to the LLM.
-    """
-    # Initialize campaign state to prevent KeyError in instructions
-    if (
-        callback_context
-        and callback_context._invocation_context
-        and callback_context._invocation_context.session
-    ):
-        session = callback_context._invocation_context.session
-        if "parameters" not in session.state:
-            session.state["parameters"] = {}
-        if "user_assets" not in session.state:
-            session.state["user_assets"] = {}
-        if "storyboard" not in session.state:
-            session.state["storyboard"] = {}
-        if "forced_metadata" not in session.state:
-            session.state["forced_metadata"] = {}
+async def generate_image_description(
+    mime_type: str, workspace_id: str, blob_data: bytes =  None, gcs_uri: str = None
+) -> str:
+    """Generates a concise visual description for an image blob or GCS URI using Gemini multimodal."""
+    try:
+        from google import genai
+        from google.genai import types as genai_types
+        from mediagent_kit.services.aio import get_config
 
-    # llm_request is expected to be an LlmRequest object, but we omit the
-    # type hint to avoid import errors on older ADK versions.
+        config = get_config()
+        client = genai.Client(
+            vertexai=True,
+            project=config.google_cloud_project,
+            location=config.google_cloud_location or "us-central1",
+        )
+        model = config.models.get("text", {}).get("default", "gemini-2.5-flash")
+
+        if gcs_uri:
+            image_part = genai_types.Part.from_uri(
+                file_uri=gcs_uri, mime_type=mime_type
+            )
+        elif blob_data:
+            image_part = genai_types.Part.from_bytes(
+                data=blob_data, mime_type=mime_type
+            )
+        else:
+            return "No image data or URI provided."
+        prompt_part = genai_types.Part.from_text(text=DESCRIPTION_INSTRUCTION)
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model=model,
+            contents=[image_part, prompt_part],
+        )
+        return (response.text or "").strip()
+    except Exception as e:
+        logger.warning(f"Failed to generate description for asset blob: {e}")
+        return "User provided visual reference asset."
+
+
+async def blob_interceptor_callback(callback_context: Context, llm_request: LlmRequest):
+    """Intercepts user messages to process blobs, session artifacts, and Creative Studio asset references."""
+    state = None
+    if callback_context and callback_context.state:
+        state = callback_context.state
+        for key in [
+            "parameters",
+            "user_assets",
+            "storyboard",
+            "forced_metadata",
+            "asset_refs",
+        ]:
+            if key not in state:
+                state[key] = {}
+
+        import os
+        from mediagent_kit.utils.context import set_request_context
+
+        token_key = os.getenv("CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token")
+        workspace_id = state.get("workspace_id")
+        auth_token = state.get(token_key)
+        set_request_context(user_auth_token=auth_token, workspace_id=workspace_id)
+
     if not hasattr(llm_request, "contents") or not llm_request.contents:
         return None
 
@@ -137,42 +190,244 @@ async def blob_interceptor_callback(callback_context, llm_request):
 
     if hasattr(last_content, "role") and last_content.role == "user":
         if hasattr(last_content, "parts"):
+            import re
+            from google.genai import types as genai_types
+            from mediagent_kit.services.types.common import AssetRef, GeneratedAsset
+
+            asset_service = mediagent_kit.services.aio.get_asset_service()
+            user_id = get_user_id_from_context(callback_context)
+            workspace_id = str(state.get("workspace_id") or user_id)
+
             for i, part in enumerate(last_content.parts):
+                # Scenario A: Multimodal inline blob part
+                blob_data = None
+                mime_type = None
+                file_name = None
                 if hasattr(part, "inline_data") and part.inline_data:
                     blob = part.inline_data
                     mime_type = blob.mime_type
                     blob_data = blob.data
                     file_name = blob.display_name
+                elif hasattr(part, "file_data") and part.file_data:
+                    blob = part.file_data
+                    mime_type = blob.mime_type
+                    file_uri = blob.file_uri
+                    file_name = getattr(blob, "display_name", None)
+                    if file_uri and file_uri.startswith("gs://"):
+                        from google.cloud import storage
+
+                        path = file_uri.removeprefix("gs://")
+                        bucket_name, blob_path = path.split("/", 1)
+                        storage_client = storage.Client()
+                        bucket = storage_client.bucket(bucket_name)
+                        blob_obj = bucket.blob(blob_path)
+                        blob_data = await asyncio.to_thread(blob_obj.download_as_bytes)
+
+                if blob_data and mime_type:
 
                     if not file_name:
-                        # Generate a filename if not found in text.
                         file_extension = mime_type.split("/")[-1]
                         file_name = f"{uuid.uuid4()}.{file_extension}"
 
                     logger.info(
-                        f"Intercepted blob of type {mime_type}. Saving as asset with name {file_name}"
+                        f"Intercepted blob of type {mime_type}. Uploading asset '{file_name}'..."
                     )
 
                     try:
-                        asset_service = mediagent_kit.services.aio.get_asset_service()
-                        user_id = get_user_id_from_context(callback_context)
-
-                        await asset_service.save_asset(
-                            user_id=user_id,
-                            mime_type=mime_type,
+                        uploaded = await asset_service.upload_asset(
+                            workspace_id=workspace_id,
                             file_name=file_name,
                             blob=blob_data,
+                            mime_type=mime_type,
                         )
-                        logger.info(f"Successfully saved blob as asset: {file_name}")
+                        logger.info(
+                            f"Successfully uploaded blob asset: {file_name} with ID: {uploaded.id}"
+                        )
 
-                        # Replace the blob part with a system message to inform the model
-                        # that the asset was saved.
-                        success_message = f"System note: The file referred to in this user query is an asset named '{file_name}'. Use this file as reference asset for tasks like image or video generation as needed."
+                        asset_key = f"uploaded_{uploaded.id}"
+                        if mime_type.startswith("image/"):
+                            desc = await generate_image_description(
+                                mime_type=mime_type,
+                                workspace_id=workspace_id,
+                                blob_data=blob_data,
+                                gcs_uri=None,
+                            )
+                            user_assets = dict(state.get("user_assets") or {})
+                            user_assets[asset_key] = (
+                                f"(Original file: {asset_key}) {desc}"
+                            )
+                            state["user_assets"] = user_assets
 
+                        # Save to asset_refs state map under the unique asset_key
+                        asset_refs = dict(state.get("asset_refs") or {})
+                        asset_refs[asset_key] = {
+                            "id": uploaded.id,
+                            "asset_type": "uploaded",
+                            "workspace_id": workspace_id,
+                        }
+                        state["asset_refs"] = asset_refs
+
+                        success_message = f"System note: The file referred to in this user query is an asset named '{file_name}'. Use this file as reference asset for tasks like image or video generation as needed using the ID: {asset_key}"
                         last_content.parts[i] = genai_types.Part(text=success_message)
 
                     except Exception as e:
                         logger.error(f"Failed to save blob as asset: {e}")
 
-    # Return None to allow the agent to proceed with the model call.
+                # Scenario B: Text reference to user-uploaded session artifact
+                elif hasattr(part, "text") and part.text:
+                    clean_text = part.text
+                    artifact_matches = re.findall(
+                        r"<start_of_user_uploaded_file:\s*([^>]+)>", clean_text
+                    )
+                    for file_name in artifact_matches:
+                        file_name = file_name.strip()
+                        logger.info(
+                            f"Intercepted session artifact reference: '{file_name}'."
+                        )
+                        try:
+                            artifact_part = await callback_context.load_artifact(
+                                file_name
+                            )
+                            blob_data = None
+                            mime_type = None
+                            if artifact_part:
+                                if getattr(artifact_part, "inline_data", None):
+                                    blob_data = artifact_part.inline_data.data
+                                    mime_type = artifact_part.inline_data.mime_type
+                                elif getattr(artifact_part, "file_data", None):
+                                    file_uri = artifact_part.file_data.file_uri
+                                    mime_type = artifact_part.file_data.mime_type
+                                    if file_uri and file_uri.startswith("gs://"):
+                                        from google.cloud import storage
+
+                                        path = file_uri.removeprefix("gs://")
+                                        bucket_name, blob_path = path.split("/", 1)
+                                        storage_client = storage.Client()
+                                        bucket = storage_client.bucket(bucket_name)
+                                        blob_obj = bucket.blob(blob_path)
+                                        blob_data = await asyncio.to_thread(
+                                            blob_obj.download_as_bytes
+                                        )
+
+                            if blob_data and mime_type:
+
+                                uploaded_asset = await asset_service.upload_asset(
+                                    workspace_id=workspace_id,
+                                    file_name=file_name,
+                                    blob=blob_data,
+                                    mime_type=mime_type,
+                                )
+                                logger.info(
+                                    f"Successfully uploaded session artifact: {file_name} with ID: {uploaded_asset.id}"
+                                )
+
+                                if mime_type.startswith("image/"):
+                                    desc = await generate_image_description(
+                                        mime_type=mime_type,
+                                        workspace_id=workspace_id,
+                                        blob_data=blob_data,
+                                        gcs_uri=None,
+                                    )
+                                    user_assets = dict(state.get("user_assets") or {})
+                                    asset_key = f"uploaded_{uploaded_asset.id}"
+                                    user_assets[asset_key] = (
+                                        f"(Original file: {asset_key}) {desc}"
+                                    )
+                                    state["user_assets"] = user_assets
+
+                                # Save to asset_refs state map under the unique asset_key
+                                asset_refs = dict(state.get("asset_refs") or {})
+                                asset_key = f"uploaded_{uploaded_asset.id}"
+                                asset_refs[asset_key] = {
+                                    "id": uploaded_asset.id,
+                                    "asset_type": "uploaded",
+                                    "workspace_id": workspace_id,
+                                }
+                                state["asset_refs"] = asset_refs
+
+                                clean_text = re.sub(
+                                    rf"<start_of_user_uploaded_file:\s*{re.escape(file_name)}>",
+                                    "",
+                                    clean_text,
+                                )
+                                clean_text = re.sub(
+                                    rf"<end_of_user_uploaded_file:\s*{re.escape(file_name)}>",
+                                    "",
+                                    clean_text,
+                                )
+                                clean_text += f"\n(System note: The file '{file_name}' was uploaded as an asset to Creative Studio. Use it as a reference asset for media generation as needed using the ID: uploaded_{uploaded_asset.id})"
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to process session artifact '{file_name}': {e}"
+                            )
+
+                    # Scenario C: Reference to a Creative Studio Asset by ID and type
+                    cs_asset_matches = re.findall(
+                        r'<creative_studio_asset\s+id=["\']?([0-9a-fA-F\-]+)["\']?\s+type=["\']?([^"\'>\s]+)["\']?\s*/?>',
+                        clean_text,
+                    )
+                    for asset_id, raw_asset_type in cs_asset_matches:
+                        logger.info(
+                            f"Intercepted CS asset tag reference: ID='{asset_id}', type='{raw_asset_type}'"
+                        )
+                        try:
+                            mapped_type = (
+                                "uploaded"
+                                if raw_asset_type == "source_asset"
+                                else "generated"
+                            )
+                            ref = AssetRef(
+                                id=asset_id,
+                                asset_type=mapped_type,
+                                workspace_id=workspace_id,
+                            )
+                            asset = await asset_service.get_asset(ref)
+                            if asset:
+                                logger.info(
+                                    f"Successfully loaded CS asset: {asset.file_name} (ID: {asset_id})"
+                                )
+                                user_assets = dict(state.get("user_assets") or {})
+                                metadata = getattr(asset, "generation_metadata", None)
+                                prompt_desc = (
+                                    getattr(metadata, "prompt", None)
+                                    if metadata
+                                    else None
+                                )
+                                if prompt_desc is None:
+                                    gcs_uri = getattr(
+                                        asset, "gcs_uri", None
+                                    ) or getattr(
+                                        getattr(asset, "current", None), "gcs_uri", None
+                                    )
+                                    prompt_desc = await generate_image_description(
+                                        blob_data=None,
+                                        mime_type=asset.mime_type,
+                                        workspace_id=workspace_id,
+                                        gcs_uri=gcs_uri,
+                                    )
+
+                                asset_key = f"{mapped_type}_{asset_id}"
+                                user_assets[asset_key] = (
+                                    f"(Original file: {asset_key}) {prompt_desc}"
+                                )
+                                state["user_assets"] = user_assets
+
+                                asset_refs = dict(state.get("asset_refs") or {})
+                                asset_refs[asset_key] = {
+                                    "id": asset_id,
+                                    "asset_type": mapped_type,
+                                    "workspace_id": workspace_id,
+                                }
+                                state["asset_refs"] = asset_refs
+
+                                note = f"\n(System note: Creative Studio asset '{asset_key}'.)"
+                                if note not in clean_text:
+                                    clean_text += note
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to resolve CS asset ID {asset_id}: {e}"
+                            )
+
+                    part.text = clean_text
+
     return None

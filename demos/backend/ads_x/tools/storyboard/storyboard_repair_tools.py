@@ -18,6 +18,7 @@ import uuid
 import pydantic
 from google.adk.tools.tool_context import ToolContext
 import mediagent_kit
+from utils.adk import get_session_id_from_context
 
 from ...utils.common import common_utils
 from ...utils.storyboard import storyboard_model
@@ -77,29 +78,15 @@ async def finalize_and_persist_storyboard(
 
         # 3. Trigger Repair Turn using mediagent_kit
         mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-        user_id = tool_context.state.get("user_id", "default_user")
-        uid = uuid.uuid4().hex[:8]
-        repair_result = await mediagen_service.generate_text_with_gemini(
-            user_id=user_id,
-            file_name=f"storyboard_repair_{uid}.json",
-            model="gemini-2.5-flash",  # Fast model for repair
-            prompt=REPAIR_PROMPT.format(
-                raw_json=clean_json[-5000:]
-            ),  # Send last 5k chars for context
-            reference_image_filenames=[],
+        workspace_id = str(
+            tool_context.state.get("workspace_id")
+            or tool_context.state.get("user_id", "default_user")
         )
-
-        # Note: We might need to stitch if the repair only returned the tail,
-        # but usually it's safer to have the repair model return the whole corrected block
-        # OR we just use the repair output if it's broad enough.
-        # For simplicity, let's assume the repair model returns the FULL valid JSON.
-
-        repair_blob = (
-            await mediagent_kit.services.aio.get_asset_service().get_asset_blob(
-                repair_result.id
-            )
+        repaired_json = await mediagen_service.generate_text(
+            workspace_id=workspace_id,
+            prompt=REPAIR_PROMPT.format(raw_json=clean_json[-5000:]),
         )
-        repaired_json = repair_blob.content.decode().strip()
+        repaired_json = repaired_json.strip()
 
         # Clean repair output
         if repaired_json.startswith("```json"):
@@ -115,6 +102,11 @@ async def finalize_and_persist_storyboard(
 
     # 4. Validate against Pydantic Model
     try:
+        # Drop any ID hallucinated by the LLM before validation
+        if isinstance(storyboard_data, dict):
+            for id_key in ("storyboard_id", "id", "current_storyboard_id"):
+                storyboard_data.pop(id_key, None)
+
         storyboard = storyboard_model.Storyboard.model_validate(storyboard_data)
 
         parameters = tool_context.state.get(common_utils.PARAMETERS_KEY, {})
@@ -205,8 +197,19 @@ async def finalize_and_persist_storyboard(
                         f"{scene.video_prompt.description.strip()}{anchor_str}"
                     )
 
-        # 5. Persist to State (Redundant but safe)
-        tool_context.state[common_utils.STORYBOARD_KEY] = storyboard.model_dump()
+        # 5. Persist to State & Explicitly save to Creative Studio
+        storyboard.storyboard_id = None
+        sb_dump = storyboard.model_dump()
+        for id_key in ("storyboard_id", "id", "current_storyboard_id"):
+            sb_dump.pop(id_key, None)
+        session_id = get_session_id_from_context(tool_context)
+        workspace_id = str(
+            tool_context.state.get("workspace_id")
+            or tool_context.state.get("user_id", "")
+        )
+        sb_dump["session_id"] = session_id
+        sb_dump["workspace_id"] = workspace_id
+        tool_context.state[common_utils.STORYBOARD_KEY] = sb_dump
 
         # 6. Beautify for UI
         table_rows = []

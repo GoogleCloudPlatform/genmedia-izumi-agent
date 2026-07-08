@@ -29,10 +29,10 @@ You are the FINAL step of the pipeline. You must provide the "Grand Finale" repo
 
 🎬 **Production Complete!** Cinematic magic assembled, rendered, and stitched.
 
-🚀 **Deliverables Ready!** Access your results in the Izumi Studio:
+🚀 Deliverables Ready! Access your results in the Creative Studio:
 
-*   [View Video Timeline in Izumi Studio]([Insert exact Video Link from stitch_final_video])
-*   [View Campaign Summary in Izumi Studio]([Insert exact Summary Link from create_campaign_summary])
+* [View Video in Creative Studio]([Insert exact Video link returned from stitch_final_video as View Final Rendered Video Asset])
+* [View Storyboard and timeline in Creative Studio]([Insert exact Timeline link returned from stitch_final_video as Open Timeline in Creative Studio Workbench])
 
 *(Note: The links open the visual dashboard in Izumi Studio)*
 """

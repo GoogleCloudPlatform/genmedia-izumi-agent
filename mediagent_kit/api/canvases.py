@@ -36,16 +36,18 @@ def get_asset_service() -> AssetService:
 
 
 @router.get(
-    "/users/{user_id}/canvases", response_model=list[CanvasInfo], tags=["Canvases"]
+    "/workspaces/{workspace_id}/canvases",
+    response_model=list[CanvasInfo],
+    tags=["Canvases"],
 )
 def list_canvases(
-    user_id: str,
+    workspace_id: str,
     canvas_service: Annotated[CanvasService, Depends(get_canvas_service)],
 ) -> list[CanvasInfo]:
     """
     Lists all canvases for a specific user.
     """
-    canvases = canvas_service.list_canvases(user_id=user_id)
+    canvases = canvas_service.list_canvases(user_id=workspace_id)
     canvases_info = []
     for canvas in canvases:
         canvas_type = "video_timeline" if canvas.video_timeline else "html"
@@ -61,10 +63,12 @@ def list_canvases(
 
 
 @router.get(
-    "/users/{user_id}/canvases/{canvas_id}", response_model=Canvas, tags=["Canvases"]
+    "/workspaces/{workspace_id}/canvases/{canvas_id}",
+    response_model=Canvas,
+    tags=["Canvases"],
 )
 def get_canvas(
-    user_id: str,
+    workspace_id: str,
     canvas_id: str,
     canvas_service: Annotated[CanvasService, Depends(get_canvas_service)],
 ) -> Canvas:
@@ -72,16 +76,18 @@ def get_canvas(
     Retrieves a specific canvas by its ID.
     """
     canvas = canvas_service.get_canvas(canvas_id)
-    if not canvas or canvas.user_id != user_id:
+    if not canvas or canvas.user_id != workspace_id:
         raise HTTPException(status_code=404, detail="Canvas not found")
     return canvas
 
 
 @router.patch(
-    "/users/{user_id}/canvases/{canvas_id}", response_model=Canvas, tags=["Canvases"]
+    "/workspaces/{workspace_id}/canvases/{canvas_id}",
+    response_model=Canvas,
+    tags=["Canvases"],
 )
 def update_canvas(
-    user_id: str,
+    workspace_id: str,
     canvas_id: str,
     update_data: CanvasUpdate,
     canvas_service: Annotated[CanvasService, Depends(get_canvas_service)],
@@ -98,7 +104,7 @@ def update_canvas(
             raise HTTPException(status_code=422, detail="Title cannot be empty")
 
     canvas = canvas_service.get_canvas(canvas_id)
-    if not canvas or canvas.user_id != user_id:
+    if not canvas or canvas.user_id != workspace_id:
         raise HTTPException(status_code=404, detail="Canvas not found")
 
     if not update_args:
@@ -122,10 +128,12 @@ def update_canvas(
 
 
 @router.delete(
-    "/users/{user_id}/canvases/{canvas_id}", status_code=204, tags=["Canvases"]
+    "/workspaces/{workspace_id}/canvases/{canvas_id}",
+    status_code=204,
+    tags=["Canvases"],
 )
 def delete_canvas(
-    user_id: str,
+    workspace_id: str,
     canvas_id: str,
     canvas_service: Annotated[CanvasService, Depends(get_canvas_service)],
 ) -> None:
@@ -133,7 +141,7 @@ def delete_canvas(
     Deletes a canvas.
     """
     canvas = canvas_service.get_canvas(canvas_id)
-    if not canvas or canvas.user_id != user_id:
+    if not canvas or canvas.user_id != workspace_id:
         # Even if it doesn't exist, from a user perspective, the canvas is gone.
         # So we don't raise an error.
         pass
@@ -142,7 +150,7 @@ def delete_canvas(
 
 
 class AssetResolvingParser(HTMLParser):
-    def __init__(self, user_id: str, asset_service: AssetService):
+    def __init__(self, workspace_id: str, asset_service: AssetService):
         super().__init__()
         self._user_id = user_id
         self._asset_service = asset_service
@@ -171,7 +179,9 @@ class AssetResolvingParser(HTMLParser):
                     version = parts[1] if len(parts) > 1 else None
                     asset = self._get_user_assets().get(file_name)
                     if asset:
-                        view_url = f"/users/{self._user_id}/assets/{asset.id}/view"
+                        view_url = (
+                            f"/workspaces/{self._workspace_id}/assets/{asset.id}/view"
+                        )
                         if version:
                             view_url += f"?version={version}"
                         value = view_url
@@ -195,7 +205,9 @@ class AssetResolvingParser(HTMLParser):
                     version = parts[1] if len(parts) > 1 else None
                     asset = self._get_user_assets().get(file_name)
                     if asset:
-                        view_url = f"/users/{self._user_id}/assets/{asset.id}/view"
+                        view_url = (
+                            f"/workspaces/{self._workspace_id}/assets/{asset.id}/view"
+                        )
                         if version:
                             view_url += f"?version={version}"
                         value = view_url
@@ -204,12 +216,12 @@ class AssetResolvingParser(HTMLParser):
 
 
 @router.get(
-    "/users/{user_id}/canvases/{canvas_id}/view",
+    "/workspaces/{workspace_id}/canvases/{canvas_id}/view",
     response_class=HTMLResponse,
     tags=["Canvases"],
 )
 def view_canvas(
-    user_id: str,
+    workspace_id: str,
     canvas_id: str,
     canvas_service: Annotated[CanvasService, Depends(get_canvas_service)],
     asset_service: Annotated[AssetService, Depends(get_asset_service)],
@@ -218,7 +230,7 @@ def view_canvas(
     Retrieves and renders a canvas's HTML content, resolving asset URLs.
     """
     canvas = canvas_service.get_canvas(canvas_id)
-    if not canvas or canvas.user_id != user_id or not canvas.html:
+    if not canvas or canvas.user_id != workspace_id or not canvas.html:
         raise HTTPException(
             status_code=404, detail="Canvas not found or has no HTML content"
         )

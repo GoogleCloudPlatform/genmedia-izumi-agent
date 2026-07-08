@@ -54,13 +54,13 @@ def _extract_job_input(request: BaseModel) -> dict:
 
 
 @router.post(
-    "/users/{user_id}/media:generate-music",
+    "/workspaces/{workspace_id}/media:generate-music",
     response_model=Job,
     status_code=202,
     tags=["Media Generation"],
 )
 def generate_music(
-    user_id: str,
+    workspace_id: str,
     request: GenerateMusicRequest,
     orchestrator: Annotated[
         JobOrchestratorService, Depends(get_job_orchestrator_service)
@@ -68,18 +68,18 @@ def generate_music(
 ) -> Job:
     """Generates music using Lyria."""
     job_input = _extract_job_input(request)
-    job = orchestrator.submit_music_generation_job(user_id=user_id, **job_input)
+    job = orchestrator.submit_music_generation_job(user_id=workspace_id, **job_input)
     return job
 
 
 @router.post(
-    "/users/{user_id}/media:generate-image-with-imagen",
+    "/workspaces/{workspace_id}/media:generate-image-with-imagen",
     response_model=Job,
     status_code=202,
     tags=["Media Generation"],
 )
 def generate_image_with_imagen(
-    user_id: str,
+    workspace_id: str,
     request: GenerateImageWithImagenRequest,
     orchestrator: Annotated[
         JobOrchestratorService, Depends(get_job_orchestrator_service)
@@ -87,18 +87,18 @@ def generate_image_with_imagen(
 ) -> Job:
     """Generates an image using Imagen."""
     job_input = _extract_job_input(request)
-    job = orchestrator.submit_image_generation_job(user_id=user_id, **job_input)
+    job = orchestrator.submit_image_generation_job(user_id=workspace_id, **job_input)
     return job
 
 
 @router.post(
-    "/users/{user_id}/media:generate-image-with-gemini",
+    "/workspaces/{workspace_id}/media:generate-image-with-gemini",
     response_model=Job,
     status_code=202,
     tags=["Media Generation"],
 )
 def generate_image_with_gemini(
-    user_id: str,
+    workspace_id: str,
     request: GenerateImageWithGeminiRequest,
     orchestrator: Annotated[
         JobOrchestratorService, Depends(get_job_orchestrator_service)
@@ -106,18 +106,20 @@ def generate_image_with_gemini(
 ) -> Job:
     """Generates an image using Gemini."""
     job_input = _extract_job_input(request)
-    job = orchestrator.submit_gemini_image_generation_job(user_id=user_id, **job_input)
+    job = orchestrator.submit_gemini_image_generation_job(
+        user_id=workspace_id, **job_input
+    )
     return job
 
 
 @router.post(
-    "/users/{user_id}/media:generate-video",
+    "/workspaces/{workspace_id}/media:generate-video",
     response_model=Job,
     status_code=202,
     tags=["Media Generation"],
 )
 def generate_video(
-    user_id: str,
+    workspace_id: str,
     request: GenerateVideoRequest,
     orchestrator: Annotated[
         JobOrchestratorService, Depends(get_job_orchestrator_service)
@@ -130,18 +132,18 @@ def generate_video(
             detail="A first frame is required when providing a last frame for interpolation.",
         )
     job_input = _extract_job_input(request)
-    job = orchestrator.submit_video_generation_job(user_id=user_id, **job_input)
+    job = orchestrator.submit_video_generation_job(user_id=workspace_id, **job_input)
     return job
 
 
 @router.post(
-    "/users/{user_id}/media:generate-speech-single-speaker",
+    "/workspaces/{workspace_id}/media:generate-speech-single-speaker",
     response_model=Job,
     status_code=202,
     tags=["Media Generation"],
 )
 def generate_speech_single_speaker(
-    user_id: str,
+    workspace_id: str,
     request: GenerateSpeechSingleSpeakerRequest,
     orchestrator: Annotated[
         JobOrchestratorService, Depends(get_job_orchestrator_service)
@@ -150,6 +152,6 @@ def generate_speech_single_speaker(
     """Generates speech from text with a single speaker."""
     job_input = _extract_job_input(request)
     job = orchestrator.submit_speech_single_speaker_generation_job(
-        user_id=user_id, **job_input
+        user_id=workspace_id, **job_input
     )
     return job

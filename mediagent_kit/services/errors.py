@@ -49,6 +49,16 @@ class MediagentError(Exception):
     failure without catching unrelated Python exceptions.
     """
 
+    def __init__(
+        self,
+        message: str = "",
+        status_code: int | None = None,
+        *args: object,
+    ):
+        super().__init__(message, *args)
+        self.message = message
+        self.status_code = status_code
+
 
 class AuthenticationError(MediagentError):
     """The caller's identity could not be verified (HTTP 401 equivalent).

@@ -193,7 +193,9 @@ class VideoTimelineServiceInterface(ABC):
         self,
         workspace_id: str,
         session_id: Optional[str] = None,
+        storyboard_id: Optional[str] = None,
         title: Optional[str] = None,
+        timeline: Optional[ScopedVideoTimeline] = None,
     ) -> ScopedVideoTimeline:
         """Creates a timeline document. Owner is derived from the session."""
 

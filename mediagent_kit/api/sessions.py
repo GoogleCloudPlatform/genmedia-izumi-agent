@@ -36,18 +36,18 @@ def get_session_service() -> FirestoreSessionService:
 
 
 @router.get(
-    "/users/{user_id}/sessions",
+    "/workspaces/{workspace_id}/sessions",
     response_model=list[Session],
     tags=["Sessions"],
 )
 async def list_sessions(
-    user_id: str,
+    workspace_id: str,
     session_service: Annotated[FirestoreSessionService, Depends(get_session_service)],
 ) -> list[Session]:
     """
     Lists all sessions for a specific user.
     """
-    response = await session_service.list_sessions(user_id=user_id)
+    response = await session_service.list_sessions(user_id=workspace_id)
 
     filtered_sessions = []
     for session in response.sessions:

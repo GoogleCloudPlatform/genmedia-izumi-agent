@@ -168,6 +168,10 @@ class Storyboard(pydantic.BaseModel):
 
     model_config = pydantic.ConfigDict(extra="allow")
 
+    storyboard_id: str | None = None
+    workspace_id: str | None = None
+    session_id: str | None = None
+
     template_name: str = pydantic.Field(
         default="Custom", description="Name of the template used, if any."
     )

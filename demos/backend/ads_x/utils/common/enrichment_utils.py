@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 async def enrich_prompt_with_llm(
-    user_id: str,
+    workspace_id: str,
     description: str,
     prompt_data: Dict[str, Any],
     scene_index: int,
@@ -72,7 +72,6 @@ async def enrich_prompt_with_llm(
     raw_input = " | ".join(parts)
 
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-    asset_service = mediagent_kit.services.aio.get_asset_service()
 
     # Select the correct base instruction
     if prompt_type == "image":
@@ -171,30 +170,18 @@ async def enrich_prompt_with_llm(
     final_prompt = "\n\n".join(prompt_packet)
 
     try:
-        short_hash = uuid.uuid4().hex[:6]
-        temp_filename = (
-            f"prompt_enrich_scene_{scene_index}_{prompt_type}_{short_hash}.txt"
-        )
-
-        asset = await mediagen_service.generate_text_with_gemini(
-            user_id=user_id,
-            file_name=temp_filename,
+        enriched_text = await mediagen_service.generate_text(
+            workspace_id=workspace_id,
             prompt=final_prompt,
-            reference_image_filenames=reference_image_filenames,
-            model="gemini-3-flash-preview",
         )
-
-        # Read content
-        blob = await asset_service.get_asset_blob(asset.id)
-        enriched_text = blob.content.decode("utf-8").strip()
-        return enriched_text, asset.id
+        return enriched_text.strip(), None
 
     except Exception as e:
         logger.warning(f"Prompt enrichment failed ({e}). Falling back to raw formula.")
         return raw_input.replace("|", "."), None
 
 
-async def shorten_script(text: str, target_duration: float, user_id: str) -> str:
+async def shorten_script(text: str, target_duration: float, workspace_id: str) -> str:
     """Uses an LLM to shorten a script to a target duration."""
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
     prompt = (
@@ -204,17 +191,11 @@ async def shorten_script(text: str, target_duration: float, user_id: str) -> str
         f" shortened script.\n\nORIGINAL SCRIPT:\n{text}"
     )
     try:
-        unique_id = uuid.uuid4().hex[:8]
-        response_asset = await mediagen_service.generate_text_with_gemini(
-            user_id=user_id,
+        shortened_text = await mediagen_service.generate_text(
+            workspace_id=workspace_id,
             prompt=prompt,
-            file_name=f"shortened_script_{unique_id}.txt",
-            reference_image_filenames=[],
-            model="gemini-2.5-flash",
         )
-        asset_service = mediagent_kit.services.aio.get_asset_service()
-        blob = await asset_service.get_asset_blob(response_asset.id)
-        shortened_text = blob.content.decode().strip()
+        shortened_text = shortened_text.strip()
         logger.info(
             f"Successfully shortened script from '{text}' to '{shortened_text}'"
         )

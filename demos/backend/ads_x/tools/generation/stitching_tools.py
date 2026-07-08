@@ -15,10 +15,11 @@
 """Tools to combine generated media into a final video using VideoStitchingService."""
 
 import logging
-import mediagent_kit
-from mediagent_kit.services import types
+from typing import Any
 import uuid
 from google.adk.tools import ToolContext
+import mediagent_kit
+from mediagent_kit.services import types
 
 from utils.adk import display_asset
 from utils.adk import get_user_id_from_context
@@ -45,7 +46,6 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
     if (parameters := tool_context.state.get(common_utils.PARAMETERS_KEY)) is None:
         return tool_failure(f"Missing {common_utils.PARAMETERS_KEY}")
 
-    user_id = get_user_id_from_context(tool_context)
     session_id = get_session_id_from_context(tool_context)
 
     asset_service = mediagent_kit.services.aio.get_asset_service()
@@ -59,6 +59,73 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
         or (storyboard.get("campaign_theme") == "Social Native")
         or (parameters.get("vertical") in ["Social Native", "UGC"])
     )
+
+    workspace_id = str(tool_context.state.get("workspace_id") or "")
+    if not workspace_id or not workspace_id.isdigit():
+        return tool_failure(
+            f"Invalid workspace_id: '{workspace_id}'. Workspace ID must be a non-empty numeric string."
+        )
+
+    current_sb_id = storyboard.get("storyboard_id") or storyboard.get("id")
+
+    if isinstance(storyboard, dict):
+        storyboard["session_id"] = session_id
+        storyboard["workspace_id"] = workspace_id
+    else:
+        try:
+            setattr(storyboard, "session_id", session_id)
+            setattr(storyboard, "workspace_id", workspace_id)
+        except Exception as attr_err:
+            logger.warning(
+                f"Could not directly set session_id/workspace_id on storyboard object: {attr_err}"
+            )
+
+    # Explicitly save latest storyboard to Creative Studio before timeline render
+    try:
+        storyboard_service = mediagent_kit.services.aio.get_storyboard_service()
+        saved_sb = await storyboard_service.save_storyboard(storyboard)
+
+        if hasattr(saved_sb, "storyboard_id") and saved_sb.storyboard_id:
+            current_sb_id = str(saved_sb.storyboard_id)
+        elif isinstance(saved_sb, dict) and (
+            sb_id := saved_sb.get("storyboard_id") or saved_sb.get("id")
+        ):
+            current_sb_id = str(sb_id)
+
+        if current_sb_id:
+            tool_context.state["current_storyboard_id"] = current_sb_id
+            # Save correct integer ID back into the session storyboard object for later updates
+            if isinstance(storyboard, dict):
+                storyboard["storyboard_id"] = current_sb_id
+                tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+            elif hasattr(storyboard, "storyboard_id"):
+                setattr(storyboard, "storyboard_id", current_sb_id)
+                tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+    except Exception as sb_err:
+        logger.warning(f"Explicit pre-stitch storyboard save bypassed/failed: {sb_err}")
+
+    from mediagent_kit.services.types.common import AssetRef
+
+    def _resolve_asset_ref(
+        prompt_dict: dict[str, Any], default_ws: str
+    ) -> AssetRef | None:
+        if not prompt_dict:
+            return None
+        if "asset_ref" in prompt_dict and isinstance(prompt_dict["asset_ref"], dict):
+            ref_data = prompt_dict["asset_ref"]
+            return AssetRef(
+                id=str(ref_data["id"]),
+                asset_type=ref_data.get("asset_type", "generated"),
+                workspace_id=str(ref_data.get("workspace_id") or default_ws),
+            )
+        logger.warning(
+            f"Unable to resolve AssetRef: 'asset_ref' missing or invalid in prompt_dict: {prompt_dict}"
+        )
+        return None
+
+    def _get_asset_duration(asset: Any) -> float | None:
+        duration = getattr(asset, "duration_seconds", None)
+        return float(duration) if isinstance(duration, (int, float)) else None
 
     video_clips: list[types.VideoClip] = []
     audio_clips: list[types.AudioClip] = []
@@ -80,23 +147,26 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
     for index, scene in enumerate(scenes):
         # Add scene video.
         first_frame_prompt = scene["first_frame_prompt"]
+        first_frame_ref = _resolve_asset_ref(first_frame_prompt, workspace_id)
 
         # Robustness: Skip scenes that failed to generate any media
-        if not first_frame_prompt.get("asset_id"):
+        if not first_frame_ref:
             logger.warning(
-                f"Skipping scene {index} in final stitch because it has no asset_id (generation likely failed)."
+                f"Skipping scene {index} in final stitch because it has no asset_ref/asset_id (generation likely failed)."
             )
             continue
 
-        first_frame_asset = await asset_service.get_asset_by_id(
-            first_frame_prompt["asset_id"]
-        )
+        # NOTE: Unified AssetServiceInterface adaptation.
+        # This would break legacy version due to function signature and method name mismatch.
+        first_frame_asset = await asset_service.get_asset(first_frame_ref)
 
         video_prompt = scene["video_prompt"]
-        video_asset_id = video_prompt.get("asset_id")
+        video_ref = _resolve_asset_ref(video_prompt, workspace_id)
 
-        if video_asset_id:
-            video_asset = await asset_service.get_asset_by_id(video_asset_id)
+        if video_ref:
+            # NOTE: Unified AssetServiceInterface adaptation.
+            # This would break legacy version due to function signature and method name mismatch.
+            video_asset = await asset_service.get_asset(video_ref)
         else:
             # Fallback to first frame if video is missing
             video_asset = first_frame_asset
@@ -139,16 +209,20 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
             group_start_time = current_audio_time
             group_duration = group.get("total_duration", 0.0)
 
-            if group.get("audio_asset_id"):
-                voiceover_asset = await asset_service.get_asset_by_id(
-                    group["audio_asset_id"]
-                )
+            group_audio_ref = _resolve_asset_ref(
+                {"asset_ref": group.get("audio_asset_ref")},
+                workspace_id,
+            )
+
+            if group_audio_ref:
+                # NOTE: Unified AssetServiceInterface adaptation.
+                # This would break legacy version due to function signature and method name mismatch.
+                voiceover_asset = await asset_service.get_asset(group_audio_ref)
                 if voiceover_asset:
                     speed = 1.0
-                    if voiceover_asset.current.duration_seconds:
-                        vo_duration = voiceover_asset.current.duration_seconds
-                        if vo_duration > group_duration:
-                            speed = vo_duration / group_duration
+                    vo_duration = _get_asset_duration(voiceover_asset)
+                    if vo_duration and vo_duration > group_duration:
+                        speed = vo_duration / group_duration
 
                     # Map original scene index to the actual clip index
                     target_clip_idx = scene_to_clip_index.get(group["scene_indices"][0])
@@ -176,18 +250,18 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
             voiceover_prompt = scene["voiceover_prompt"]
             video_prompt = scene["video_prompt"]
             target_duration = video_prompt.get("duration_seconds", 4)
+            vo_ref = _resolve_asset_ref(voiceover_prompt, workspace_id)
 
-            if voiceover_prompt.get("asset_id"):
-                voiceover_asset = await asset_service.get_asset_by_id(
-                    voiceover_prompt["asset_id"]
-                )
+            if vo_ref:
+                # NOTE: Unified AssetServiceInterface adaptation.
+                # This would break legacy version due to function signature and method name mismatch.
+                voiceover_asset = await asset_service.get_asset(vo_ref)
 
                 if voiceover_asset:
                     speed = 1.0
-                    if voiceover_asset.current.duration_seconds:
-                        vo_duration = voiceover_asset.current.duration_seconds
-                        if vo_duration > target_duration:
-                            speed = vo_duration / target_duration
+                    vo_duration = _get_asset_duration(voiceover_asset)
+                    if vo_duration and vo_duration > target_duration:
+                        speed = vo_duration / target_duration
 
                     # Map original scene index to the actual clip index
                     target_clip_idx = scene_to_clip_index.get(index)
@@ -207,12 +281,13 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                         )
             else:
                 # UGC / Lip-Sync Logic: Add the video's own audio track
-                video_asset_id = video_prompt.get("asset_id")
-                if video_asset_id:
-                    video_asset = await asset_service.get_asset_by_id(video_asset_id)
-                    if (
-                        video_asset.current.video_generate_config
-                        and video_asset.current.video_generate_config.generate_audio
+                video_ref = _resolve_asset_ref(video_prompt, workspace_id)
+                if video_ref:
+                    # NOTE: Unified AssetServiceInterface adaptation.
+                    # This would break legacy version due to function signature and method name mismatch.
+                    video_asset = await asset_service.get_asset(video_ref)
+                    if video_asset and getattr(video_asset, "mime_type", "").startswith(
+                        "video/"
                     ):
                         target_clip_idx = scene_to_clip_index.get(index)
                         if target_clip_idx is not None:
@@ -228,9 +303,13 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                             )
 
     # 3. Build Audio Track (Background Music)
-    music_asset_id = storyboard["background_music_prompt"].get("asset_id")
-    if music_asset_id:
-        music_asset = await asset_service.get_asset_by_id(music_asset_id)
+    music_ref = _resolve_asset_ref(
+        storyboard.get("background_music_prompt", {}), workspace_id
+    )
+    if music_ref:
+        # NOTE: Unified AssetServiceInterface adaptation.
+        # This would break legacy version due to function signature and method name mismatch.
+        music_asset = await asset_service.get_asset(music_ref)
         if music_asset:
             # Music always starts at the first AVAILABLE clip (index 0 of video_clips)
             if video_clips:
@@ -251,21 +330,159 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
         transitions=transitions,
     )
 
-    # Canvas Logic
-    canvas_service = mediagent_kit.services.aio.get_canvas_service()
-    canvas = await canvas_service.create_canvas(
-        user_id=user_id,
-        title=timeline.title,
-        video_timeline=timeline,
-    )
-    tool_context.state["video_timeline_canvas_id"] = canvas.id
+    config = mediagent_kit.services.aio.get_config()
+    if config.use_creative_studio:
+        from mediagent_kit.services.types.common import (
+            AudioPlacement,
+            GeneratedAsset,
+            ScopedVideoTimeline,
+            TimelineAudioClip,
+            TimelineVideoClip,
+            Transition as ScopedTransition,
+            TransitionType as ScopedTransitionType,
+            Trim as ScopedTrim,
+        )
 
-    # Stitch the video
-    stitched_asset = await video_stitching_service.stitch_video(
-        user_id=user_id, timeline=timeline, output_filename=f"final_video_{uid}.mp4"
-    )
+        scoped_video_clips = []
+        for vc in video_clips:
+            ref = None
+            if hasattr(vc, "asset") and vc.asset and hasattr(vc.asset, "id"):
+                ref = AssetRef(
+                    id=str(vc.asset.id),
+                    asset_type=(
+                        "generated"
+                        if isinstance(vc.asset, GeneratedAsset)
+                        else "uploaded"
+                    ),
+                    workspace_id=workspace_id,
+                )
+            trim_obj = None
+            if hasattr(vc, "trim") and vc.trim:
+                trim_obj = ScopedTrim(
+                    offset_seconds=getattr(vc.trim, "offset_seconds", 0.0),
+                    duration_seconds=getattr(vc.trim, "duration_seconds", None),
+                )
+            scoped_video_clips.append(
+                TimelineVideoClip(
+                    asset_ref=ref,
+                    trim=trim_obj,
+                    volume=getattr(vc, "volume", 1.0),
+                    speed=getattr(vc, "speed", 1.0),
+                )
+            )
+
+        # HERE insert error
+        if not scoped_video_clips:
+            logger.error("No valid video clips found for final video stitching.")
+            return tool_failure(
+                "Final video stitching failed: no valid video clips were generated for any scene."
+            )
+
+        scoped_audio_clips = []
+        for ac in audio_clips:
+            ref = None
+            if hasattr(ac, "asset") and ac.asset and hasattr(ac.asset, "id"):
+                ref = AssetRef(
+                    id=str(ac.asset.id),
+                    asset_type=(
+                        "generated"
+                        if isinstance(ac.asset, GeneratedAsset)
+                        else "uploaded"
+                    ),
+                    workspace_id=workspace_id,
+                )
+            start_at_obj = AudioPlacement(
+                video_clip_index=(
+                    getattr(ac.start_at, "video_clip_index", 0)
+                    if hasattr(ac, "start_at") and ac.start_at
+                    else 0
+                ),
+                offset_seconds=(
+                    getattr(ac.start_at, "offset_seconds", 0.0)
+                    if hasattr(ac, "start_at") and ac.start_at
+                    else 0.0
+                ),
+            )
+            trim_obj = None
+            if hasattr(ac, "trim") and ac.trim:
+                trim_obj = ScopedTrim(
+                    offset_seconds=getattr(ac.trim, "offset_seconds", 0.0),
+                    duration_seconds=getattr(ac.trim, "duration_seconds", None),
+                )
+            scoped_audio_clips.append(
+                TimelineAudioClip(
+                    start_at=start_at_obj,
+                    asset_ref=ref,
+                    trim=trim_obj,
+                    volume=getattr(ac, "volume", 1.0),
+                    speed=getattr(ac, "speed", 1.0),
+                    fade_in_duration_seconds=getattr(
+                        ac, "fade_in_duration_seconds", 0.0
+                    ),
+                    fade_out_duration_seconds=getattr(
+                        ac, "fade_out_duration_seconds", 0.0
+                    ),
+                )
+            )
+
+        scoped_transitions = []
+        for t in transitions:
+            if t and hasattr(t, "type"):
+                t_type_val = t.type.value if hasattr(t.type, "value") else str(t.type)
+                scoped_transitions.append(
+                    ScopedTransition(
+                        type=ScopedTransitionType(t_type_val),
+                        duration_seconds=getattr(t, "duration_seconds", 0.5),
+                    )
+                )
+            else:
+                scoped_transitions.append(None)
+
+        scoped_tl = ScopedVideoTimeline(
+            workspace_id=workspace_id,
+            session_id=session_id,
+            storyboard_id=current_sb_id,
+            title=f"Ads-X Template Final Video {uid}",
+            video_clips=scoped_video_clips,
+            audio_clips=scoped_audio_clips,
+            transitions=scoped_transitions,
+        )
+
+        timeline_service = mediagent_kit.services.aio.get_video_timeline_service()
+        created_tl = await timeline_service.create_timeline(
+            workspace_id=workspace_id,
+            session_id=session_id,
+            storyboard_id=current_sb_id,
+            title=f"Ads-X Template Final Video {uid}",
+            timeline=scoped_tl,
+        )
+        tl_id = created_tl.timeline_id or "1"
+        stitched_asset = await timeline_service.stitch_timeline(
+            timeline_id=tl_id,
+            output_filename=f"final_video_{uid}.mp4",
+        )
+    else:
+        # Canvas Logic
+        canvas_service = mediagent_kit.services.aio.get_canvas_service()
+        canvas = await canvas_service.create_canvas(
+            title=timeline.title,
+            video_timeline=timeline,
+        )
+        tool_context.state["video_timeline_canvas_id"] = canvas.id
+
+        # Stitch the video
+        stitched_asset = await video_stitching_service.stitch_video(
+            timeline=timeline,
+            output_filename=f"final_video_{uid}.mp4",
+            workspace_id=workspace_id,
+        )
 
     tool_context.state["final_video_asset_id"] = stitched_asset.id
+    tool_context.state["final_video_asset_ref"] = {
+        "id": stitched_asset.id,
+        "asset_type": "generated",
+        "workspace_id": workspace_id,
+    }
 
     display_result = await display_asset(
         tool_context=tool_context, asset_id=stitched_asset.id
@@ -275,13 +492,28 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
 
     import os
 
+    if config.use_creative_studio:
+        cs_frontend_url = (
+            os.environ.get("CREATIVE_STUDIO_FRONTEND_URL") or "http://localhost:4200"
+        ).rstrip("/")
+
+        cs_workbench_link = f"{cs_frontend_url}/workbench?timelineId={tl_id}&storyboardId={current_sb_id}&sessionId={session_id}"
+        cs_asset_link = f"{cs_frontend_url}/gallery/{stitched_asset.id}"
+
+        success_message = (
+            f"🎬 **Video Production & Timeline Stitching Complete!**\n\n"
+            f"- 🎬 [Open Timeline in Creative Studio Workbench]({cs_workbench_link})\n"
+            f"- 🖼️ [View Final Rendered Video Asset]({cs_asset_link})"
+        )
+        return tool_success(success_message)
+
     IZUMI_BASE_URL = os.environ.get("IZUMI_STUDIO_URL")
     if not IZUMI_BASE_URL:
         # Fallback to backend service URL if in Cloud Run, otherwise Local
         IZUMI_BASE_URL = os.environ.get(
             "CLOUD_RUN_SERVICE_URL", "http://localhost:5173"
         )
-    izumi_deep_link = f"{IZUMI_BASE_URL}/studio/#/project/{user_id}/chat/{session_id}?contentTab=canvas&canvasId={canvas.id}"
+    izumi_deep_link = f"{IZUMI_BASE_URL}/studio/#/project/{workspace_id}/chat/{session_id}?contentTab=canvas&canvasId={canvas.id}"
     success_message = f"[View Video Timeline in Izumi Studio]({izumi_deep_link})"
 
     return tool_success(success_message)

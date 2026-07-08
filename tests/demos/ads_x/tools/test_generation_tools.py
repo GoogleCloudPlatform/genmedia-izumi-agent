@@ -6,7 +6,7 @@ import json
 @pytest.fixture
 def mock_tool_context():
     context = MagicMock()
-    context.state = {}
+    context.state = {"workspace_id": "1"}
     return context
 
 
@@ -175,7 +175,7 @@ async def test_generate_scene_video_success_internal(
     first_frame_asset.id = "frame_id"
 
     result = await generate_scene_video(
-        user_id="user_123",
+        workspace_id="workspace_1",
         scene=scene,
         index=0,
         aspect_ratio="16:9",
@@ -227,7 +227,7 @@ async def test_generate_scene_success_internal(
     }
 
     result = await generate_scene(
-        user_id="user_123",
+        workspace_id="workspace_1",
         scene=scene,
         index=0,
         aspect_ratio="16:9",

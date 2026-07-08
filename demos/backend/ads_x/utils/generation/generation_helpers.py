@@ -28,36 +28,58 @@ MAX_VOICEOVER_ATTEMPTS = 3
 
 
 async def generate_background_music(
-    user_id: str, background_music_prompt: dict[str, Any], uid: str = ""
+    workspace_id: str,
+    background_music_prompt: dict[str, Any],
+    uid: str = "",
 ) -> Asset | None:
     """Generates the background music for the campaign."""
     # Idempotency: Skip if already generated
-    if background_music_prompt.get("asset_id"):
+    if background_music_prompt.get("asset_ref"):
         logger.info("Background music already exists. Skipping generation.")
         asset_service = mediagent_kit.services.aio.get_asset_service()
-        return await asset_service.get_asset(background_music_prompt["asset_id"])
+        # NOTE: Unified AssetServiceInterface adaptation.
+        # This would break legacy version due to function signature and method name mismatch.
+        from mediagent_kit.services.types.common import AssetRef
 
-    logger.info(f"Generating background music for user {user_id}")
+        ref_dict = background_music_prompt["asset_ref"]
+        ref = AssetRef(
+            id=str(ref_dict["id"]),
+            asset_type=ref_dict["asset_type"],
+            workspace_id=str(ref_dict.get("workspace_id", workspace_id)),
+        )
+        return await asset_service.get_asset(ref)
+
+    logger.info(f"Generating background music for workspace {workspace_id}")
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
     music_prompt = background_music_prompt["description"]
     filename = f"background_music_{uid}.mp3" if uid else "background_music.mp3"
 
     try:
-        music_asset = await mediagen_service.generate_music_with_lyria(
-            user_id=user_id, file_name=filename, prompt=music_prompt
+        music_asset = await mediagen_service.generate_music(
+            workspace_id=workspace_id,
+            prompt=music_prompt,
+            model="lyria-002",
+            duration_seconds=30,
+            file_name=filename,
         )
         background_music_prompt["asset_id"] = music_asset.id
+        background_music_prompt["asset_ref"] = {
+            "id": music_asset.id,
+            "asset_type": "generated",
+            "workspace_id": workspace_id,
+        }
         return music_asset
     except Exception as e:
         logger.error(
             f"Background music generation failed: {e}. Proceeding without music."
         )
         background_music_prompt["asset_id"] = None
+        background_music_prompt["asset_ref"] = None
         return None
 
 
 async def generate_scene_voiceover(
-    user_id: str,
+    workspace_id: str,
     voiceover_prompt: dict[str, Any],
     index: int,
     uid: str = "",
@@ -65,12 +87,22 @@ async def generate_scene_voiceover(
 ) -> Asset | None:
     """Generates voiceover for one scene."""
     # Idempotency: Skip if already generated
-    if voiceover_prompt.get("asset_id"):
+    if voiceover_prompt.get("asset_ref"):
         logger.info(f"Voiceover for scene {index} already exists. Skipping generation.")
         asset_service = mediagent_kit.services.aio.get_asset_service()
-        return await asset_service.get_asset(voiceover_prompt["asset_id"])
+        # NOTE: Unified AssetServiceInterface adaptation.
+        # This would break legacy version due to function signature and method name mismatch.
+        from mediagent_kit.services.types.common import AssetRef
 
-    logger.info(f"Generating voiceover for scene {index}")
+        ref_dict = voiceover_prompt["asset_ref"]
+        ref = AssetRef(
+            id=str(ref_dict["id"]),
+            asset_type=ref_dict["asset_type"],
+            workspace_id=str(ref_dict.get("workspace_id", workspace_id)),
+        )
+        return await asset_service.get_asset(ref)
+
+    logger.info(f"Generating voiceover for scene {index} (Workspace: {workspace_id})")
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
     # Safely extract text
@@ -90,21 +122,31 @@ async def generate_scene_voiceover(
             else f"scene_{index}_voiceover_att{attempt}.mp3"
         )
         try:
-            voiceover_asset = await mediagen_service.generate_speech_single_speaker(
-                user_id=user_id,
-                file_name=filename,
+            voiceover_asset = await mediagen_service.generate_speech(
+                workspace_id=workspace_id,
                 text=current_text,
                 voice_name=voice_name,
+                language_code="en-US",
+                file_name=filename,
             )
             best_asset_so_far = voiceover_asset
 
-            actual_duration = voiceover_asset.versions[-1].duration_seconds
+            # Check Duration
+            duration = getattr(voiceover_asset, "duration_seconds", None)
+            actual_duration = (
+                float(duration) if isinstance(duration, (int, float)) else 0.0
+            )
 
             if actual_duration <= target_duration:
                 logger.info(
                     f"Voiceover for scene {index} accepted. Duration: {actual_duration:.2f}s (Target: {target_duration}s)"
                 )
                 voiceover_prompt["asset_id"] = voiceover_asset.id
+                voiceover_prompt["asset_ref"] = {
+                    "id": voiceover_asset.id,
+                    "asset_type": "generated",
+                    "workspace_id": workspace_id,
+                }
                 voiceover_prompt["text"] = current_text
                 return voiceover_asset
 
@@ -113,7 +155,7 @@ async def generate_scene_voiceover(
                 f"Voiceover too long ({actual_duration}s > {target_duration}s). Shortening text..."
             )
             current_text = await enrichment_utils.shorten_script(
-                current_text, target_duration * 0.9, user_id
+                current_text, target_duration * 0.9, workspace_id
             )
 
         except Exception as e:
@@ -126,6 +168,11 @@ async def generate_scene_voiceover(
             f"Using best effort voiceover for scene {index} despite duration mismatch."
         )
         voiceover_prompt["asset_id"] = best_asset_so_far.id
+        voiceover_prompt["asset_ref"] = {
+            "id": best_asset_so_far.id,
+            "asset_type": "generated",
+            "workspace_id": workspace_id,
+        }
         return best_asset_so_far
 
     return None

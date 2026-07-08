@@ -18,11 +18,11 @@ import asyncio
 import logging
 import json
 import uuid
-from typing import Any, List
+from typing import Any, List, Optional
 
 from google.adk.tools.tool_context import ToolContext
 
-from utils.adk import get_user_id_from_context
+from utils.adk import get_user_id_from_context, get_session_id_from_context
 import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 
@@ -41,10 +41,10 @@ tool_failure = common_utils.tool_failure
 
 
 async def generate_scene_video(
-    user_id: str,
     scene: dict[str, Any],
     index: int,
     aspect_ratio: str,
+    workspace_id: str,
     uid: str = "",
     veo_method: str = "image_to_video",
     first_frame_asset: Asset | None = None,
@@ -55,13 +55,23 @@ async def generate_scene_video(
     video_prompt_data = scene["video_prompt"]
 
     # Idempotency: Skip if already generated
-    if video_prompt_data.get("asset_id"):
+    if video_prompt_data.get("asset_ref"):
         logger.info(f"Video for scene {index} already exists. Skipping generation.")
         asset_service = mediagent_kit.services.aio.get_asset_service()
-        video_asset = await asset_service.get_asset(video_prompt_data["asset_id"])
+        # NOTE: Unified AssetServiceInterface adaptation.
+        # This would break legacy version due to function signature and method name mismatch.
+        from mediagent_kit.services.types.common import AssetRef
+
+        ref_dict = video_prompt_data["asset_ref"]
+        ref = AssetRef(
+            id=str(ref_dict["id"]),
+            asset_type=ref_dict["asset_type"],
+            workspace_id=str(workspace_id),
+        )
+        video_asset = await asset_service.get_asset(ref)
         return [first_frame_asset, video_asset] if first_frame_asset else [video_asset]
 
-    logger.info(f"Generating video for scene {index}")
+    logger.info(f"Generating video for scene {index} (Workspace: {workspace_id})")
     mediagent_service = mediagent_kit.services.aio.get_media_generation_service()
     asset_service = mediagent_kit.services.aio.get_asset_service()
     voiceover_text = scene.get("voiceover_prompt", {}).get("text", "")
@@ -71,6 +81,7 @@ async def generate_scene_video(
             f"Skipping video generation for scene {index} due to missing first frame."
         )
         scene["video_prompt"]["asset_id"] = None
+        scene["video_prompt"]["asset_ref"] = None
         return []
 
     valid_duration = generation_helpers.clamp_duration(
@@ -87,7 +98,7 @@ async def generate_scene_video(
 
     final_video_prompt, enrichment_asset_id = (
         await enrichment_utils.enrich_prompt_with_llm(
-            user_id,
+            workspace_id,
             video_prompt_data["description"],
             enrichment_data,
             scene_index=index,
@@ -102,7 +113,7 @@ async def generate_scene_video(
 
     try:
         winner_asset = await scene_generation_utils.generate_scene_video(
-            user_id=user_id,
+            workspace_id=workspace_id,
             scene=scene,
             index=index,
             valid_duration=valid_duration,
@@ -116,6 +127,11 @@ async def generate_scene_video(
 
         # Sync back to storyboard for persistence
         video_prompt_data["asset_id"] = winner_asset.id
+        video_prompt_data["asset_ref"] = {
+            "id": winner_asset.id,
+            "asset_type": "generated",
+            "workspace_id": workspace_id,
+        }
         return [first_frame_asset, winner_asset]
 
     except Exception as e:
@@ -125,19 +141,25 @@ async def generate_scene_video(
             f"Video generation failed for scene {index}. Using static frame."
         )
         video_prompt_data["asset_id"] = first_frame_asset.id
+        video_prompt_data["asset_ref"] = {
+            "id": first_frame_asset.id,
+            "asset_type": "generated",
+            "workspace_id": workspace_id,
+        }
         return [first_frame_asset, first_frame_asset]
 
 
 async def generate_scene(
-    user_id: str,
     scene: dict[str, Any],
     index: int,
     aspect_ratio: str,
+    workspace_id: str,
     uid: str = "",
     use_voiceover: bool = True,
     veo_method: str = "image_to_video",
     allow_veo_audio: bool = False,
     global_context: str = "",
+    asset_refs: Optional[dict[str, Any]] = None,
 ) -> List[Asset]:
     """Generates the media for one scene."""
     # Idempotency: Skip if first frame already exists
@@ -145,33 +167,47 @@ async def generate_scene(
     first_frame_asset = None
     first_frame_desc = ""
 
-    if first_frame_prompt.get("asset_id"):
+    if first_frame_prompt.get("asset_ref"):
         logger.info(
             f"First frame for scene {index} already exists. Skipping generation."
         )
         asset_service = mediagent_kit.services.aio.get_asset_service()
-        first_frame_asset = await asset_service.get_asset(
-            first_frame_prompt["asset_id"]
+        # NOTE: Unified AssetServiceInterface adaptation.
+        # This would break legacy version due to function signature and method name mismatch.
+        from mediagent_kit.services.types.common import AssetRef
+
+        ref_dict = first_frame_prompt["asset_ref"]
+        ref = AssetRef(
+            id=str(ref_dict["id"]),
+            asset_type=ref_dict["asset_type"],
+            workspace_id=str(ref_dict.get("workspace_id", workspace_id)),
         )
+        first_frame_asset = await asset_service.get_asset(ref)
     else:
         logger.info(f"Starting generation for scene {index}")
 
         try:
             first_frame_asset, first_frame_desc = (
                 await scene_generation_utils.generate_scene_first_frame(
-                    user_id,
                     scene["first_frame_prompt"],
                     index,
                     aspect_ratio,
+                    workspace_id=workspace_id,
                     voiceover_text=scene.get("voiceover_prompt", {}).get("text", ""),
                     on_screen_text_hint=scene.get("on_screen_text_hint", ""),
                     uid=uid,
                     is_ugc=allow_veo_audio,
                     context=global_context,
+                    asset_refs=asset_refs,
                 )
             )
-            # Persist first frame asset id
+            # Persist first frame asset id and asset_ref
             scene["first_frame_prompt"]["asset_id"] = first_frame_asset.id
+            scene["first_frame_prompt"]["asset_ref"] = {
+                "id": first_frame_asset.id,
+                "asset_type": "generated",
+                "workspace_id": workspace_id,
+            }
         except Exception as e:
             logger.error(
                 f"Critical failure generating first frame for scene {index}: {e}"
@@ -183,7 +219,7 @@ async def generate_scene(
     if use_voiceover:
         target_duration = scene.get("duration_seconds", 4.0)
         voiceover_task = generation_helpers.generate_scene_voiceover(
-            user_id,
+            workspace_id,
             scene["voiceover_prompt"],
             index,
             uid,
@@ -197,12 +233,12 @@ async def generate_scene(
         )
 
     video_task = generate_scene_video(
-        user_id,
         scene,
         index,
         aspect_ratio,
-        uid,
-        veo_method,
+        workspace_id=workspace_id,
+        uid=uid,
+        veo_method=veo_method,
         first_frame_asset=first_frame_asset,
         context=blended_video_context,
         allow_veo_audio=allow_veo_audio,
@@ -222,6 +258,12 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
         "⭐⭐⭐ [NATIVE TOOL INVOCATION] `generate_all_media` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
     )
     logger.info("Tool 'generate_all_media' invoked.")
+
+    workspace_id = str(tool_context.state.get("workspace_id") or "")
+    if not workspace_id or not workspace_id.isdigit():
+        return tool_failure(
+            f"Invalid workspace_id: '{workspace_id}'. Workspace ID must be a non-empty numeric string."
+        )
 
     if (storyboard := tool_context.state.get(common_utils.STORYBOARD_KEY)) is None:
         return tool_failure("Missing storyboard.")
@@ -243,7 +285,6 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
     )
 
     uid = uuid.uuid4().hex[:4]
-    user_id = get_user_id_from_context(tool_context)
 
     # --- VOICE OVER GROUPING LOGIC ---
     voiceover_groups = []
@@ -260,8 +301,8 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
                 ].get("description", "A professional commercial voiceover.")
                 group_tasks.append(
                     voiceover_tools.generate_group_voiceover(
-                        user_id=user_id,
                         group=group,
+                        workspace_id=workspace_id,
                         style_prompt=style_description,
                         group_index=i,
                     )
@@ -280,8 +321,15 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
     # --- ASSET BINDING (Hardened & Sanitized) ---
     user_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
     creator_metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY, {})
-    creator_id = creator_metadata.get("asset_id") or next(
-        (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
+    creator_id_val = (
+        creator_metadata.get("asset_ref", {}).get("id") if creator_metadata else None
+    )
+    creator_id = (
+        f"virtual_creator_{creator_id_val}.png"
+        if creator_id_val
+        else next(
+            (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
+        )
     )
     primary_product = next(
         (
@@ -319,11 +367,18 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
             "HUMAN",
             "TALKING HEAD",
         ]
+        has_creator = any(
+            (
+                isinstance(a, str)
+                and (a.startswith("virtual_creator_") or a == creator_id)
+            )
+            for a in assets
+        )
         if creator_id and (
             any(t in desc for t in char_triggers)
             or any(t in guidance for t in char_triggers)
         ):
-            if creator_id not in assets:
+            if not has_creator:
                 assets.append(creator_id)
                 logger.info(
                     f"Bound Creator {creator_id} to scene based on description/guidance."
@@ -389,14 +444,15 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
         )
 
     music_task = generation_helpers.generate_background_music(
-        user_id, storyboard["background_music_prompt"], uid
+        workspace_id, storyboard["background_music_prompt"], uid
     )
+    asset_refs = tool_context.state.get("asset_refs", {})
     scene_tasks = [
         generate_scene(
-            user_id,
-            scene,
-            index,
-            aspect_ratio,
+            scene=scene,
+            index=index,
+            aspect_ratio=aspect_ratio,
+            workspace_id=workspace_id,
             uid=uid,
             use_voiceover=use_per_scene_voiceover,
             veo_method=veo_method,
@@ -404,11 +460,36 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
             global_context=generation_helpers.build_global_context_string(
                 storyboard, scene
             ),
+            asset_refs=asset_refs,
         )
         for index, scene in enumerate(storyboard["scenes"])
     ]
 
     results = await asyncio.gather(music_task, *scene_tasks, return_exceptions=True)
+
+    # Fail Loudly on Exceptions
+    exceptions = [res for res in results if isinstance(res, Exception)]
+    if exceptions:
+        for ex in exceptions:
+            logger.error(f"Media generation task failed with exception: {ex}")
+        return tool_failure(
+            f"Critical failure during media generation: {exceptions[0]}"
+        )
+
+    # Re-sync updated storyboard with generated asset_refs back into context state
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+
+    session_id = get_session_id_from_context(tool_context)
+    workspace_id = str(
+        tool_context.state.get("workspace_id") or tool_context.state.get("user_id", "")
+    )
+    if isinstance(storyboard, dict):
+        storyboard["session_id"] = session_id
+        storyboard["workspace_id"] = workspace_id
+    elif hasattr(storyboard, "session_id") and hasattr(storyboard, "workspace_id"):
+        storyboard.session_id = session_id
+        storyboard.workspace_id = workspace_id
+
     return tool_success(
         "🎬 **Visuals Rendered!** All cinematic scenes successfully generated. Proceeding to stitching..."
     )
@@ -436,13 +517,25 @@ async def generate_single_scene(
         or (parameters.get("vertical") in ["Social Native", "UGC"])
     )
 
-    user_id = get_user_id_from_context(tool_context)
     scene = storyboard["scenes"][scene_index]
+
+    workspace_id = str(
+        tool_context.state.get("workspace_id") or tool_context.state.get("user_id", "")
+    )
+    session_id = get_session_id_from_context(tool_context)
 
     # Simple Binding refresh
     user_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
-    creator_id = next(
-        (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
+    creator_metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY, {})
+    creator_id_val = (
+        creator_metadata.get("asset_ref", {}).get("id") if creator_metadata else None
+    )
+    creator_id = (
+        f"virtual_creator_{creator_id_val}.png"
+        if creator_id_val
+        else next(
+            (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
+        )
     )
     primary_product = next(
         (
@@ -455,16 +548,21 @@ async def generate_single_scene(
 
     desc = scene["first_frame_prompt"].get("description", "").upper()
     assets = scene["first_frame_prompt"].get("assets", [])
+    has_creator = any(
+        (isinstance(a, str) and (a.startswith("virtual_creator_") or a == creator_id))
+        for a in assets
+    )
     if creator_id and ("[CHARACTER REQUIRED]" in desc or "CREATOR" in desc):
-        if creator_id not in assets:
+        if not has_creator:
             assets.append(creator_id)
     scene["first_frame_prompt"]["assets"] = assets
 
+    asset_refs = tool_context.state.get("asset_refs", {})
     await generate_scene(
-        user_id,
-        scene,
-        scene_index,
-        aspect_ratio,
+        scene=scene,
+        index=scene_index,
+        aspect_ratio=aspect_ratio,
+        workspace_id=workspace_id,
         uid=uuid.uuid4().hex[:4],
         use_voiceover=template_obj.use_voiceover,
         veo_method=template_obj.veo_method,
@@ -472,7 +570,18 @@ async def generate_single_scene(
         global_context=generation_helpers.build_global_context_string(
             storyboard, scene
         ),
+        asset_refs=asset_refs,
     )
+
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+
+    if isinstance(storyboard, dict):
+        storyboard["session_id"] = session_id
+        storyboard["workspace_id"] = workspace_id
+    elif hasattr(storyboard, "session_id") and hasattr(storyboard, "workspace_id"):
+        storyboard.session_id = session_id
+        storyboard.workspace_id = workspace_id
+
     return tool_success(
         f"🎬 **Visuals Rendered!** Successfully regenerated scene {scene_index}."
     )

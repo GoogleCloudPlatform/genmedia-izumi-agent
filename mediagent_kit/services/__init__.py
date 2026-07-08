@@ -42,10 +42,17 @@ The legacy and unified layers coexist by design; the unified layer
 is the forward path and the legacy layer is incrementally retired.
 """
 
-from mediagent_kit.services import aio, errors, interfaces
+from mediagent_kit.services import aio, creative_studio, errors, interfaces
 from mediagent_kit.services.asset_service import AssetService
 from mediagent_kit.services.base_service import BaseService
 from mediagent_kit.services.canvas_service import CanvasService
+from mediagent_kit.services.creative_studio import (
+    CSAssetService,
+    CSCanvasService,
+    CSMediaGenerationService,
+    CSStoryboardService,
+    CSTimelineService,
+)
 from mediagent_kit.services.interfaces import (
     AgentSession,
     AssetServiceInterface,
@@ -79,12 +86,12 @@ def _get_service_factory() -> ServiceFactory:
     return _service_factory
 
 
-def get_asset_service() -> AssetService:
+def get_asset_service() -> AssetServiceInterface | AssetService:
     """Returns the AssetService."""
     return _get_service_factory().get_asset_service()
 
 
-def get_canvas_service() -> CanvasService:
+def get_canvas_service() -> HtmlCanvasServiceInterface | CanvasService:
     """Returns the CanvasService."""
     return _get_service_factory().get_canvas_service()
 
@@ -101,7 +108,9 @@ def _get_job_orchestrator_service(
     return _get_service_factory().get_job_orchestrator_service(background_runner)
 
 
-def get_media_generation_service() -> MediaGenerationService:
+def get_media_generation_service() -> (
+    MediaGenerationServiceInterface | MediaGenerationService
+):
     """Returns the MediaGenerationService."""
     return _get_service_factory().get_media_generation_service()
 
@@ -129,7 +138,14 @@ __all__ = [
     "get_job_service",
     "get_media_generation_service",
     "get_video_stitching_service",
-    # Unified abstract interfaces (concrete impls in follow-up CLs)
+    # Creative Studio implementations
+    "CSAssetService",
+    "CSCanvasService",
+    "CSMediaGenerationService",
+    "CSStoryboardService",
+    "CSTimelineService",
+    "creative_studio",
+    # Unified abstract interfaces
     "AgentSession",
     "AssetServiceInterface",
     "HtmlCanvasServiceInterface",

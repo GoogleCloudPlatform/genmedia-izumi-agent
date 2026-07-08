@@ -198,6 +198,7 @@ def test_generate_text_with_gemini_success(mock_asset_service, mock_config):
     mock_response = MagicMock()
     mock_part = MagicMock()
     mock_part.text = "Generated text response"
+    mock_part.thought = False
     mock_candidate = MagicMock()
     mock_candidate.content.parts = [mock_part]
     mock_response.candidates = [mock_candidate]
@@ -326,6 +327,7 @@ def test_generate_text_with_gemini_with_purpose(mock_asset_service, mock_config)
     mock_response = MagicMock()
     mock_part = MagicMock()
     mock_part.text = "Generated text response"
+    mock_part.thought = False
     mock_candidate = MagicMock()
     mock_candidate.content.parts = [mock_part]
     mock_response.candidates = [mock_candidate]

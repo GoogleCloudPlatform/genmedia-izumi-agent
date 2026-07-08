@@ -27,11 +27,11 @@ dependencies = [
     "fastapi",
     "firebase-admin",
     "google-adk==1.29.0",
-
-    "google-cloud-aiplatform[adk,agent-engines]>=1.132.0",
+    "google-cloud-aiplatform[adk,agent-engines]==1.159.0",
     "google-cloud-storage",
     "google-cloud-texttospeech",
     "google-genai",
+    "gradio>=4.0.0",
     "moviepy",
     "opentelemetry-exporter-gcp-trace",
     "python-dotenv",

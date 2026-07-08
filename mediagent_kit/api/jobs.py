@@ -32,22 +32,24 @@ def get_job_service() -> JobService:
     return mediagent_kit.services.get_job_service()
 
 
-@router.get("/users/{user_id}/jobs/{job_id}", response_model=Job, tags=["Jobs"])
+@router.get(
+    "/workspaces/{workspace_id}/jobs/{job_id}", response_model=Job, tags=["Jobs"]
+)
 def get_job(
-    user_id: str,
+    workspace_id: str,
     job_id: str,
     job_service: Annotated[JobService, Depends(get_job_service)],
 ) -> Job:
     """Gets a job by its ID."""
     job = job_service.get_job(job_id)
-    if not job or job.user_id != user_id:
+    if not job or job.user_id != workspace_id:
         raise HTTPException(status_code=404, detail="Job not found")
     return job
 
 
-@router.get("/users/{user_id}/jobs", response_model=list[Job], tags=["Jobs"])
+@router.get("/workspaces/{workspace_id}/jobs", response_model=list[Job], tags=["Jobs"])
 def get_jobs(
-    user_id: str,
+    workspace_id: str,
     job_service: Annotated[JobService, Depends(get_job_service)],
     status: JobStatus | None = None,
     limit: int = 20,

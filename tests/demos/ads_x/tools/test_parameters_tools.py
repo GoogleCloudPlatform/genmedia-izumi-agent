@@ -44,13 +44,6 @@ def test_extract_campaign_parameters_success(
             return_value=mock_asset_service,
         ):
 
-            # Setup mock behavior
-            mock_asset = MagicMock()
-            mock_asset.id = "extraction_asset_id"
-            mock_media_gen_service.generate_text_with_gemini.return_value = mock_asset
-
-            mock_blob = MagicMock()
-            # Valid JSON matching schema
             valid_json = json.dumps(
                 {
                     "campaign_brief": "Test campaign brief content",
@@ -63,8 +56,7 @@ def test_extract_campaign_parameters_success(
                     "scenes": [],
                 }
             )
-            mock_blob.content = valid_json.encode()
-            mock_asset_service.get_asset_blob.return_value = mock_blob
+            mock_media_gen_service.generate_text = AsyncMock(return_value=valid_json)
 
             # Call tool
             import asyncio
@@ -97,11 +89,6 @@ def test_extract_campaign_parameters_json_cleaning(
             return_value=mock_asset_service,
         ):
 
-            mock_asset = MagicMock()
-            mock_media_gen_service.generate_text_with_gemini.return_value = mock_asset
-
-            mock_blob = MagicMock()
-            # JSON wrapped in markdown
             markdown_json = (
                 "```json\n"
                 + json.dumps(
@@ -118,8 +105,7 @@ def test_extract_campaign_parameters_json_cleaning(
                 )
                 + "\n```"
             )
-            mock_blob.content = markdown_json.encode()
-            mock_asset_service.get_asset_blob.return_value = mock_blob
+            mock_media_gen_service.generate_text = AsyncMock(return_value=markdown_json)
 
             import asyncio
 
