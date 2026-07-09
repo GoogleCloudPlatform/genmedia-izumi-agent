@@ -194,10 +194,16 @@ def test_generate_text_with_gemini_success(mock_asset_service, mock_config):
     mock_asset.mime_type = "image/png"
     mock_asset_service.get_asset_by_file_name.return_value = mock_asset
 
-    # Mock _generate_gemini_text_content
+    # Mock _generate_gemini_text_content.
+    # part.thought is explicitly False so this part is classified as a
+    # response part, not a thought part (default include_thoughts=False
+    # behavior). Without this, MagicMock's auto-attribute would make
+    # part.thought truthy and the text would be routed to thoughts_text,
+    # leaving generated_text empty and triggering "No text was generated".
     mock_response = MagicMock()
     mock_part = MagicMock()
     mock_part.text = "Generated text response"
+    mock_part.thought = False
     mock_candidate = MagicMock()
     mock_candidate.content.parts = [mock_part]
     mock_response.candidates = [mock_candidate]
@@ -323,9 +329,13 @@ def test_generate_text_with_gemini_with_purpose(mock_asset_service, mock_config)
         asset_service=mock_asset_service, config=mock_config
     )
 
+    # part.thought is explicitly False so this part is classified as a
+    # response part, not a thought part. See the note in
+    # test_generate_text_with_gemini_success for details.
     mock_response = MagicMock()
     mock_part = MagicMock()
     mock_part.text = "Generated text response"
+    mock_part.thought = False
     mock_candidate = MagicMock()
     mock_candidate.content.parts = [mock_part]
     mock_response.candidates = [mock_candidate]
