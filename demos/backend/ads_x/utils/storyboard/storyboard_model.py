@@ -14,10 +14,23 @@
 
 """Storyboard object for ads_x agent."""
 
+import uuid
 import pydantic
 from typing import List
 from ..common import common_utils
 from .templates_model import CinematographyHints, AudioHints, TransitionHints
+
+
+def _generate_scene_id() -> str:
+    """Generates a stable, short-form ID for a Scene.
+
+    Used as the default for ``Scene.scene_id`` when the caller does not
+    supply one. Templates supply their own ``scene_id`` explicitly
+    (e.g. ``"ugc_discovery_hook"``); LLM-generated scenes get an
+    auto-generated ID here. The ID is stable across the storyboard's
+    lifetime — reordering scenes does NOT change any ``scene_id``.
+    """
+    return uuid.uuid4().hex[:12]
 
 
 class SpeechPrompt(pydantic.BaseModel):
@@ -99,10 +112,25 @@ class VideoPrompt(pydantic.BaseModel):
 
 
 class Scene(pydantic.BaseModel):
-    """A single scene in the storyboard."""
+    """A single scene in the storyboard.
+
+    ``scene_id`` is the stable identity of this scene for the lifetime
+    of the storyboard. It survives reorder (unlike positional array
+    indices), which enables collaborative-edit workflows in M2 without
+    silently corrupting voiceover-to-scene alignment. Default:
+    auto-generated short UUID. Templates supply an explicit scene_id
+    (e.g. "ugc_discovery_hook").
+    """
 
     model_config = pydantic.ConfigDict(extra="allow")
 
+    scene_id: str = pydantic.Field(
+        default_factory=_generate_scene_id,
+        description=(
+            "Stable ID for this scene. Templates supply this explicitly;"
+            " LLM-generated scenes get an auto-generated short UUID."
+        ),
+    )
     topic: str = pydantic.Field(
         description="A short, descriptive topic for this scene."
     )
@@ -138,13 +166,22 @@ class Scene(pydantic.BaseModel):
 
 
 class VoiceoverGroup(pydantic.BaseModel):
-    """Represents a sequence of scenes sharing a single voiceover asset."""
+    """Represents a sequence of scenes sharing a single voiceover asset.
+
+    Scenes are referenced by their stable ``scene_id``, NOT by positional
+    array index. This means the group survives a subsequent scene
+    reorder without silently misaligning voiceover to the wrong scene —
+    the M2-enabling change for collaborative editing.
+    """
 
     model_config = pydantic.ConfigDict(extra="allow")
 
     group_id: str = pydantic.Field(description="Unique ID for this group.")
-    scene_indices: List[int] = pydantic.Field(
-        description="Indices of the scenes included in this group."
+    scene_ids: List[str] = pydantic.Field(
+        description=(
+            "Stable IDs of the scenes included in this group. Order matches"
+            " the order the scenes appear in the storyboard at grouping time."
+        ),
     )
     total_duration: float = pydantic.Field(
         description="Total duration of all scenes in this group."

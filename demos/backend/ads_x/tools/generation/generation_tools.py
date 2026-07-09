@@ -252,12 +252,27 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
             storyboard_obj = storyboard_model.Storyboard(**storyboard)
             voiceover_groups = grouping_utils.create_voiceover_groups(storyboard_obj)
 
+            # Build a scene_id -> scene lookup so we can fetch the first
+            # scene of each group by stable ID rather than array index.
+            # This keeps voiceover style tied to the correct scene even if
+            # scenes get reordered downstream (M2 collaborative-edit path).
+            scene_by_id = {
+                s["scene_id"]: s for s in storyboard["scenes"] if s.get("scene_id")
+            }
+
             group_tasks = []
             for i, group in enumerate(voiceover_groups):
-                first_scene_idx = group.scene_indices[0]
-                style_description = storyboard["scenes"][first_scene_idx][
-                    "voiceover_prompt"
-                ].get("description", "A professional commercial voiceover.")
+                first_scene_id = group.scene_ids[0]
+                first_scene = scene_by_id.get(first_scene_id)
+                if first_scene is None:
+                    logger.error(
+                        f"Voiceover group {group.group_id} references"
+                        f" unknown scene_id={first_scene_id}; skipping."
+                    )
+                    continue
+                style_description = first_scene["voiceover_prompt"].get(
+                    "description", "A professional commercial voiceover."
+                )
                 group_tasks.append(
                     voiceover_tools.generate_group_voiceover(
                         user_id=user_id,

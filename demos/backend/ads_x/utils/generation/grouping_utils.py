@@ -53,67 +53,62 @@ def create_voiceover_groups(storyboard: Storyboard) -> List[VoiceoverGroup]:
     """
     Groups consecutive scenes into VoiceoverGroups based on narrative structure
     and duration constraints.
+
+    Groups reference their member scenes by stable ``scene_id`` rather than
+    positional array index, so a downstream reorder does not silently
+    misalign voiceovers.
     """
     groups: List[VoiceoverGroup] = []
     scenes = storyboard.scenes
     total_scenes = len(scenes)
 
-    current_scene_indices: List[int] = []
+    current_scene_ids: List[str] = []
     current_scripts: List[str] = []
     current_duration: float = 0.0
     current_block: str = ""
 
     for i, scene in enumerate(scenes):
-        # Determine block for this scene
-        # We don't have scene_id in the Scene object directly, relying on index/heuristics
-        # If Topic is available, we could use it, but index is safer for template structure.
-        block = _get_narrative_block(i, total_scenes, getattr(scene, "id", ""))
+        # Narrative block is determined by position + scene_id keyword. Position
+        # is still used because it's a heuristic about narrative arc
+        # (last scene = CTA), not an identity claim.
+        block = _get_narrative_block(i, total_scenes, scene.scene_id)
 
-        # Check if we should flush the current group
-        # Flush if:
-        # 1. Block changed (e.g. Start -> Body)
-        # 2. Duration would exceed limit
-        # 3. We are starting a new group (first iteration)
-
-        is_new_group = len(current_scene_indices) == 0
+        # Flush the current buffer if:
+        # 1. Block changed (e.g. MAIN -> CTA)
+        # 2. Duration would exceed the per-group limit
+        is_new_group = len(current_scene_ids) == 0
         block_changed = (block != current_block) and not is_new_group
         duration_exceeded = (
             current_duration + scene.duration_seconds > MAX_GROUP_DURATION
         ) and not is_new_group
 
-        # Special case: CTA should almost always stand alone or finish a group
-        # But our block logic handles "CTA" as a distinct block type, so block_changed covers it.
-
         if block_changed or duration_exceeded:
-            # Flush existing buffer
             group_id = uuid.uuid4().hex[:8]
             groups.append(
                 VoiceoverGroup(
                     group_id=group_id,
-                    scene_indices=list(current_scene_indices),
+                    scene_ids=list(current_scene_ids),
                     total_duration=current_duration,
                     original_scripts=list(current_scripts),
                     narrative_block=current_block,
                 )
             )
-            # Reset buffer
-            current_scene_indices = []
+            current_scene_ids = []
             current_scripts = []
             current_duration = 0.0
 
-        # Add current scene to buffer
-        current_scene_indices.append(i)
+        current_scene_ids.append(scene.scene_id)
         current_scripts.append(scene.voiceover_prompt.text)
         current_duration += scene.duration_seconds
         current_block = block
 
     # Flush any remaining scenes
-    if current_scene_indices:
+    if current_scene_ids:
         group_id = uuid.uuid4().hex[:8]
         groups.append(
             VoiceoverGroup(
                 group_id=group_id,
-                scene_indices=list(current_scene_indices),
+                scene_ids=list(current_scene_ids),
                 total_duration=current_duration,
                 original_scripts=list(current_scripts),
                 narrative_block=current_block,
@@ -121,4 +116,16 @@ def create_voiceover_groups(storyboard: Storyboard) -> List[VoiceoverGroup]:
         )
 
     logger.info(f"Grouping complete. Created {len(groups)} voiceover groups.")
+    # Log the scene_id membership of each group so the stable-scene-id
+    # audit trail is complete from grouping to stitching. Cross-reference
+    # with the "Video track built" log in stitching_tools to verify that
+    # every group's scene_ids appear in the stitch's scene_id_to_clip_index.
+    for g in groups:
+        logger.info(
+            "  group_id=%s block=%s duration=%.1fs scene_ids=%s",
+            g.group_id,
+            g.narrative_block,
+            g.total_duration,
+            g.scene_ids,
+        )
     return groups
