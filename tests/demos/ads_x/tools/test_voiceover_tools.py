@@ -29,7 +29,7 @@ def test_rewrite_group_script_success(mock_mediagen_service, mock_asset_service)
 
     group = VoiceoverGroup(
         group_id="test_group",
-        scene_indices=[0, 1],
+        scene_ids=["scene_a", "scene_b"],
         original_scripts=["Hello", "World"],
         total_duration=6.0,
         narrative_block="BODY",
@@ -73,7 +73,7 @@ def test_generate_group_voiceover_success(mock_mediagen_service, mock_asset_serv
 
     group = VoiceoverGroup(
         group_id="test_group",
-        scene_indices=[0, 1],
+        scene_ids=["scene_a", "scene_b"],
         original_scripts=["Hello", "World"],
         total_duration=6.0,
         narrative_block="BODY",

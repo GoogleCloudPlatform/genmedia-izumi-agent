@@ -66,8 +66,11 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
 
     total_duration_seconds = 0
 
-    # Map original scene index to final clip index in VideoTimeline
-    scene_to_clip_index: dict[int, int] = {}
+    # Map each included scene's stable scene_id to its position in the
+    # video_clips array. Keyed by scene_id (not scene array-index) so
+    # voiceover groups can look up their target clip after downstream
+    # reorders — see stable-scene-ids migration.
+    scene_id_to_clip_index: dict[str, int] = {}
     current_clip_idx = 0
 
     scenes = storyboard.get("scenes", [])
@@ -113,8 +116,13 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
             )
         )
 
-        # Track that this original scene_index is now at current_clip_idx
-        scene_to_clip_index[index] = current_clip_idx
+        # Track this scene's clip position by stable ID. Scenes created
+        # before this migration landed may not have a scene_id; skip the
+        # mapping for those so subsequent voiceover-group lookups
+        # gracefully log a warning instead of crashing on a KeyError.
+        scene_id = scene.get("scene_id")
+        if scene_id:
+            scene_id_to_clip_index[scene_id] = current_clip_idx
         current_clip_idx += 1
 
         # Add transition from previous scene
@@ -124,6 +132,17 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
             transitions.append(transition)
 
         total_duration_seconds += video_prompt["duration_seconds"]
+
+    # After the video track is built, log the full scene_id → clip_index
+    # mapping. This is the canonical audit trail for the stable-scene-id
+    # migration: any voiceover misalignment in the final render can be
+    # diagnosed against this log entry.
+    logger.info(
+        "Video track built: %d clips, %d scenes with scene_id, mapping=%s",
+        len(video_clips),
+        len(scene_id_to_clip_index),
+        scene_id_to_clip_index,
+    )
 
     # 2. Build Audio Track (Voiceover)
     voiceover_groups = storyboard.get("voiceover_groups", [])
@@ -150,8 +169,20 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                         if vo_duration > group_duration:
                             speed = vo_duration / group_duration
 
-                    # Map original scene index to the actual clip index
-                    target_clip_idx = scene_to_clip_index.get(group["scene_indices"][0])
+                    # Look up the target video clip by the first scene's
+                    # stable scene_id (previously by array index, which broke
+                    # under any scene reorder). See stable-scene-ids
+                    # migration.
+                    first_scene_id = (
+                        group.get("scene_ids", [None])[0]
+                        if group.get("scene_ids")
+                        else None
+                    )
+                    target_clip_idx = (
+                        scene_id_to_clip_index.get(first_scene_id)
+                        if first_scene_id
+                        else None
+                    )
                     if target_clip_idx is not None:
                         audio_clips.append(
                             types.AudioClip(
@@ -164,7 +195,9 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                         )
                     else:
                         logger.warning(
-                            f"Skipping grouped voiceover for scene {group['scene_indices'][0]} because it was not included in the stitch."
+                            f"Skipping grouped voiceover for group {group.get('group_id')} "
+                            f"(first scene_id={first_scene_id}) because that scene was not "
+                            f"included in the stitch."
                         )
 
             current_audio_time += group_duration
@@ -189,8 +222,13 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                         if vo_duration > target_duration:
                             speed = vo_duration / target_duration
 
-                    # Map original scene index to the actual clip index
-                    target_clip_idx = scene_to_clip_index.get(index)
+                    # Look up this scene's clip position by stable scene_id
+                    # (scene_id_to_clip_index is populated during video-track
+                    # build). `index` is kept only for the warning log.
+                    scene_id = scene.get("scene_id")
+                    target_clip_idx = (
+                        scene_id_to_clip_index.get(scene_id) if scene_id else None
+                    )
                     if target_clip_idx is not None:
                         audio_clips.append(
                             types.AudioClip(
@@ -203,7 +241,8 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                         )
                     else:
                         logger.warning(
-                            f"Skipping per-scene voiceover for scene {index} because it was not included in the stitch."
+                            f"Skipping per-scene voiceover for scene {index} "
+                            f"(id={scene_id}) because it was not included in the stitch."
                         )
             else:
                 # UGC / Lip-Sync Logic: Add the video's own audio track
@@ -211,10 +250,17 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                 if video_asset_id:
                     video_asset = await asset_service.get_asset_by_id(video_asset_id)
                     if (
-                        video_asset.current.video_generate_config
+                        video_asset
+                        and video_asset.current
+                        and video_asset.current.video_generate_config
                         and video_asset.current.video_generate_config.generate_audio
                     ):
-                        target_clip_idx = scene_to_clip_index.get(index)
+                        # Look up by stable scene_id (previously by array
+                        # index). See stable-scene-ids migration.
+                        scene_id = scene.get("scene_id")
+                        target_clip_idx = (
+                            scene_id_to_clip_index.get(scene_id) if scene_id else None
+                        )
                         if target_clip_idx is not None:
                             audio_clips.append(
                                 types.AudioClip(
