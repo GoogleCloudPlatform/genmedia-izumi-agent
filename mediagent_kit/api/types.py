@@ -185,7 +185,7 @@ class GeminiImageAspectRatio(enum.StrEnum):
 @enum.unique
 class GeminiImageModel(enum.StrEnum):
     GEMINI_2_5_FLASH_IMAGE = "gemini-2.5-flash-image"
-    GEMINI_3_PRO_IMAGE = "gemini-3-pro-image-preview"
+    GEMINI_3_PRO_IMAGE = "gemini-3-pro-image"
 
 
 @enum.unique

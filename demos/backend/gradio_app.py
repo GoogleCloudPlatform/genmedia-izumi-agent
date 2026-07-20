@@ -66,7 +66,9 @@ use_cs = os.getenv("USE_CREATIVE_STUDIO", "True").lower() in ["true", "1"]
 cs_backend_url = os.getenv(
     "CREATIVE_STUDIO_BACKEND_URL", "https://cstudio-be-464814743320.us-central1.run.app"
 )
+cs_frontend_url = os.getenv("CREATIVE_STUDIO_FRONTEND_URL", "http://localhost:4200")
 token_key = os.getenv("CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token")
+model_target_location = os.getenv("MODEL_TARGET_LOCATION")
 
 os.environ["GOOGLE_CLOUD_PROJECT"] = project
 os.environ["GOOGLE_CLOUD_LOCATION"] = location
@@ -74,10 +76,12 @@ os.environ["GOOGLE_CLOUD_LOCATION"] = location
 kit_config = MediagentKitConfig(
     google_cloud_project=project,
     google_cloud_location=location,
+    model_target_location=model_target_location,
     asset_service_gcs_bucket=gcs_bucket,
     firestore_database_id=firestore_db,
     use_creative_studio=use_cs,
     cs_backend_url=cs_backend_url if use_cs else None,
+    cs_frontend_url=cs_frontend_url if use_cs else None,
     cs_user_auth_token_key=token_key,
 )
 mediagent_kit.initialize(kit_config)

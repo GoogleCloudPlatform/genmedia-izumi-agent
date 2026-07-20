@@ -23,12 +23,8 @@
       ]
     },
     "image_gemini": {
-      "default": "gemini-3.1-flash-image-preview",
-      "_compatible_models": [
-        "gemini-2.5-flash-image",
-        "gemini-3-pro-image-preview",
-        "gemini-3.1-flash-image-preview"
-      ]
+      "default": "gemini-3.1-flash-image",
+      "_compatible_models": ["gemini-2.5-flash-image", "gemini-3-pro-image", "gemini-3.1-flash-image"]
     },
     "video": {
       "default": "veo-3.1-generate-001",

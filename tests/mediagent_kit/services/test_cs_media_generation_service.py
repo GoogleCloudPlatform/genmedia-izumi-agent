@@ -191,7 +191,10 @@ async def test_generate_video_success(cs_service):
 
 @pytest.mark.asyncio
 async def test_generate_speech_success(cs_service):
-    with patch("httpx.AsyncClient") as mock_client_cls:
+    with (
+        patch("httpx.AsyncClient") as mock_client_cls,
+        patch("mediagent_kit.services.aio.get_asset_service") as mock_get_asset_service,
+    ):
         mock_client = AsyncMock()
         mock_client_cls.return_value.__aenter__.return_value = mock_client
 
@@ -212,6 +215,22 @@ async def test_generate_speech_success(cs_service):
 
         mock_client.post.return_value = post_resp
         mock_client.get.return_value = poll_resp
+
+        mock_asset_service = AsyncMock()
+        mock_get_asset_service.return_value = mock_asset_service
+        import datetime
+
+        mock_asset_service.get_asset.return_value = GeneratedAsset(
+            id="701",
+            workspace_id="101",
+            file_name="welcome.mp3",
+            gcs_uri="gs://bucket/speech_701.mp3",
+            mime_type="audio/mp3",
+            created_at=datetime.datetime.now(datetime.timezone.utc),
+            status="completed",
+            duration_seconds=3.5,
+            generation_metadata=None,
+        )
 
         asset = await cs_service.generate_speech(
             workspace_id="101",

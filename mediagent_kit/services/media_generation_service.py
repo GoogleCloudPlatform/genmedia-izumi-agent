@@ -45,7 +45,7 @@ logger.setLevel(logging.INFO)
 GEMINI_TEXT_MODEL: Final = "gemini-2.5-flash"
 
 
-GEMINI_IMAGE_MODEL: Final = "gemini-3.1-flash-image-preview"
+GEMINI_IMAGE_MODEL: Final = "gemini-3.1-flash-image"
 GEMINI_IMAGE_ASPECT_RATIOS = Literal[
     "1:1", "2:3", "3:2", "3:4", "4:3", "9:16", "16:9", "21:9"
 ]

@@ -74,6 +74,13 @@ def initialize_from_env() -> None:
                 google_cloud_location=location,
                 asset_service_gcs_bucket=bucket,
                 firestore_database_id=db_id,
+                use_creative_studio=os.getenv("USE_CREATIVE_STUDIO", "").lower()
+                in ("true", "1"),
+                cs_backend_url=os.getenv("CREATIVE_STUDIO_BACKEND_URL"),
+                cs_frontend_url=os.getenv("CREATIVE_STUDIO_FRONTEND_URL"),
+                cs_user_auth_token_key=os.getenv(
+                    "CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token"
+                ),
             )
         )
         print("[mediagent_kit] Auto-initialization successful.")

@@ -205,7 +205,7 @@ Generates images using the Gemini model. Supports reference images for style/sub
   {
     "prompt": "A cat in the style of this painting",
     "aspect_ratio": "1:1",
-    "model": "gemini-2.5-flash-image", // Default is "gemini-2.5-flash-image" or "gemini-3-pro-image-preview"
+    "model": "gemini-2.5-flash-image", // Default is "gemini-2.5-flash-image" or "gemini-3-pro-image"
     "file_name": "cat_art.png",
     "reference_image_filenames": ["painting.png"]
   }
@@ -218,7 +218,7 @@ Generates images using the Gemini model. Supports reference images for style/sub
 | :--- | :--- | :--- |
 | `prompt` | String | The text prompt describing the desired image. |
 | `aspect_ratio` | String | The desired aspect ratio of the image (e.g., "1:1", "16:9"). |
-| `model` | String | The Gemini model to use for image generation. Valid values: `gemini-2.5-flash-image`, `gemini-3-pro-image-preview`. Default is `gemini-2.5-flash-image`. |
+| `model` | String | The Gemini model to use for image generation. Valid values: `gemini-2.5-flash-image`, `gemini-3-pro-image`. Default is `gemini-2.5-flash-image`. |
 | `file_name` | String | The desired filename for the generated image asset. |
 | `reference_image_filenames` | List[String] | Optional. List of filenames of existing assets to use as reference images. |
 

@@ -127,7 +127,7 @@ Based on the codebase (`agent.py` and `mediagent_config.json`), the pipeline use
 -   🎬 **Custom Storyboard Agent**: `gemini-3.1-pro-preview`
 -   📋 **Templated Storyboard Agent**: `gemini-3-flash-preview`
 -   ✨ **Prompt Enrichment**: `gemini-3-flash-preview`
--   🎨 **Image Generation**: `gemini-3.1-flash-image-preview`
+-   🎨 **Image Generation**: `gemini-3.1-flash-image`
 -   🗣️ **Voiceover (TTS)**: `gemini-3.1-flash-tts-preview`
 -   🎥 **Video Generation**: `veo-3.1-generate-001`
 -   🎵 **Music**: `lyria-3-clip-preview`
@@ -184,7 +184,7 @@ This scenario involves dynamic planning, script generation, asset description, a
     </tr>
     <tr style="border-bottom: 1px solid #e0e0e0;">
       <td style="padding: 12px;">🎨 <b>Image Generation</b></td>
-      <td style="padding: 12px;"><code>gemini-3.1-flash-image-preview</code></td>
+      <td style="padding: 12px;"><code>gemini-3.1-flash-image</code></td>
       <td style="padding: 12px;">4 images (1024x1024px)</td>
       <td style="padding: 12px;"><small>$0.067 / img</small></td>
       <td style="padding: 12px; text-align: right;">~$0.2680</td>
@@ -263,7 +263,7 @@ This scenario uses the "Pet Companion (Fast)" template, which defines 8 scenes w
     </tr>
     <tr style="border-bottom: 1px solid #e0e0e0;">
       <td style="padding: 12px;">🎨 <b>Image Generation</b></td>
-      <td style="padding: 12px;"><code>gemini-3.1-flash-image-preview</code></td>
+      <td style="padding: 12px;"><code>gemini-3.1-flash-image</code></td>
       <td style="padding: 12px;">8 images (1024x1024px)</td>
       <td style="padding: 12px;"><small>$0.067 / img</small></td>
       <td style="padding: 12px; text-align: right;">~$0.5360</td>

@@ -25,7 +25,7 @@ def test_agent_definitions():
     # Verify LlmAgents
     assert isinstance(parameters_agent, LlmAgent)
     assert parameters_agent.name == "parameters_agent"
-    assert parameters_agent.model == "gemini-2.5-flash"
+    assert parameters_agent.model == "gemini-3.5-flash"
 
     assert isinstance(user_assets_agent, LlmAgent)
     assert user_assets_agent.name == "user_assets_agent"
@@ -36,7 +36,7 @@ def test_agent_definitions():
 
     assert isinstance(storyboard_agent_templated, LlmAgent)
     assert storyboard_agent_templated.name == "storyboard_agent_templated"
-    assert storyboard_agent_templated.model == "gemini-3-flash-preview"
+    assert storyboard_agent_templated.model == "gemini-3.5-flash"
 
     assert isinstance(strategy_agent, LlmAgent)
     assert strategy_agent.name == "strategy_agent"

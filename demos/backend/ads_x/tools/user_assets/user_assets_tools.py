@@ -126,7 +126,7 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
             creator_asset = await mediagen_service.generate_image(
                 workspace_id=workspace_id,
                 prompt=creator_prompt,
-                generation_model="gemini-3.1-flash-image-preview",
+                generation_model="gemini-3.1-flash-image",
                 aspect_ratio="9:16",
                 resolution="1K",
                 file_name=creator_filename,

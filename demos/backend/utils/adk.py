@@ -122,7 +122,7 @@ async def display_asset(tool_context: ToolContext, asset_id: str) -> str:
 
 
 async def generate_image_description(
-    mime_type: str, workspace_id: str, blob_data: bytes =  None, gcs_uri: str = None
+    mime_type: str, workspace_id: str, blob_data: bytes = None, gcs_uri: str = None
 ) -> str:
     """Generates a concise visual description for an image blob or GCS URI using Gemini multimodal."""
     try:
