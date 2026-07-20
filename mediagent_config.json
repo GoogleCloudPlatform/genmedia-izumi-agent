@@ -23,11 +23,11 @@
       ]
     },
     "image_gemini": {
-      "default": "gemini-3.1-flash-image-preview",
+      "default": "gemini-3.1-flash-image",
       "_compatible_models": [
         "gemini-2.5-flash-image",
-        "gemini-3-pro-image-preview",
-        "gemini-3.1-flash-image-preview"
+        "gemini-3-pro-image",
+        "gemini-3.1-flash-image"
       ]
     },
     "video": {
@@ -50,10 +50,10 @@
       ]
     },
     "tts": {
-      "default": "gemini-2.5-pro-tts",
+      "default": "gemini-3.1-flash-tts-preview",
       "_compatible_models": [
-        "gemini-2.5-flash-preview-tts",
-        "gemini-2.5-pro-preview-tts",
+        "gemini-3.1-flash-tts-preview",
+        "gemini-2.5-flash-tts",
         "gemini-2.5-pro-tts"
       ]
     }

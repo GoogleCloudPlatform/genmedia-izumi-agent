@@ -83,7 +83,7 @@ async def generate_scene_first_frame(
             prompt=current_prompt_desc,
             reference_image_filenames=reference_asset_names,
             aspect_ratio=aspect_ratio,
-            model="gemini-3.1-flash-image-preview",
+            model="gemini-3.1-flash-image",
         )
 
         first_frame_prompt["asset_id"] = generated_asset.id

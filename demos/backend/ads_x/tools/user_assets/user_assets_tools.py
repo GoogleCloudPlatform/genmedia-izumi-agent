@@ -178,7 +178,7 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
                 prompt=creator_prompt,
                 reference_image_filenames=[],
                 aspect_ratio="9:16",  # Vertical for Social
-                model="gemini-3.1-flash-image-preview",  # Upgrade to Gemini 3.1 Flash Image
+                model="gemini-3.1-flash-image",  # Gemini 3.1 Flash Image (GA)
             )
 
             logger.info(
