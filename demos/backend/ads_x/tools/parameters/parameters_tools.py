@@ -121,7 +121,17 @@ async def extract_campaign_parameters(
         # 3. Final Safety: Intelligent Fallback
         from ...utils.storyboard import template_library
 
-        # 3.1. Best guess for template name
+        # 3.1. Best guess for template name.
+        #
+        # Default to "Custom" (AI Director / creative mode). We ONLY switch to
+        # a specific template if the user explicitly named one in the brief.
+        #
+        # We deliberately do NOT call suggest_template() here: it never returns
+        # "Custom" (its floor is a generic Problem/Solution template), so using
+        # it as a fallback silently forces every failed-extraction run into
+        # templated mode. Creative is the system's preferred default, so a
+        # parse failure must degrade to creative, not to an arbitrary template.
+        # (Root cause of the "creative brief routed to templated mode" bug.)
         detected_template = "Custom"
         all_templates = template_library.get_all_templates()
         brief_upper = user_brief.upper()
@@ -129,13 +139,6 @@ async def extract_campaign_parameters(
             if t.template_name.upper() in brief_upper:
                 detected_template = t.template_name
                 break
-
-        # 3.2. If still Custom, try industry suggestion
-        if detected_template == "Custom":
-            suggested = template_library.suggest_template(
-                industry="General", vertical=user_brief[:50]
-            )
-            detected_template = suggested.template_name
 
         # 3.3 Dynamic Fallback Detection
         detected_orientation = "landscape"

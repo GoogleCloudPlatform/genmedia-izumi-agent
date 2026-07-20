@@ -132,6 +132,34 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
             f"Media generation timed out for item {item_id} after {timeout}s"
         )
 
+    @staticmethod
+    def _extract_response_text(response: Any) -> str:
+        """Extracts the visible response text from a Gemini response.
+
+        Mirrors the legacy MediaGenerationService behavior: iterate the
+        candidate parts and keep only NON-thought parts. Relying on the
+        SDK's ``response.text`` convenience accessor is fragile for
+        thinking models (2.5+/3.x) because thought parts can pollute the
+        output and break downstream JSON parsing (this is what caused
+        parameter extraction to fail in Creative Studio mode and silently
+        route campaigns into templated instead of creative mode).
+        """
+        candidates = getattr(response, "candidates", None)
+        if candidates:
+            content = getattr(candidates[0], "content", None)
+            parts = getattr(content, "parts", None) if content else None
+            if parts:
+                texts = [
+                    p.text
+                    for p in parts
+                    if getattr(p, "text", None) and not getattr(p, "thought", False)
+                ]
+                if texts:
+                    return "".join(texts)
+        # Fall back to the convenience accessor (may raise on blocked
+        # responses; callers treat that as a generation failure).
+        return getattr(response, "text", "") or ""
+
     async def generate_text(
         self,
         workspace_id: str,
@@ -139,7 +167,14 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         reference_assets: Optional[list[AssetRef]] = None,
         idempotency_key: Optional[str] = None,
     ) -> str:
-        """Generates text inline using Gemini model (Vertex AI)."""
+        """Generates text inline using Gemini model (Vertex AI).
+
+        Retries a few times on transient failures and empty responses.
+        Without this, a single flaky/empty Vertex response would bubble up
+        to the caller as a hard failure -- e.g. parameter extraction would
+        fall through to its "intelligent fallback" and silently pick a
+        template, routing a creative brief into templated mode.
+        """
         model = self._config.models.get("text", {}).get("default", "gemini-2.5-flash")
         logger.info(f"CSMediaGenerationService: Generating text with model {model}...")
 
@@ -149,12 +184,42 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
             location=self._config.google_cloud_location or "us-central1",
         )
 
-        response = await asyncio.to_thread(
-            client.models.generate_content,
-            model=model,
-            contents=prompt,
-        )
-        return response.text or ""
+        max_attempts = 3
+        last_error: Optional[Exception] = None
+        for attempt in range(max_attempts):
+            try:
+                response = await asyncio.to_thread(
+                    client.models.generate_content,
+                    model=model,
+                    contents=prompt,
+                )
+                text = self._extract_response_text(response)
+                if text.strip():
+                    return text
+                logger.warning(
+                    "CSMediaGenerationService.generate_text: empty response on "
+                    "attempt %d/%d; retrying.",
+                    attempt + 1,
+                    max_attempts,
+                )
+            except Exception as e:  # noqa: BLE001 - retry any transient error
+                last_error = e
+                logger.warning(
+                    "CSMediaGenerationService.generate_text: error on attempt "
+                    "%d/%d: %s",
+                    attempt + 1,
+                    max_attempts,
+                    e,
+                )
+            if attempt < max_attempts - 1:
+                await asyncio.sleep(1.0 * (2**attempt))
+
+        if last_error is not None:
+            raise BackendError(
+                f"Text generation failed after {max_attempts} attempts: {last_error}"
+            ) from last_error
+        # All attempts returned empty text.
+        return ""
 
     async def generate_image(
         self,

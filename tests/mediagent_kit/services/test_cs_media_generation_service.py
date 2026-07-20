@@ -47,12 +47,37 @@ def cs_service(cs_config):
     )
 
 
+def _mock_gemini_response(
+    *, parts: list | None = None, text: str | None = None
+) -> MagicMock:
+    """Builds a mock Gemini response.
+
+    If ``parts`` is given, sets up candidates[0].content.parts (each part is
+    a (text, thought) tuple). Otherwise sets ``candidates=None`` so the code
+    falls back to ``response.text``.
+    """
+    resp = MagicMock()
+    if parts is not None:
+        part_objs = []
+        for p_text, p_thought in parts:
+            part = MagicMock()
+            part.text = p_text
+            part.thought = p_thought
+            part_objs.append(part)
+        candidate = MagicMock()
+        candidate.content.parts = part_objs
+        resp.candidates = [candidate]
+    else:
+        resp.candidates = None
+        resp.text = text or ""
+    return resp
+
+
 @pytest.mark.asyncio
 async def test_generate_text(cs_service):
     with patch("google.genai.Client") as mock_genai_cls:
         mock_client = MagicMock()
-        mock_resp = MagicMock()
-        mock_resp.text = "Generated prompt rewriting text."
+        mock_resp = _mock_gemini_response(text="Generated prompt rewriting text.")
         mock_client.models.generate_content.return_value = mock_resp
         mock_genai_cls.return_value = mock_client
 
@@ -60,6 +85,66 @@ async def test_generate_text(cs_service):
             workspace_id="101", prompt="Make a video of a cat"
         )
         assert text == "Generated prompt rewriting text."
+
+
+@pytest.mark.asyncio
+async def test_generate_text_excludes_thought_parts(cs_service):
+    """Thought parts must NOT be included in the returned text; otherwise
+    reasoning pollutes downstream JSON parsing (root cause of the CS
+    routing bug)."""
+    with patch("google.genai.Client") as mock_genai_cls:
+        mock_client = MagicMock()
+        mock_resp = _mock_gemini_response(
+            parts=[
+                ("Let me think about the schema...", True),  # thought
+                ('{"template_name": "Custom"}', False),  # response
+            ]
+        )
+        mock_client.models.generate_content.return_value = mock_resp
+        mock_genai_cls.return_value = mock_client
+
+        text = await cs_service.generate_text(
+            workspace_id="101", prompt="extract params"
+        )
+        assert text == '{"template_name": "Custom"}'
+
+
+@pytest.mark.asyncio
+async def test_generate_text_retries_on_empty_then_succeeds(cs_service):
+    """An empty response should be retried, not returned as ''."""
+    with (
+        patch("google.genai.Client") as mock_genai_cls,
+        patch("asyncio.sleep", new=AsyncMock()),
+    ):
+        mock_client = MagicMock()
+        mock_client.models.generate_content.side_effect = [
+            _mock_gemini_response(text=""),  # empty -> retry
+            _mock_gemini_response(text="recovered text"),  # success
+        ]
+        mock_genai_cls.return_value = mock_client
+
+        text = await cs_service.generate_text(
+            workspace_id="101", prompt="extract params"
+        )
+        assert text == "recovered text"
+        assert mock_client.models.generate_content.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_generate_text_raises_after_exhausting_retries(cs_service):
+    """Persistent transient errors surface as a typed BackendError, not a
+    silent empty string."""
+    with (
+        patch("google.genai.Client") as mock_genai_cls,
+        patch("asyncio.sleep", new=AsyncMock()),
+    ):
+        mock_client = MagicMock()
+        mock_client.models.generate_content.side_effect = RuntimeError("boom")
+        mock_genai_cls.return_value = mock_client
+
+        with pytest.raises(BackendError):
+            await cs_service.generate_text(workspace_id="101", prompt="extract params")
+        assert mock_client.models.generate_content.call_count == 3
 
 
 @pytest.mark.asyncio
