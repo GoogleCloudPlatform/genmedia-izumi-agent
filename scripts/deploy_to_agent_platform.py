@@ -45,7 +45,7 @@ def main():
         help="Name of the reasoning engine / agent engine instance",
     )
     parser.add_argument(
-        "--app_env",
+        "--app-env",
         default="dev",
         help="Application environment configuration to target (dev, staging, prod)",
     )
@@ -140,12 +140,13 @@ def main():
         print("🔑 Importing root_agent from ads_x package...")
         try:
             from ads_x.agent import root_agent
+            from agent_engine_app import AgentEngineApp
         except ImportError as e:
             print(f"❌ Error: Could not import root_agent from packaged bundle: {e}")
             sys.exit(1)
 
         # Wrap agent inside AdkApp with full tracing capabilities
-        app_for_engine = AdkApp(
+        app_for_engine = AgentEngineApp(
             agent=root_agent,
         )
 
@@ -169,7 +170,11 @@ def main():
             "OTEL_SEMCONV_STABILITY_OPT_IN": "gen_ai_latest_experimental",
             "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "EVENT_ONLY",
             "GOOGLE_CLOUD_LOCATION": "global",
+            "MODEL_TARGET_LOCATION": os.getenv("MODEL_TARGET_LOCATION", ""),
         }
+
+        # Vertex Agent Engines reject environment variables with empty string values
+        env_vars = {k: v for k, v in env_vars.items() if v}
 
         requirements = [
             "google-cloud-aiplatform[agent_engines,adk]==1.159.0",
@@ -190,7 +195,13 @@ def main():
             "cloudpickle==3.1.2",
         ]
 
-        extra_packages = ["ads_x", "mediagent_kit", "utils", "config.py"]
+        extra_packages = [
+            "ads_x",
+            "mediagent_kit",
+            "utils",
+            "config.py",
+            "agent_engine_app.py",
+        ]
 
         agent_config = {
             "agent_engine": app_for_engine,

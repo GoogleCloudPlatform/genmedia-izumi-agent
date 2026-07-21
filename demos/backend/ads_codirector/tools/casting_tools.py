@@ -76,7 +76,7 @@ async def generate_character_collage(tool_context: ToolContext) -> ToolResult:
         asset = await mediagen_service.generate_image_with_gemini(
             user_id=user_id,
             file_name=collage_filename,
-            model="gemini-3.1-flash-image-preview",
+            model="gemini-3.1-flash-image",
             prompt=collage_prompt,
             reference_image_filenames=character_references,
         )

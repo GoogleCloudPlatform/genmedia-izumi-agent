@@ -98,7 +98,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         client: httpx.AsyncClient,
         item_id: str | int,
         headers: dict[str, str],
-        timeout: int = 300,
+        timeout: int = 600,
         poll_interval: float = 2.0,
     ) -> dict[str, Any]:
         """Async polling loop awaiting CS gallery item completion."""
@@ -181,7 +181,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         client = genai.Client(
             vertexai=True,
             project=self._config.google_cloud_project,
-            location=self._config.google_cloud_location or "us-central1",
+            location=self._config.model_target_location or "global",
         )
 
         max_attempts = 3
@@ -443,28 +443,18 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
                 client, item_id, headers, timeout=300
             )
 
-            status = final_item.get("status", "completed")
-            gcs_uris = final_item.get("gcsUris", [])
-            gcs_uri = gcs_uris[0] if gcs_uris else ""
-            error_msg = final_item.get("errorMessage") if status == "failed" else None
+            import mediagent_kit
 
-            return GeneratedAsset(
-                id=str(item_id),
-                workspace_id=str(ws_id),
-                file_name=file_name,
-                gcs_uri=gcs_uri,
-                mime_type="audio/mp3",
-                created_at=datetime.datetime.now(datetime.timezone.utc),
-                status=status,
-                duration_seconds=float(final_item.get("durationSeconds") or 0.0),
-                error_message=error_msg,
-                generation_metadata=GenerationMetadata(
-                    source="creative_studio",
-                    model=model,
-                    prompt=text,
-                    raw=final_item,
-                ),
+            asset_service = mediagent_kit.services.aio.get_asset_service()
+            ref = AssetRef(
+                id=str(item_id), asset_type="generated", workspace_id=str(ws_id)
             )
+            asset = await asset_service.get_asset(ref)
+
+            if asset and isinstance(asset, GeneratedAsset):
+                return asset
+
+            raise BackendError(f"Failed to fetch generated speech asset {item_id}")
 
     async def generate_music(
         self,
@@ -523,7 +513,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
                 workspace_id=str(ws_id),
                 file_name=file_name,
                 gcs_uri=gcs_uri,
-                mime_type="audio/mp3",
+                mime_type="audio/wav",
                 created_at=datetime.datetime.now(datetime.timezone.utc),
                 status=status,
                 duration_seconds=float(

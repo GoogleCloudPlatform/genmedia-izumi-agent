@@ -183,10 +183,9 @@ class CSTimelineService(VideoTimelineServiceInterface):
             if vc.asset_ref:
                 clip_dict["asset_ref"] = self._convert_asset_ref_to_cs(vc.asset_ref)
             if vc.trim:
-                clip_dict["trim"] = {
-                    "offset_seconds": vc.trim.offset_seconds,
-                    "duration_seconds": vc.trim.duration_seconds,
-                }
+                clip_dict["trim"] = {"offset_seconds": vc.trim.offset_seconds}
+                if vc.trim.duration_seconds is not None:
+                    clip_dict["trim"]["duration_seconds"] = vc.trim.duration_seconds
             if vc.first_frame_asset_ref:
                 clip_dict["first_frame_asset_ref"] = self._convert_asset_ref_to_cs(
                     vc.first_frame_asset_ref
@@ -214,10 +213,9 @@ class CSTimelineService(VideoTimelineServiceInterface):
             if ac.asset_ref:
                 ac_dict["asset_ref"] = self._convert_asset_ref_to_cs(ac.asset_ref)
             if ac.trim:
-                ac_dict["trim"] = {
-                    "offset_seconds": ac.trim.offset_seconds,
-                    "duration_seconds": ac.trim.duration_seconds,
-                }
+                ac_dict["trim"] = {"offset_seconds": ac.trim.offset_seconds}
+                if ac.trim.duration_seconds is not None:
+                    ac_dict["trim"]["duration_seconds"] = ac.trim.duration_seconds
             if ac.placeholder:
                 ac_dict["placeholder"] = ac.placeholder
             audio_clips.append(ac_dict)

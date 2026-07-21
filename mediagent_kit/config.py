@@ -23,32 +23,26 @@ class MediagentKitConfig:
 
     google_cloud_project: str | None = None
     google_cloud_location: str | None = None
+    model_target_location: str | None = None
     asset_service_gcs_bucket: str | None = None
     firestore_database_id: str | None = None
     use_creative_studio: bool = False
     cs_backend_url: str | None = None
+    cs_frontend_url: str | None = None
     cs_user_auth_token_key: str = "user_auth_token"
     models: dict = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
-        if os.getenv("USE_CREATIVE_STUDIO", "").lower() in ("true", "1"):
-            self.use_creative_studio = True
-        if os.getenv("CREATIVE_STUDIO_BACKEND_URL"):
-            self.cs_backend_url = os.getenv("CREATIVE_STUDIO_BACKEND_URL")
-        if os.getenv("CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY"):
-            self.cs_user_auth_token_key = os.getenv(
-                "CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY"
-            )
 
         # Hardcoded defaults as fallback
         self.models = {
             "text": {
-                "default": "gemini-2.5-flash",
-                "repair": "gemini-2.5-flash",
-                "enrichment": "gemini-3.1-flash-preview",
+                "default": "gemini-3.5-flash",
+                "repair": "gemini-3.5-flash",
+                "enrichment": "gemini-3.5-flash",
             },
             "image_imagen": {"default": "imagen-4.0-generate-001"},
-            "image_gemini": {"default": "gemini-3.1-flash-image-preview"},
+            "image_gemini": {"default": "gemini-3.1-flash-image"},
             "video": {"default": "veo-3.1-generate-001"},
             "music": {"default": "lyria-002"},
             "tts": {"default": "gemini-2.5-pro-tts"},

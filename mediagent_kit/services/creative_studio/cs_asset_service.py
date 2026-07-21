@@ -229,7 +229,40 @@ class CSAssetService(AssetServiceInterface):
             resp.raise_for_status()
 
             item = resp.json()
-            return self._parse_asset_item(item, default_type=default_type)
+            asset = self._parse_asset_item(item, default_type=default_type)
+
+            if (
+                isinstance(asset, GeneratedAsset)
+                and not asset.duration_seconds
+                and asset.status == "completed"
+                and asset.gcs_uri
+                and (
+                    asset.mime_type.startswith("audio/")
+                    or asset.mime_type.startswith("video/")
+                )
+            ):
+                try:
+                    import asyncio
+                    import mimetypes
+                    from mediagent_kit.utils.media_tools import (
+                        get_media_metadata_from_blob,
+                    )
+
+                    blob = await asyncio.to_thread(
+                        self._download_from_gcs, asset.gcs_uri
+                    )
+                    ext = mimetypes.guess_extension(asset.mime_type) or ".bin"
+                    meta = await asyncio.to_thread(
+                        get_media_metadata_from_blob, blob, ext
+                    )
+                    if meta and meta.duration:
+                        asset.duration_seconds = meta.duration
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to probe duration for asset {asset.id}: {e}"
+                    )
+
+            return asset
 
     async def search_assets(
         self,

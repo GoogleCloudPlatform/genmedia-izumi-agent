@@ -346,7 +346,7 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
         scoped_video_clips = []
         for vc in video_clips:
             ref = None
-            if hasattr(vc, "asset") and vc.asset and hasattr(vc.asset, "id"):
+            if vc.asset and vc.asset.id:
                 ref = AssetRef(
                     id=str(vc.asset.id),
                     asset_type=(
@@ -356,18 +356,47 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                     ),
                     workspace_id=workspace_id,
                 )
-            trim_obj = None
-            if hasattr(vc, "trim") and vc.trim:
-                trim_obj = ScopedTrim(
-                    offset_seconds=getattr(vc.trim, "offset_seconds", 0.0),
-                    duration_seconds=getattr(vc.trim, "duration_seconds", None),
+
+            ff_ref = None
+            if vc.first_frame_asset and vc.first_frame_asset.id:
+                ff_ref = AssetRef(
+                    id=str(vc.first_frame_asset.id),
+                    asset_type=(
+                        "generated"
+                        if isinstance(vc.first_frame_asset, GeneratedAsset)
+                        else "uploaded"
+                    ),
+                    workspace_id=workspace_id,
                 )
+
+            lf_ref = None
+            if vc.last_frame_asset and vc.last_frame_asset.id:
+                lf_ref = AssetRef(
+                    id=str(vc.last_frame_asset.id),
+                    asset_type=(
+                        "generated"
+                        if isinstance(vc.last_frame_asset, GeneratedAsset)
+                        else "uploaded"
+                    ),
+                    workspace_id=workspace_id,
+                )
+
+            trim_obj = None
+            if vc.trim:
+                trim_obj = ScopedTrim(
+                    offset_seconds=vc.trim.offset_seconds,
+                    duration_seconds=vc.trim.duration_seconds,
+                )
+
             scoped_video_clips.append(
                 TimelineVideoClip(
                     asset_ref=ref,
                     trim=trim_obj,
-                    volume=getattr(vc, "volume", 1.0),
-                    speed=getattr(vc, "speed", 1.0),
+                    volume=vc.volume,
+                    speed=vc.speed,
+                    first_frame_asset_ref=ff_ref,
+                    last_frame_asset_ref=lf_ref,
+                    placeholder=vc.placeholder,
                 )
             )
 
@@ -381,7 +410,7 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
         scoped_audio_clips = []
         for ac in audio_clips:
             ref = None
-            if hasattr(ac, "asset") and ac.asset and hasattr(ac.asset, "id"):
+            if ac.asset and ac.asset.id:
                 ref = AssetRef(
                     id=str(ac.asset.id),
                     asset_type=(
@@ -391,52 +420,49 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                     ),
                     workspace_id=workspace_id,
                 )
+
             start_at_obj = AudioPlacement(
-                video_clip_index=(
-                    getattr(ac.start_at, "video_clip_index", 0)
-                    if hasattr(ac, "start_at") and ac.start_at
-                    else 0
-                ),
-                offset_seconds=(
-                    getattr(ac.start_at, "offset_seconds", 0.0)
-                    if hasattr(ac, "start_at") and ac.start_at
-                    else 0.0
-                ),
+                video_clip_index=ac.start_at.video_clip_index,
+                offset_seconds=ac.start_at.offset_seconds,
             )
+
             trim_obj = None
-            if hasattr(ac, "trim") and ac.trim:
+            if ac.trim:
                 trim_obj = ScopedTrim(
-                    offset_seconds=getattr(ac.trim, "offset_seconds", 0.0),
-                    duration_seconds=getattr(ac.trim, "duration_seconds", None),
+                    offset_seconds=ac.trim.offset_seconds,
+                    duration_seconds=ac.trim.duration_seconds,
                 )
+
             scoped_audio_clips.append(
                 TimelineAudioClip(
                     start_at=start_at_obj,
                     asset_ref=ref,
                     trim=trim_obj,
-                    volume=getattr(ac, "volume", 1.0),
-                    speed=getattr(ac, "speed", 1.0),
-                    fade_in_duration_seconds=getattr(
-                        ac, "fade_in_duration_seconds", 0.0
-                    ),
-                    fade_out_duration_seconds=getattr(
-                        ac, "fade_out_duration_seconds", 0.0
-                    ),
+                    volume=ac.volume,
+                    speed=ac.speed,
+                    fade_in_duration_seconds=ac.fade_in_duration_seconds,
+                    fade_out_duration_seconds=ac.fade_out_duration_seconds,
+                    placeholder=ac.placeholder,
                 )
             )
 
         scoped_transitions = []
         for t in transitions:
-            if t and hasattr(t, "type"):
+            if t:
                 t_type_val = t.type.value if hasattr(t.type, "value") else str(t.type)
                 scoped_transitions.append(
                     ScopedTransition(
                         type=ScopedTransitionType(t_type_val),
-                        duration_seconds=getattr(t, "duration_seconds", 0.5),
+                        duration_seconds=t.duration_seconds,
                     )
                 )
             else:
-                scoped_transitions.append(None)
+                scoped_transitions.append(
+                    ScopedTransition(
+                        type=ScopedTransitionType("none"),
+                        duration_seconds=0.0,
+                    )
+                )
 
         scoped_tl = ScopedVideoTimeline(
             workspace_id=workspace_id,
@@ -493,9 +519,9 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
     import os
 
     if config.use_creative_studio:
-        cs_frontend_url = (
-            os.environ.get("CREATIVE_STUDIO_FRONTEND_URL") or "http://localhost:4200"
-        ).rstrip("/")
+        cs_frontend_url = (config.cs_frontend_url or "http://localhost:4200").rstrip(
+            "/"
+        )
 
         cs_workbench_link = f"{cs_frontend_url}/workbench?timelineId={tl_id}&storyboardId={current_sb_id}&sessionId={session_id}"
         cs_asset_link = f"{cs_frontend_url}/gallery/{stitched_asset.id}"
