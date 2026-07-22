@@ -22,7 +22,11 @@ from typing import Any, List, Optional
 
 from google.adk.tools.tool_context import ToolContext
 
-from utils.adk import get_user_id_from_context, get_session_id_from_context
+from utils.adk import (
+    get_user_id_from_context,
+    get_session_id_from_context,
+    resolve_workspace_id,
+)
 import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 
@@ -259,11 +263,9 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
     )
     logger.info("Tool 'generate_all_media' invoked.")
 
-    workspace_id = str(tool_context.state.get("workspace_id") or "")
-    if not workspace_id or not workspace_id.isdigit():
-        return tool_failure(
-            f"Invalid workspace_id: '{workspace_id}'. Workspace ID must be a non-empty numeric string."
-        )
+    workspace_id, ws_error = resolve_workspace_id(tool_context)
+    if ws_error:
+        return tool_failure(ws_error)
 
     if (storyboard := tool_context.state.get(common_utils.STORYBOARD_KEY)) is None:
         return tool_failure("Missing storyboard.")

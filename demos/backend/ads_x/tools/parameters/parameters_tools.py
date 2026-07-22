@@ -47,11 +47,14 @@ async def extract_campaign_parameters(
         or tool_context.state.get("user_id", "default_user")
     )
 
-    # Call Gemini to get the JSON
+    # Call Gemini to get the JSON. INSTRUCTION is shared with the parameters
+    # agent (which has the tool); here there is no tool, so append the
+    # text-output override or Gemini 3.x returns a MALFORMED_FUNCTION_CALL.
     raw_json = await mediagen_service.generate_text(
         workspace_id=workspace_id,
         prompt=parameters_instruction.INSTRUCTION
-        + f"\n\n**USER BRIEF:**\n{user_brief}",
+        + f"\n\n**USER BRIEF:**\n{user_brief}"
+        + parameters_instruction.TEXT_OUTPUT_OVERRIDE,
     )
 
     # Clean JSON helper
@@ -145,7 +148,7 @@ async def extract_campaign_parameters(
         if "PORTRAIT" in user_brief.upper() or "VERTICAL" in user_brief.upper():
             detected_orientation = "portrait"
 
-        detected_duration = "30s"
+        detected_duration = "12s"
         import re
 
         duration_match = re.search(r"(\d+s)", user_brief)

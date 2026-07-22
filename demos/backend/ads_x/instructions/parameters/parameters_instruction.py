@@ -85,7 +85,7 @@ If the user's brief contains a script, a numbered list of scenes, or specific na
 
 ### **FORMAT SELECTION**
 - **Orientation**: Default to `landscape`. Set to `portrait` if "vertical", "9:16", "TikTok", or "Reels" is mentioned.
-- **Duration**: Extract if mentioned (e.g., "15s"). Default to `30s`.
+- **Duration**: Extract if mentioned (e.g., "15s"). Default to `12s`.
 
 ### **VIRTUAL CREATOR RULE**
 - Set `generate_virtual_creator = True` if the template is UGC ([{ugc_list_str}]) OR if requested in the brief using terms like "influencer", "real person", "virtual creator", "AI avatar", "spokesperson", or "character".
@@ -99,4 +99,22 @@ If the user's brief contains a script, a numbered list of scenes, or specific na
 ### **FORBIDDEN FILENAMES (CRITICAL)**
 - You MUST NOT use filenames like `input_file_0.png`, `input_file_1.png`, etc. These are internal placeholders.
 - You MUST instead use the exact Filenames provided in the user's brief or attached assets.
+"""
+
+# Text-output override for the *direct generation* usage of INSTRUCTION.
+#
+# INSTRUCTION is shared: agent.py feeds it to the parameters_agent (which HAS
+# the extract_campaign_parameters tool, so its tool-calling directives are
+# correct there), and parameters_tools.py feeds it to a plain generate_text
+# call (no tools). In that second context a Gemini 3.x model obeys the "call
+# the tool" directives, emits a function call with no schema, and returns
+# FinishReason.MALFORMED_FUNCTION_CALL with no text. Appending this override
+# ONLY at the generate_text call site tells the model to emit JSON text
+# instead, without affecting the agent.
+TEXT_OUTPUT_OVERRIDE = """
+
+### **OUTPUT MODE — TEXT ONLY (HIGHEST PRIORITY, OVERRIDES ALL TOOL DIRECTIVES ABOVE)**
+This prompt is running in a plain text-generation context. NO tools or functions are available to you here.
+Do NOT call any function or tool (e.g. `extract_campaign_parameters`); attempting one produces a malformed, empty response.
+Output ONLY the raw JSON object matching the schema as your plain text response.
 """

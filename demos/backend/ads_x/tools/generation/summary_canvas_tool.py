@@ -22,6 +22,7 @@ from google.adk.tools import ToolContext
 
 from ...utils.common import common_utils
 from ...utils.storyboard import template_library
+from utils.adk import resolve_workspace_id
 
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
@@ -178,11 +179,9 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
 
     asset_service = mediagent_kit.services.aio.get_asset_service()
     canvas_service = mediagent_kit.services.aio.get_canvas_service()
-    workspace_id = str(tool_context.state.get("workspace_id") or "")
-    if not workspace_id or not workspace_id.isdigit():
-        return tool_failure(
-            f"Invalid workspace_id: '{workspace_id}'. Workspace ID must be a non-empty numeric string."
-        )
+    workspace_id, ws_error = resolve_workspace_id(tool_context)
+    if ws_error:
+        return tool_failure(ws_error)
 
     # Get Template Definition
     template_name = storyboard.get("template_name", "Custom")
@@ -262,7 +261,13 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
         actor_vibe = _fmt(char.get("actor_vibe", ""))
         attire = _fmt(char.get("attire", ""))
         env = master_recipe.get("environment", {})
-        temporal = _fmt(env.get("temporal", ""))
+        # Display the lighting value that is actually bound to the scenes
+        # (illumination.vibe is what the art-direction injection uses), so the
+        # summary matches what the generator receives.
+        temporal = _fmt(
+            master_recipe.get("illumination", {}).get("vibe", "")
+            or env.get("temporal", "")
+        )
 
         cine = master_recipe.get("cinematography", {})
         optics = _fmt(cine.get("optics", ""))

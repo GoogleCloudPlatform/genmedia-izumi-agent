@@ -24,6 +24,7 @@ from mediagent_kit.services import types
 from utils.adk import display_asset
 from utils.adk import get_user_id_from_context
 from utils.adk import get_session_id_from_context
+from utils.adk import resolve_workspace_id
 
 from ...utils.common import common_utils
 from ...utils.storyboard import template_library
@@ -60,11 +61,9 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
         or (parameters.get("vertical") in ["Social Native", "UGC"])
     )
 
-    workspace_id = str(tool_context.state.get("workspace_id") or "")
-    if not workspace_id or not workspace_id.isdigit():
-        return tool_failure(
-            f"Invalid workspace_id: '{workspace_id}'. Workspace ID must be a non-empty numeric string."
-        )
+    workspace_id, ws_error = resolve_workspace_id(tool_context)
+    if ws_error:
+        return tool_failure(ws_error)
 
     current_sb_id = storyboard.get("storyboard_id") or storyboard.get("id")
 
@@ -488,19 +487,20 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
             output_filename=f"final_video_{uid}.mp4",
         )
     else:
-        # Canvas Logic
+        # Canvas Logic (native path: legacy CanvasService keyed by user_id)
         canvas_service = mediagent_kit.services.aio.get_canvas_service()
         canvas = await canvas_service.create_canvas(
+            user_id=workspace_id,
             title=timeline.title,
             video_timeline=timeline,
         )
         tool_context.state["video_timeline_canvas_id"] = canvas.id
 
-        # Stitch the video
+        # Stitch the video (native path: legacy stitcher keyed by user_id)
         stitched_asset = await video_stitching_service.stitch_video(
+            user_id=workspace_id,
             timeline=timeline,
             output_filename=f"final_video_{uid}.mp4",
-            workspace_id=workspace_id,
         )
 
     tool_context.state["final_video_asset_id"] = stitched_asset.id

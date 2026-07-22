@@ -79,6 +79,39 @@ def get_session_id_from_context(context: ReadonlyContext) -> str:
     return session_id
 
 
+def resolve_workspace_id(context: ReadonlyContext) -> tuple[str, str | None]:
+    """Resolves the effective workspace id for a generation tool call.
+
+    Creative Studio establishes a numeric ``workspace_id`` in session state via
+    the ``select_workspace`` tool. Native (Izumi) mode has no workspace
+    selection, so the session ``user_id`` is used as the workspace/tenant id
+    (an arbitrary non-empty string, e.g. ``project_1784661758983``).
+
+    Returns a ``(workspace_id, error_message)`` tuple; ``error_message`` is
+    ``None`` when the id is valid, otherwise a message suitable for
+    ``tool_failure``. The numeric-format requirement is enforced only when
+    Creative Studio is active.
+    """
+    from mediagent_kit.services import _get_service_factory
+
+    state = getattr(context, "state", None) or {}
+    workspace_id = str(
+        state.get("workspace_id") or get_user_id_from_context(context) or ""
+    )
+    if not workspace_id:
+        return "", "Could not determine a workspace_id from the session."
+
+    if _get_service_factory().get_config().use_creative_studio and (
+        not workspace_id.isdigit()
+    ):
+        return workspace_id, (
+            f"Invalid workspace_id: '{workspace_id}'. "
+            "Workspace ID must be a non-empty numeric string."
+        )
+
+    return workspace_id, None
+
+
 async def display_asset(tool_context: ToolContext, asset_id: str) -> str:
     """Loads a persistent asset and displays it on ADK Web / Gemini Enterprise UI.
 
@@ -426,6 +459,90 @@ async def blob_interceptor_callback(callback_context: Context, llm_request: LlmR
                         except Exception as e:
                             logger.error(
                                 f"Failed to resolve CS asset ID {asset_id}: {e}"
+                            )
+
+                    # Scenario D: Native session-service asset reference
+                    # ("<asset://filename>"). FirestoreSessionService intercepts
+                    # uploaded blobs, saves them as assets, and rewrites the
+                    # message part to "<asset://filename>" text -- but it does NOT
+                    # register them in user_assets/asset_refs. Without that mapping
+                    # the storyboard agent has no assets to reference and
+                    # generate_all_media's primary_product binding stays empty, so
+                    # first frames are generated with no reference images. Recover
+                    # the mapping here by looking each asset up by its filename.
+                    native_asset_matches = re.findall(r"<asset://([^>]+)>", clean_text)
+                    for raw_name in native_asset_matches:
+                        file_name = raw_name.strip()
+                        if not file_name:
+                            continue
+                        logger.info(
+                            f"Intercepted native asset reference: '{file_name}'."
+                        )
+                        try:
+                            asset = await asset_service.get_asset_by_file_name(
+                                user_id=workspace_id, file_name=file_name
+                            )
+                            if not asset:
+                                logger.warning(
+                                    f"Native asset '{file_name}' not found by "
+                                    "filename; skipping reference registration."
+                                )
+                                continue
+
+                            # Key by the original filename so it aligns with how
+                            # the brief references files, how the storyboard agent
+                            # is told to use "the exact Filename from user_assets",
+                            # and how generate_all_media detects the logo vs the
+                            # primary product.
+                            asset_key = file_name
+
+                            # asset_refs is what scene resolution relies on --
+                            # populate it first so a later description failure
+                            # cannot leave the reference unusable.
+                            asset_refs = dict(state.get("asset_refs") or {})
+                            asset_refs[asset_key] = {
+                                "id": asset.id,
+                                "asset_type": "uploaded",
+                                "workspace_id": workspace_id,
+                            }
+                            state["asset_refs"] = asset_refs
+
+                            desc = f"Uploaded reference image '{file_name}'."
+                            if str(getattr(asset, "mime_type", "") or "").startswith(
+                                "image/"
+                            ):
+                                gcs_uri = getattr(
+                                    getattr(asset, "current", None), "gcs_uri", None
+                                )
+                                try:
+                                    desc = await generate_image_description(
+                                        blob_data=None,
+                                        mime_type=asset.mime_type,
+                                        workspace_id=workspace_id,
+                                        gcs_uri=gcs_uri,
+                                    )
+                                except Exception as desc_err:
+                                    logger.warning(
+                                        f"Description generation failed for "
+                                        f"'{file_name}': {desc_err}"
+                                    )
+
+                            user_assets = dict(state.get("user_assets") or {})
+                            user_assets[asset_key] = (
+                                f"(Original file: {asset_key}) {desc}"
+                            )
+                            state["user_assets"] = user_assets
+
+                            note = (
+                                f"\n(System note: The file '{file_name}' is available "
+                                f"as a reference asset for media generation using the "
+                                f"ID: {asset_key})"
+                            )
+                            if note not in clean_text:
+                                clean_text += note
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to resolve native asset '{file_name}': {e}"
                             )
 
                     part.text = clean_text

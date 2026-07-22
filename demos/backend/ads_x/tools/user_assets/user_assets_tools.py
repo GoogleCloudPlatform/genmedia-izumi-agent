@@ -19,7 +19,7 @@ import logging
 import os
 from google.adk.tools.tool_context import ToolContext
 
-from utils.adk import get_user_id_from_context
+from utils.adk import get_user_id_from_context, resolve_workspace_id
 import mediagent_kit
 
 from ...utils.common import common_utils
@@ -38,11 +38,9 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
     logger.error(
         "⭐⭐⭐ [NATIVE TOOL INVOCATION] `ingest_assets` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
     )
-    workspace_id = str(tool_context.state.get("workspace_id") or "")
-    if not workspace_id or not workspace_id.isdigit():
-        return tool_failure(
-            f"Invalid workspace_id: '{workspace_id}'. Workspace ID must be a non-empty numeric string."
-        )
+    workspace_id, ws_error = resolve_workspace_id(tool_context)
+    if ws_error:
+        return tool_failure(ws_error)
     logger.info(f"Ingesting assets for workspace_id: {workspace_id}")
 
     asset_service = mediagent_kit.services.aio.get_asset_service()
