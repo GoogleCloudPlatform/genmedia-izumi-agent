@@ -1,8 +1,8 @@
 {
   "models": {
     "text": {
-      "default": "gemini-2.5-flash",
-      "repair": "gemini-2.5-flash",
+      "default": "gemini-3.5-flash",
+      "repair": "gemini-3.5-flash",
       "enrichment": "gemini-3.1-flash-preview",
       "_compatible_models": [
         "gemini-2.5-flash",

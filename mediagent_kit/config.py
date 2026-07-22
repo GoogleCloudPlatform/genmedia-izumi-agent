@@ -48,8 +48,24 @@ class MediagentKitConfig:
             "tts": {"default": "gemini-2.5-pro-tts"},
         }
 
-        config_path = "mediagent_config.json"
-        if os.path.exists(config_path):
+        # Resolve mediagent_config.json regardless of the process working
+        # directory. The backend server runs from demos/backend, but the file
+        # lives at the repo root; a bare relative path silently missed it and
+        # fell back to the hardcoded defaults above. Search order:
+        #   1. MEDIAGENT_CONFIG_PATH env override (explicit),
+        #   2. the current working directory (back-compat),
+        #   3. the repo root (the parent of this package directory).
+        _package_dir = os.path.dirname(os.path.abspath(__file__))
+        _repo_root = os.path.dirname(_package_dir)
+        _candidate_paths = [
+            os.environ.get("MEDIAGENT_CONFIG_PATH"),
+            "mediagent_config.json",
+            os.path.join(_repo_root, "mediagent_config.json"),
+        ]
+        config_path = next(
+            (p for p in _candidate_paths if p and os.path.exists(p)), None
+        )
+        if config_path:
             try:
                 with open(config_path, "r") as f:
                     data = json.load(f)

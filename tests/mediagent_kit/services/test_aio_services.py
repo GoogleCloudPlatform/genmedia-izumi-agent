@@ -56,12 +56,24 @@ async def test_async_media_gen_service_cs_delegation():
 
 @pytest.mark.asyncio
 async def test_async_media_gen_service_native_delegation():
-    """Verify AsyncMediaGenerationService delegates to thread pool for sync services."""
+    """The native (legacy) media service is adapted via
+    IzumiMediaGenerationService: unified generate_text maps workspace_id->
+    user_id, resolves the legacy generator, and returns the text inline
+    (read back from the persisted asset) rather than forwarding unified
+    kwargs straight to the legacy method."""
+    from types import SimpleNamespace
+
     sync_svc = MagicMock()
-    sync_svc.generate_text_with_gemini.return_value = "sync_legacy_text_asset"
+    sync_svc.generate_text_with_gemini.return_value = SimpleNamespace(id="t1")
+    sync_svc._asset_service.get_asset_blob.return_value = SimpleNamespace(
+        content=b"sync_legacy_text"
+    )
 
     async_svc = AsyncMediaGenerationService(sync_service=sync_svc)
 
-    res = await async_svc.generate_text(prompt="test sync")
-    assert res == "sync_legacy_text_asset"
-    sync_svc.generate_text_with_gemini.assert_called_once_with(prompt="test sync")
+    res = await async_svc.generate_text(workspace_id="ws_1", prompt="test sync")
+    assert res == "sync_legacy_text"
+    _, kwargs = sync_svc.generate_text_with_gemini.call_args
+    assert kwargs["user_id"] == "ws_1"
+    assert kwargs["prompt"] == "test sync"
+    assert kwargs["reference_image_filenames"] == []

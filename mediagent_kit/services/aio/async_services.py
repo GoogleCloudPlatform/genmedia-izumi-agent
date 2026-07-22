@@ -18,13 +18,13 @@ import asyncio
 import inspect
 from typing import TYPE_CHECKING, Any
 
-from mediagent_kit.services.interfaces import HtmlCanvasServiceInterface
+from mediagent_kit.services.interfaces import (
+    AssetServiceInterface,
+    HtmlCanvasServiceInterface,
+    MediaGenerationServiceInterface,
+)
 
 from mediagent_kit.services import types as asset_types
-from mediagent_kit.services.creative_studio.cs_asset_service import CSAssetService
-from mediagent_kit.services.creative_studio.cs_media_generation_service import (
-    CSMediaGenerationService,
-)
 from mediagent_kit.services.creative_studio.cs_storyboard_service import (
     CSStoryboardService,
 )
@@ -50,8 +50,27 @@ if TYPE_CHECKING:
 
 
 class AsyncAssetService:
-    def __init__(self, sync_service: "AssetService"):
+    def __init__(self, sync_service: Any):
         self._sync_service = sync_service
+        self._interface: AssetServiceInterface | None = None
+
+    def _require_interface(self) -> AssetServiceInterface:
+        """Resolves the unified asset interface.
+
+        Creative Studio's ``CSAssetService`` already implements the interface
+        and is used directly. The native legacy ``AssetService`` does not, so
+        it is adapted via ``IzumiAssetService``. The legacy passthrough methods
+        below intentionally keep calling ``self._sync_service`` directly, so
+        this wrapper still serves legacy callers (REST API, session service)
+        unchanged.
+        """
+        if isinstance(self._sync_service, AssetServiceInterface):
+            return self._sync_service
+        if self._interface is None:
+            from mediagent_kit.services.izumi.asset_service import IzumiAssetService
+
+            self._interface = IzumiAssetService(self._sync_service)
+        return self._interface
 
     async def upload_asset(
         self,
@@ -62,29 +81,17 @@ class AsyncAssetService:
         scope: str = "private",
         idempotency_key: str | None = None,
     ) -> UploadedAsset:
-        if isinstance(self._sync_service, CSAssetService):
-            return await self._sync_service.upload_asset(
-                workspace_id=workspace_id,
-                file_name=file_name,
-                blob=blob,
-                mime_type=mime_type,
-                scope=scope,
-                idempotency_key=idempotency_key,
-            )
-        return await asyncio.to_thread(
-            self._sync_service.upload_asset,
-            workspace_id,
-            file_name,
-            blob,
-            mime_type,
-            scope,
-            idempotency_key,
+        return await self._require_interface().upload_asset(
+            workspace_id=workspace_id,
+            file_name=file_name,
+            blob=blob,
+            mime_type=mime_type,
+            scope=scope,
+            idempotency_key=idempotency_key,
         )
 
     async def get_asset(self, ref: AssetRef) -> UploadedAsset | GeneratedAsset | None:
-        if isinstance(self._sync_service, CSAssetService):
-            return await self._sync_service.get_asset(ref)
-        return await asyncio.to_thread(self._sync_service.get_asset, ref)
+        return await self._require_interface().get_asset(ref)
 
     async def search_assets(
         self,
@@ -94,32 +101,19 @@ class AsyncAssetService:
         limit: int = 100,
         offset: int = 0,
     ) -> list[UploadedAsset | GeneratedAsset]:
-        if isinstance(self._sync_service, CSAssetService):
-            return await self._sync_service.search_assets(
-                workspace_id=workspace_id,
-                query=query,
-                asset_type=asset_type,
-                limit=limit,
-                offset=offset,
-            )
-        return await asyncio.to_thread(
-            self._sync_service.search_assets,
-            workspace_id,
-            query,
-            asset_type,
-            limit,
-            offset,
+        return await self._require_interface().search_assets(
+            workspace_id=workspace_id,
+            query=query,
+            asset_type=asset_type,
+            limit=limit,
+            offset=offset,
         )
 
     async def download_asset_bytes(self, ref: AssetRef) -> bytes:
-        if isinstance(self._sync_service, CSAssetService):
-            return await self._sync_service.download_asset_bytes(ref)
-        return await asyncio.to_thread(self._sync_service.download_asset_bytes, ref)
+        return await self._require_interface().download_asset_bytes(ref)
 
     async def delete_asset(self, ref: AssetRef) -> None:
-        if isinstance(self._sync_service, CSAssetService):
-            return await self._sync_service.delete_asset(ref)
-        return await asyncio.to_thread(self._sync_service.delete_asset, ref)
+        return await self._require_interface().delete_asset(ref)
 
     async def save_asset(self, **kwargs: Any) -> asset_types.Asset:
         return await asyncio.to_thread(self._sync_service.save_asset, **kwargs)
@@ -160,9 +154,6 @@ class AsyncAssetService:
             self._sync_service.update_asset, asset_id, **kwargs
         )
 
-    async def delete_asset(self, asset_id: str) -> None:
-        return await asyncio.to_thread(self._sync_service.delete_asset, asset_id)
-
 
 class AsyncCanvasService:
     def __init__(self, sync_service: Any):
@@ -192,7 +183,25 @@ class AsyncCanvasService:
 
             return await self._sync_service.create_canvas(**cs_kwargs)
 
-        return await asyncio.to_thread(self._sync_service.create_canvas, **kwargs)
+        # Native path: map unified kwargs to the legacy CanvasService signature
+        # create_canvas(user_id, title, video_timeline=None, html=None). The
+        # unified callers may pass workspace_id/session_id, which legacy rejects.
+        legacy_kwargs: dict[str, Any] = {}
+        if "user_id" in kwargs:
+            legacy_kwargs["user_id"] = kwargs["user_id"]
+        elif "workspace_id" in kwargs:
+            legacy_kwargs["user_id"] = kwargs["workspace_id"]
+
+        if "title" in kwargs:
+            legacy_kwargs["title"] = kwargs["title"]
+        if kwargs.get("video_timeline") is not None:
+            legacy_kwargs["video_timeline"] = kwargs["video_timeline"]
+        if kwargs.get("html") is not None:
+            legacy_kwargs["html"] = kwargs["html"]
+
+        return await asyncio.to_thread(
+            self._sync_service.create_canvas, **legacy_kwargs
+        )
 
     async def get_canvas(self, canvas_id: str) -> asset_types.Canvas | None:
         return await asyncio.to_thread(self._sync_service.get_canvas, canvas_id)
@@ -247,46 +256,50 @@ class AsyncJobService:
 class AsyncMediaGenerationService:
     def __init__(self, sync_service: Any):
         self._sync_service = sync_service
+        self._interface: MediaGenerationServiceInterface | None = None
+
+    def _require_interface(self) -> MediaGenerationServiceInterface:
+        """Resolves the unified media-generation interface.
+
+        Creative Studio's ``CSMediaGenerationService`` already implements the
+        interface and is used directly. The native legacy
+        ``MediaGenerationService`` does not, so it is adapted via
+        ``IzumiMediaGenerationService`` (reusing the media service's own asset
+        service). The legacy passthrough methods below intentionally keep
+        calling ``self._sync_service`` directly, so this wrapper still serves
+        legacy callers unchanged.
+        """
+        if isinstance(self._sync_service, MediaGenerationServiceInterface):
+            return self._sync_service
+        if self._interface is None:
+            from mediagent_kit.services.izumi.media_generation_service import (
+                IzumiMediaGenerationService,
+            )
+
+            self._interface = IzumiMediaGenerationService(
+                self._sync_service, self._sync_service._asset_service
+            )
+        return self._interface
 
     async def generate_text(self, **kwargs: Any) -> str:
-        """Generates text using CS direct async call or native thread pool execution."""
-        if isinstance(self._sync_service, CSMediaGenerationService):
-            return await self._sync_service.generate_text(**kwargs)
-        return await asyncio.to_thread(
-            self._sync_service.generate_text_with_gemini, **kwargs
-        )
+        """Generates text via the unified interface (CS or native Izumi)."""
+        return await self._require_interface().generate_text(**kwargs)
 
     async def generate_image(self, **kwargs: Any) -> Any:
-        """Generates image using CS direct async call or native thread pool execution."""
-        if isinstance(self._sync_service, CSMediaGenerationService):
-            return await self._sync_service.generate_image(**kwargs)
-        return await asyncio.to_thread(
-            self._sync_service.generate_image_with_imagen, **kwargs
-        )
+        """Generates an image via the unified interface (CS or native Izumi)."""
+        return await self._require_interface().generate_image(**kwargs)
 
     async def generate_video(self, **kwargs: Any) -> Any:
-        """Generates video using CS direct async call or native thread pool execution."""
-        if isinstance(self._sync_service, CSMediaGenerationService):
-            return await self._sync_service.generate_video(**kwargs)
-        return await asyncio.to_thread(
-            self._sync_service.generate_video_with_veo, **kwargs
-        )
+        """Generates a video via the unified interface (CS or native Izumi)."""
+        return await self._require_interface().generate_video(**kwargs)
 
     async def generate_speech(self, **kwargs: Any) -> Any:
-        """Generates speech using CS direct async call or native thread pool execution."""
-        if isinstance(self._sync_service, CSMediaGenerationService):
-            return await self._sync_service.generate_speech(**kwargs)
-        return await asyncio.to_thread(
-            self._sync_service.generate_speech_single_speaker, **kwargs
-        )
+        """Generates speech via the unified interface (CS or native Izumi)."""
+        return await self._require_interface().generate_speech(**kwargs)
 
     async def generate_music(self, **kwargs: Any) -> Any:
-        """Generates music using CS direct async call or native thread pool execution."""
-        if isinstance(self._sync_service, CSMediaGenerationService):
-            return await self._sync_service.generate_music(**kwargs)
-        return await asyncio.to_thread(
-            self._sync_service.generate_music_with_lyria, **kwargs
-        )
+        """Generates music via the unified interface (CS or native Izumi)."""
+        return await self._require_interface().generate_music(**kwargs)
 
     # Legacy method compatibility
     async def generate_music_with_lyria(self, **kwargs: Any) -> asset_types.Asset:

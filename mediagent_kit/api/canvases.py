@@ -152,7 +152,7 @@ def delete_canvas(
 class AssetResolvingParser(HTMLParser):
     def __init__(self, workspace_id: str, asset_service: AssetService):
         super().__init__()
-        self._user_id = user_id
+        self._workspace_id = workspace_id
         self._asset_service = asset_service
         self._output = io.StringIO()
         self._user_assets: dict[str, service_types.Asset] | None = None
@@ -164,7 +164,7 @@ class AssetResolvingParser(HTMLParser):
         if self._user_assets is None:
             self._user_assets = {
                 asset.file_name: asset
-                for asset in self._asset_service.list_assets(user_id=self._user_id)
+                for asset in self._asset_service.list_assets(user_id=self._workspace_id)
             }
         return self._user_assets
 
@@ -236,7 +236,7 @@ def view_canvas(
         )
 
     html_content = canvas.html.content
-    parser = AssetResolvingParser(user_id, asset_service)
+    parser = AssetResolvingParser(workspace_id, asset_service)
     parser.feed(html_content)
     resolved_html = parser.get_output()
 
