@@ -77,7 +77,7 @@ describe('projectService', () => {
         id: 'asset-456',
         fileName: 'test-image.png',
         type: 'image',
-        url: `${API_BASE_URL}/users/${projectId}/assets/asset-456/view?version=1`,
+        url: `${API_BASE_URL}/workspaces/${projectId}/assets/asset-456/view?version=1`,
         thumbnailUrl: undefined,
         createdAt: '2025-11-21T10:00:00Z',
         currentVersion: 1,
@@ -403,7 +403,7 @@ describe('projectService', () => {
         id: canvasId,
         name: 'Inferred HTML Canvas',
         type: 'html', // Should be inferred as default
-        url: `${API_BASE_URL}/users/${projectId}/canvases/${canvasId}/view`,
+        url: `${API_BASE_URL}/workspaces/${projectId}/canvases/${canvasId}/view`,
         videoTimeline: undefined,
         createdAt: '2023-10-27T12:00:00Z',
       });
@@ -426,7 +426,7 @@ describe('projectService', () => {
         id: canvasId,
         name: 'Explicit HTML Canvas',
         type: 'html',
-        url: `${API_BASE_URL}/users/${projectId}/canvases/${canvasId}/view`,
+        url: `${API_BASE_URL}/workspaces/${projectId}/canvases/${canvasId}/view`,
         videoTimeline: undefined,
         createdAt: '2023-10-27T13:00:00Z',
       });

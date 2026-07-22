@@ -90,7 +90,7 @@ export const mapAssetToProjectAsset = (asset: Asset): ProjectAsset => {
           : asset.mime_type.startsWith('text')
             ? 'text'
             : 'binary',
-    url: `${API_BASE_URL}/users/${asset.user_id}/assets/${asset.id}/view?version=${asset.current_version}`,
+    url: `${API_BASE_URL}/workspaces/${asset.user_id}/assets/${asset.id}/view?version=${asset.current_version}`,
     fileName: asset.file_name,
     generateConfig: generateConfig as AssetGenerateConfig | null,
     currentVersion: asset.current_version,

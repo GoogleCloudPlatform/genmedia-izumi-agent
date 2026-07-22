@@ -19,11 +19,11 @@ import { request } from './client';
 export const canvasesApi = {
   async getCanvases(projectId: string) {
     console.log(`[API] Fetching canvases for project (user_id) ${projectId}`);
-    return request(`/users/${projectId}/canvases`);
+    return request(`/workspaces/${projectId}/canvases`);
   },
 
   async getCanvas(projectId: string, canvasId: string) {
     console.log(`[API] Fetching canvas ${canvasId} for project ${projectId}`);
-    return request(`/users/${projectId}/canvases/${canvasId}`);
+    return request(`/workspaces/${projectId}/canvases/${canvasId}`);
   },
 };
