@@ -288,3 +288,495 @@ def get_production_encyclopedia_json() -> str:
     import json
 
     return json.dumps(PRODUCTION_ENCYCLOPEDIA, indent=2)
+
+
+# --- CURATED "LOOKS" ---
+# A Look is a single, internally-coherent art-direction bundle: every field is
+# chosen to reinforce the others. This is the opposite of sampling each field
+# independently (which produces clashing combinations like "intimate candlelight"
+# + "aggressive trap" + "tilt-shift miniature"). recommend_production_recipe
+# selects ONE Look for the brief and binds it to every scene. Each Look carries
+# selection metadata (tier / tones / keywords / description) used by the LLM
+# selector, plus a `recipe` payload in the exact shape the storyboard and
+# generation pipeline already consume.
+
+PRODUCTION_LOOKS: list[Dict[str, Any]] = [
+    # ---------------- COMMERCIAL (premium, produced) ----------------
+    {
+        "name": "Luxury Heritage",
+        "tier": "commercial",
+        "tones": ["premium", "elegant", "timeless", "sophisticated", "emotional"],
+        "keywords": [
+            "luxury",
+            "heritage",
+            "watch",
+            "jewelry",
+            "spirits",
+            "leather",
+            "finance",
+            "automotive",
+            "fragrance",
+        ],
+        "description": (
+            "Timeless luxury — deep mahogany and brushed gold, moody chiaroscuro, "
+            "portrait optics. Aspirational, refined, emotional."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "Deep mahogany, brushed gold, velvet textures, low-key lighting, timeless elegance.",
+            "character": {
+                "actor_vibe": "The 'Connoisseur': refined features, calm and deliberate movement, admiring the product",
+                "attire": "Textural Luxury: heavy-gauge cashmere, raw silk, bespoke structured wool",
+                "grooming": "Precision Grooming: sharp lines, matte-finish styling",
+                "motion": "Slow, deliberate, poised movement",
+            },
+            "environment": {
+                "spatial_context": "Abandoned Luxury Ballroom: peeling gold leaf, dusty chandeliers, shafts of window light",
+                "temporal": "Moody Chiaroscuro: high contrast, deep shadows, single theatrical source",
+            },
+            "cinematography": {
+                "optics": "T2.8 Portrait Prime: soft background separation, dreamy bokeh, flattering tones",
+                "movement": "Slow-Motion Reveal: 120fps dolly-out from a macro detail to the full subject",
+                "motion_texture": "Master Prime 100mm Macro: razor-sharp focus on texture",
+            },
+            "illumination": {
+                "vibe": "Moody Chiaroscuro: high contrast, deep shadows, single theatrical source",
+                "chromatic_scheme": "Warm amber and gold against deep shadow",
+                "key_lighting": "Rembrandt Lighting: classic 'triangle' cheek highlight",
+                "highlights": "Soft edge-glow rim lighting separating subject from dark background",
+            },
+            "sonic_landscape": "Modern Orchestral: soaring staccato strings, cinematic brass swells, hybrid synth",
+        },
+    },
+    {
+        "name": "Clean Tech Minimalism",
+        "tier": "commercial",
+        "tones": ["modern", "clean", "precise", "innovative", "premium", "cool"],
+        "keywords": [
+            "tech",
+            "gadget",
+            "saas",
+            "app",
+            "device",
+            "appliance",
+            "electronics",
+            "ai",
+            "software",
+            "fintech",
+        ],
+        "description": (
+            "Modern tech minimalism — monochrome whites and frosted glass, high-key "
+            "clean light, IMAX clarity. Precise, innovative, cool."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "Monochromatic whites/greys, frosted glass, blue-tinted shadows, ultra-clean surfaces.",
+            "character": {
+                "actor_vibe": "The 'Tech-Visionary': focused, minimalist attire, calm confidence",
+                "attire": "Technical Performance: laser-cut seams, matte-finish synthetics",
+                "grooming": "Precision Grooming: sharp lines, matte-finish styling",
+                "motion": "Deliberate, precise, minimal gestures",
+            },
+            "environment": {
+                "spatial_context": "Hyper-Modern Lab: glowing recessed lights, stainless steel, ultra-clean surfaces",
+                "temporal": "High-Key Commercial: bright, clean, shadow-less, premium",
+            },
+            "cinematography": {
+                "optics": "70mm IMAX: immense clarity, zero distortion, hyper-real detail",
+                "movement": "Circular Orbit: smooth 360-degree rotation around the hero product",
+                "motion_texture": "Probe Lens: immersive through-the-object macro perspective",
+            },
+            "illumination": {
+                "vibe": "High-Key Commercial: bright, clean, shadow-less, premium",
+                "chromatic_scheme": "Cool monochrome whites with blue-tinted shadow",
+                "key_lighting": "Butterfly Lighting: even, flattering, high-clarity",
+                "highlights": "Metallic specular highlights (sparkling micro-points)",
+            },
+            "sonic_landscape": "Industrial Minimalist: rhythmic metallic pings, deep sub-bass pulses, clean silence",
+        },
+    },
+    {
+        "name": "Nostalgic Warm Film",
+        "tier": "commercial",
+        "tones": ["warm", "nostalgic", "cozy", "authentic", "emotional", "artisan"],
+        "keywords": [
+            "food",
+            "coffee",
+            "snacks",
+            "bakery",
+            "home",
+            "family",
+            "craft",
+            "comfort",
+            "restaurant",
+            "beverage",
+        ],
+        "description": (
+            "Warm nostalgic film — amber tones, film grain, golden-hour flares, "
+            "vintage anamorphic. Cozy, authentic, heartfelt."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "Warm amber tones, film grain, soft lens flares, 70s-style typography, rich filmic saturation.",
+            "character": {
+                "actor_vibe": "The 'Craftsman': macro focus on hands, dust motes in hair, rugged linen apron",
+                "attire": "Vintage Filmic: textured corduroy, worn leather, high-waisted tailoring",
+                "grooming": "Sun-kissed Glow: bronzed skin, scattered freckles, wind-tossed hair",
+                "motion": "Gentle, unhurried, human",
+            },
+            "environment": {
+                "spatial_context": "Sun-drenched artisan interior: warm wood, soft window light, lived-in warmth",
+                "temporal": "Golden Hour Backlighting: warm, soft flares, volumetric sunbeams",
+            },
+            "cinematography": {
+                "optics": "Vintage Kowa Anamorphic: warm flares, high-character distortion, soft edges",
+                "movement": "Parallax Slide: foreground moving faster than background for depth",
+                "motion_texture": "Anamorphic 35mm: oval bokeh, filmic organic texture",
+            },
+            "illumination": {
+                "vibe": "Golden Hour Backlighting: warm, soft flares, volumetric sunbeams",
+                "chromatic_scheme": "Rich warm amber and honey tones",
+                "key_lighting": "Motivated Candle-light: flickering warm tones, soft shadows, intimate feel",
+                "highlights": "Volumetric dust-motes in a window beam",
+            },
+            "sonic_landscape": "Nostalgic Folk: acoustic guitar, natural environment sounds, warm vocals",
+        },
+    },
+    {
+        "name": "Vibrant CPG Pop",
+        "tier": "commercial",
+        "tones": ["playful", "energetic", "vibrant", "fun", "youthful", "bold"],
+        "keywords": [
+            "snacks",
+            "candy",
+            "beverage",
+            "cpg",
+            "kids",
+            "fun",
+            "retail",
+            "soda",
+            "fashion",
+            "toys",
+        ],
+        "description": (
+            "Vibrant CPG pop — high-saturation color-block, punchy high-key light, "
+            "crash zooms. Playful, energetic, fun."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "High-saturation color pops, playful shadows, rhythmic editing, bold color-block styling.",
+            "character": {
+                "actor_vibe": "The 'Creative Radical': confident, expressive, playful energy",
+                "attire": "Street-Style High-Fashion: bold color-block, contrast stitching, statement pieces",
+                "grooming": "Saturated Pop: vibrant color accents, bold matte lips, playful styling",
+                "motion": "Snappy, energetic, rhythmic",
+            },
+            "environment": {
+                "spatial_context": "Infinite Abstract: soft-gradient color 'limbo' space, floating geometric shapes",
+                "temporal": "High-Key Commercial: bright, clean, punchy, premium",
+            },
+            "cinematography": {
+                "optics": "Probe Lens: immersive wide-angle macro, dynamic product-hero perspective",
+                "movement": "Crash Zoom: sudden, rhythmic zoom-in for high energy",
+                "motion_texture": "Tilt-Shift Lens: playful selective focus",
+            },
+            "illumination": {
+                "vibe": "High-Key Commercial: bright, clean, punchy color, premium",
+                "chromatic_scheme": "Bold saturated primary color-block palette",
+                "key_lighting": "Butterfly Lighting: bright, even, poppy",
+                "highlights": "Soft-box pearlescent sheen on surfaces",
+            },
+            "sonic_landscape": "Upbeat Pop-Electronic: bright synths, punchy claps, playful bassline, high-energy hooks",
+        },
+    },
+    {
+        "name": "High-Octane Sports",
+        "tier": "commercial",
+        "tones": ["dynamic", "powerful", "intense", "energetic", "bold", "athletic"],
+        "keywords": [
+            "sports",
+            "fitness",
+            "athletic",
+            "energy",
+            "automotive",
+            "gaming",
+            "performance",
+            "outdoor",
+            "adventure",
+        ],
+        "description": (
+            "High-octane sports — grit and sweat-sheen, anamorphic flares, "
+            "chase cameras, aggressive rhythm. Powerful and intense."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "High contrast, grit, sweat-sheen, aggressive motion blur, anamorphic flares.",
+            "character": {
+                "actor_vibe": "The 'Modern Athlete': hyper-defined muscle tension, micro-droplets of sweat, explosive power",
+                "attire": "Technical Performance: laser-cut seams, matte synthetics, iridescent fibers",
+                "grooming": "High-Contrast Shadow: sharp contours, intense focused gaze",
+                "motion": "Explosive, powerful, kinetic",
+            },
+            "environment": {
+                "spatial_context": "Brutalist Concrete Atrium: scale-play, dramatic shadows, raw texture",
+                "temporal": "Moody Chiaroscuro: high contrast, deep shadows, dramatic source",
+            },
+            "cinematography": {
+                "optics": "Anamorphic 35mm: horizontal blue lens flares, oval bokeh, cinematic squeeze",
+                "movement": "Steady-Cam Chase: low-angle, smooth tracking behind the athlete",
+                "motion_texture": "Master Prime 100mm Macro: razor-sharp texture on sweat and fabric",
+            },
+            "illumination": {
+                "vibe": "Moody Chiaroscuro: high contrast, deep shadows, dramatic single source",
+                "chromatic_scheme": "High-contrast steel with cyan/magenta rim",
+                "key_lighting": "Neon Cyber-Noir: dual-tone rim lighting (magenta/cyan), high-gloss",
+                "highlights": "Metallic specular highlights and edge-glow rim",
+            },
+            "sonic_landscape": "Aggressive Trap-Hybrid: heavy 808s, distorted textures, fast-paced hi-hats",
+        },
+    },
+    {
+        "name": "Organic Wellness",
+        "tier": "commercial",
+        "tones": ["calm", "natural", "serene", "clean", "soothing", "premium"],
+        "keywords": [
+            "wellness",
+            "beauty",
+            "skincare",
+            "health",
+            "spa",
+            "organic",
+            "botanical",
+            "sustainable",
+            "cosmetics",
+        ],
+        "description": (
+            "Organic wellness — earthy linens, diffused daylight, botanical macro, "
+            "ethereal ambient. Calm, natural, serene."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "Earthy linens, diffused sunlight, botanical greens, raw wood, 'no-makeup' makeup look.",
+            "character": {
+                "actor_vibe": "The 'Zen Practitioner': relaxed facial muscles, luminous hydrated skin",
+                "attire": "Fluid Ethereal: flowing chiffon, sheer layers, light-catching fabrics",
+                "grooming": "Dewy Botanical: soft floral tones, luminous highlights, flushed cheeks",
+                "motion": "Serene, flowing, unhurried",
+            },
+            "environment": {
+                "spatial_context": "Zen Sanctuary: raked sand, slate stone, reflecting pools, botanical silhouettes",
+                "temporal": "Golden Hour Backlighting: warm, soft, diffused daylight",
+            },
+            "cinematography": {
+                "optics": "T2.8 Portrait Prime: soft separation, dreamy bokeh, flattering skin",
+                "movement": "Slow-Motion Reveal: gentle 120fps dolly across botanical detail",
+                "motion_texture": "Master Prime 100mm Macro: detailed plant veins and soft botanical fuzz",
+            },
+            "illumination": {
+                "vibe": "Golden Hour Backlighting: warm, soft, diffused daylight",
+                "chromatic_scheme": "Soft earthy greens and warm neutrals",
+                "key_lighting": "Soft window key with gentle wraparound",
+                "highlights": "Caustic light reflections through water",
+            },
+            "sonic_landscape": "Ethereal Ambient: slow-moving pads, shimmering chimes, vast reverb tails",
+        },
+    },
+    # ---------------- SOCIAL NATIVE / UGC (authentic, handheld) ----------------
+    {
+        "name": "Authentic Creator",
+        "tier": "ugc",
+        "tones": ["authentic", "relatable", "genuine", "warm", "casual"],
+        "keywords": [
+            "ugc",
+            "review",
+            "testimonial",
+            "lifestyle",
+            "everyday",
+            "home",
+            "unboxing",
+            "haul",
+        ],
+        "description": (
+            "Authentic creator — natural window light, cozy home, handheld selfie. "
+            "Relatable and genuine."
+        ),
+        "recipe": {
+            "style_mode": "SOCIAL_NATIVE",
+            "brand_archetype": "Natural lighting, slightly messy backgrounds, direct eye-contact, relatable environment.",
+            "character": {
+                "actor_vibe": "The 'Real User': relatable, expressive, comfortable at home",
+                "attire": "Lived-in Casual: comfort-first, standard household textiles",
+                "grooming": "Everyday Natural: minimal makeup, real skin textures",
+                "motion": "Relaxed, natural, handheld",
+            },
+            "environment": {
+                "spatial_context": "Cozy Living Room: soft sofa, pillows, relatable lived-in warmth",
+                "temporal": "Natural Window Light: soft directional shadows",
+            },
+            "cinematography": {
+                "optics": "Front-facing Selfie Cam: authentic distortion, relatable look",
+                "movement": "Handheld Shake: subtle authentic movement",
+                "motion_texture": "Handheld Main Sensor: sharp, real, wide POV",
+            },
+            "illumination": {
+                "vibe": "Natural Window Light: soft directional shadows",
+                "chromatic_scheme": "Neutral warm domestic tones",
+                "key_lighting": "Soft window key on the face",
+                "highlights": "Soft glow on the creator's face from the window",
+            },
+            "sonic_landscape": "Upbeat Lo-Fi: chill, modern, non-distracting background",
+        },
+    },
+    {
+        "name": "Polished Creator",
+        "tier": "ugc",
+        "tones": ["trendy", "clean", "energetic", "aspirational", "youthful"],
+        "keywords": [
+            "beauty",
+            "skincare",
+            "fashion",
+            "creator",
+            "influencer",
+            "haul",
+            "trending",
+            "makeup",
+        ],
+        "description": (
+            "Polished creator — ring-light glow, trendy bright bedroom, snappy "
+            "zooms. Clean, aspirational, native."
+        ),
+        "recipe": {
+            "style_mode": "SOCIAL_NATIVE",
+            "brand_archetype": "Ring lighting, clean aesthetics, trending color palettes, high-energy editing cues.",
+            "character": {
+                "actor_vibe": "The 'Vibe Curator': high energy, trendy attire, direct address",
+                "attire": "Trendy Lifestyle: high-saturation colors, current fashion trends",
+                "grooming": "Trending Glam: defined brows, lash extensions, lip gloss",
+                "motion": "High-energy, snappy, expressive",
+            },
+            "environment": {
+                "spatial_context": "Sunlit Bedroom: bright, clean, soft morning light, trendy decor",
+                "temporal": "Soft Ring Light: circular catchlight, even beauty lighting",
+            },
+            "cinematography": {
+                "optics": "Smartphone Vertical 24mm: standard social-media perspective",
+                "movement": "Snap-zoom: quick rhythmic zoom into product",
+                "motion_texture": "Handheld Main Sensor: sharp, crisp detail",
+            },
+            "illumination": {
+                "vibe": "Soft Ring Light: circular catchlight, even beauty lighting",
+                "chromatic_scheme": "Bright clean trending palette",
+                "key_lighting": "Soft ring key with even wraparound",
+                "highlights": "Glitter or shimmering product details catching the light",
+            },
+            "sonic_landscape": "Trending Audio Bed: high-energy, familiar beats",
+        },
+    },
+    {
+        "name": "Kitchen Culinary Native",
+        "tier": "ugc",
+        "tones": ["cozy", "tasty", "warm", "homemade", "satisfying"],
+        "keywords": [
+            "food",
+            "cooking",
+            "recipe",
+            "kitchen",
+            "snacks",
+            "culinary",
+            "home",
+            "baking",
+        ],
+        "description": (
+            "Kitchen culinary native — warm domestic kitchen, overhead handheld, "
+            "crunchy macro. Cozy and tasty."
+        ),
+        "recipe": {
+            "style_mode": "SOCIAL_NATIVE",
+            "brand_archetype": "Close-up food prep, overhead tripod shots, messy-but-tasty application, ASMR sounds.",
+            "character": {
+                "actor_vibe": "The 'DIY Creator': messy hands, focused gaze on the task",
+                "attire": "Professional Uniform: apron, relatable home-cook style",
+                "grooming": "Groomed Casual: neat, simple styling",
+                "motion": "Focused hands, natural handheld",
+            },
+            "environment": {
+                "spatial_context": "Domestic Kitchen: relatable clutter, warm wood, homely detail",
+                "temporal": "Overhead Warm Domestic: warm inviting room light",
+            },
+            "cinematography": {
+                "optics": "Handheld Main Sensor: sharp detail, wide-angle POV",
+                "movement": "Circular Hand-Pan: rotation to reveal the dish",
+                "motion_texture": "Crunch/Snap Macro: internal food texture in close-up",
+            },
+            "illumination": {
+                "vibe": "Overhead Warm Domestic: warm inviting room light",
+                "chromatic_scheme": "Warm appetizing golden tones",
+                "key_lighting": "Soft window key with warm fill",
+                "highlights": "Glossy food sheen catching the light",
+            },
+            "sonic_landscape": "Soft Acoustic: intimate, warm, guitar-focused",
+        },
+    },
+    {
+        "name": "Street Vlog Energy",
+        "tier": "ugc",
+        "tones": ["raw", "urban", "energetic", "youthful", "bold"],
+        "keywords": [
+            "streetwear",
+            "sneakers",
+            "tech",
+            "gaming",
+            "urban",
+            "vlog",
+            "youth",
+            "music",
+        ],
+        "description": (
+            "Street vlog energy — raw handheld walk-and-talk, dusk city glow, "
+            "synth-pop. Urban and high-energy."
+        ),
+        "recipe": {
+            "style_mode": "SOCIAL_NATIVE",
+            "brand_archetype": "Raw handheld movement, urban sidewalk sounds, casual direct-to-camera address.",
+            "character": {
+                "actor_vibe": "The 'Tech-Savvy Youth': fast-paced gestures, high energy",
+                "attire": "Streetwear: oversized hoodies, beanies, sneakers",
+                "grooming": "Urbane Grooming: sharp haircut, well-maintained look",
+                "motion": "Walking, fast, kinetic",
+            },
+            "environment": {
+                "spatial_context": "Urban Street Walk-and-talk: sidewalk, shop-windows, city motion",
+                "temporal": "Dusk Street-light: orange sodium glow, moody urban look",
+            },
+            "cinematography": {
+                "optics": "Handheld Main Sensor: wide-angle POV, real detail",
+                "movement": "Walking Tracking: authentic bobbing motion of a walking creator",
+                "motion_texture": "Over-the-shoulder POV: immersive user perspective",
+            },
+            "illumination": {
+                "vibe": "Dusk Street-light: orange sodium glow, moody urban look",
+                "chromatic_scheme": "Neon-lit urban palette with warm sodium glow",
+                "key_lighting": "Available city light with neon accents",
+                "highlights": "Neon reflections and incidental street shadows",
+            },
+            "sonic_landscape": "Synth-Pop: energetic, colorful, youthful",
+        },
+    },
+]
+
+
+def get_looks_for_tier(tier: str) -> list[Dict[str, Any]]:
+    """Returns the curated Looks for a tier ('commercial' or 'ugc')."""
+    looks = [look for look in PRODUCTION_LOOKS if look.get("tier") == tier]
+    return looks or PRODUCTION_LOOKS
+
+
+def get_look_by_name(name: str) -> Dict[str, Any] | None:
+    """Case-insensitive lookup of a Look by its name."""
+    if not name:
+        return None
+    target = name.strip().lower()
+    for look in PRODUCTION_LOOKS:
+        if look.get("name", "").strip().lower() == target:
+            return look
+    return None

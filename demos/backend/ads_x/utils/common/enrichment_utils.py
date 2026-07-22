@@ -149,6 +149,14 @@ async def enrich_prompt_with_llm(
     mission_commands = [
         "**MISSION:** Synthesize the sections above into a single, high-fidelity cinematic prompt.",
         "Your output must be a single cohesive paragraph description (Veo/Imagen Formula).",
+        (
+            "CRITICAL ART DIRECTION: If the action contains an "
+            "[ART DIRECTION (NON-NEGOTIABLE)] block, you MUST faithfully weave EVERY "
+            "one of its anchors (Mode, Aesthetic, Cast, Wardrobe, Grooming, Lighting, "
+            "Key Light, Optics, Texture) into your description. Do NOT substitute, "
+            "soften, or omit them. Express them in natural cinematic language and do "
+            "NOT print the literal bracket tag."
+        ),
     ]
 
     if context:

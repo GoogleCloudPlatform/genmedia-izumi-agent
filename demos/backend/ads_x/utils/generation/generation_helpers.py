@@ -15,6 +15,7 @@
 """Helper functions for media generation (voiceover, music, and context)."""
 
 import logging
+import re
 from typing import Any
 
 import mediagent_kit.services.aio
@@ -105,8 +106,14 @@ async def generate_scene_voiceover(
     logger.info(f"Generating voiceover for scene {index} (Workspace: {workspace_id})")
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
-    # Safely extract text
-    original_text = voiceover_prompt.get("text", "").strip()
+    # Safely extract text. Strip any whisper/hushed delivery tag so the brand
+    # message is never whispered by the TTS, even if one slips into the script.
+    original_text = re.sub(
+        r"\[\s*(?:whisper(?:ing)?|hushed|breathy)\s*\]",
+        "",
+        voiceover_prompt.get("text", ""),
+        flags=re.IGNORECASE,
+    ).strip()
     if not original_text:
         return None
 

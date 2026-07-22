@@ -15,6 +15,7 @@
 """Tools for rewriting and generating voiceovers for grouped scenes."""
 
 import logging
+import re
 import uuid
 from typing import Optional
 
@@ -24,6 +25,22 @@ from mediagent_kit.services.types import Asset
 from ...utils.storyboard.storyboard_model import VoiceoverGroup
 
 logger = logging.getLogger(__name__)
+
+# Defensive guard: strip any whisper/hushed delivery tag the LLM might emit
+# despite the instruction, so the brand message is never whispered by the TTS.
+_WHISPER_TAG_RE = re.compile(
+    r"\[\s*(?:whisper(?:ing)?|hushed|breathy)\s*\]", re.IGNORECASE
+)
+
+
+def _strip_whisper_tags(text: str) -> str:
+    """Removes whisper-style delivery tags from voiceover text."""
+    if not text:
+        return text
+    cleaned = _WHISPER_TAG_RE.sub("", text)
+    # Collapse any double spaces left behind by tag removal.
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
+
 
 REWRITE_INSTRUCTION = """
 You are a creative scriptwriter for high-end video advertisements. Your task is to rewrite choppy, short voiceover snippets into a single, flowing narrative script that maximizes the capabilities of an advanced Gemini 2.5 Pro TTS model.
@@ -54,7 +71,8 @@ Rewrite these snippets into a compelling narrative (1-3 sentences). The goal is 
      - Use `[sigh]`, `[laughing]`, or `[uhm]` for human-like realism.
 
    - **Style modifiers (Dynamic):**
-     - Use `[shouting]`, `[whispering]`, `[extremely fast]`, or `[robotic]` for specific emphasis.
+     - Use `[shouting]` or `[extremely fast]` for high-energy emphasis where it genuinely fits.
+     - NEVER use `[whispering]` (or any breathy/hushed delivery). The brand name and the message must ALWAYS be voiced clearly and confidently — never whispered.
 
 3. **CONSTRAINTS:**
    - The rewritten script MUST be concise enough to be spoken within {total_duration:.1f} seconds.
@@ -88,7 +106,7 @@ async def rewrite_group_script(
             workspace_id=workspace_id,
             prompt=prompt,
         )
-        rewritten_text = rewritten_text.strip()
+        rewritten_text = _strip_whisper_tags(rewritten_text.strip())
 
         if not rewritten_text:
             logger.warning(
@@ -129,7 +147,7 @@ async def _shorten_group_script(
             workspace_id=workspace_id,
             prompt=prompt,
         )
-        return response_text.strip()
+        return _strip_whisper_tags(response_text.strip())
     except Exception as e:
         logger.warning(f"Failed to shorten script: {e}")
         return text

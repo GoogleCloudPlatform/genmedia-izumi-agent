@@ -44,6 +44,32 @@ Truncated JSON:
 """
 
 
+def _build_art_direction_block(recipe: dict) -> str:
+    """Builds a compact, non-negotiable art-direction block from the selected
+    Look so every scene prompt is anchored to the same coherent visual identity.
+
+    Covers the visual anchors (audio/sonic is handled by the music track, not
+    the image/video prompts). Appended to each scene's first-frame and video
+    description; the enrichment step is instructed to preserve it verbatim.
+    """
+    cine = recipe.get("cinematography", {}) or {}
+    illum = recipe.get("illumination", {}) or {}
+    char = recipe.get("character", {}) or {}
+    fields = [
+        ("Mode", recipe.get("style_mode")),
+        ("Aesthetic", recipe.get("brand_archetype")),
+        ("Cast", char.get("actor_vibe")),
+        ("Wardrobe", char.get("attire")),
+        ("Grooming", char.get("grooming")),
+        ("Lighting", illum.get("vibe")),
+        ("Key Light", illum.get("key_lighting")),
+        ("Optics", cine.get("optics")),
+        ("Texture", cine.get("motion_texture")),
+    ]
+    rendered = "; ".join(f"{label}: {value}" for label, value in fields if value)
+    return f" [ART DIRECTION (NON-NEGOTIABLE) -> {rendered}]"
+
+
 async def finalize_and_persist_storyboard(
     tool_context: ToolContext, raw_output: str
 ) -> ToolResult:
@@ -173,14 +199,12 @@ async def finalize_and_persist_storyboard(
         # ----------------------------------------
 
         # --- PROGRAMMATIC ART DIRECTION INJECTION (SAFETY GUARD) ---
-        # We intercept the JSON output here to absolutely guarantee that every technical parameter
-        # from the Master Recipe is securely digested by the final video engine.
+        # We intercept the JSON output here to guarantee the full selected Look
+        # (not just optics + vibe) is bound to every scene, so the final image /
+        # video engine renders the coherent art direction shown in the summary.
         recipe = tool_context.state.get("master_production_recipe")
         if recipe:
-            c_optics = recipe.get("cinematography", {}).get("optics", "")
-            i_vibe = recipe.get("illumination", {}).get("vibe", "")
-
-            anchor_str = f" [Aesthetic Anchor: {i_vibe}, {c_optics}]"
+            anchor_str = _build_art_direction_block(recipe)
             for scene in storyboard.scenes:
                 if (
                     scene.first_frame_prompt
