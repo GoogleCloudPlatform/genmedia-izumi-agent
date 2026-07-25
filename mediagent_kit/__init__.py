@@ -49,10 +49,12 @@ def initialize_from_env() -> None:
         or os.getenv("GOOGLE_CLOUD_PROJECT")
         or os.getenv("PROJECT_ID")
     )
+    # Prefer GOOGLE_CLOUD_LOCATION (where the Gemini text models are served,
+    # e.g. "global") over IZUMI_LOCATION (the Agent Engine *deployment* region,
+    # e.g. "us-central1"). Using the deploy region for model calls 404s whenever a
+    # model such as gemini-3.5-flash is only served from "global".
     location = (
-        os.getenv("IZUMI_LOCATION")
-        or os.getenv("GOOGLE_CLOUD_LOCATION")
-        or "us-central1"
+        os.getenv("GOOGLE_CLOUD_LOCATION") or os.getenv("IZUMI_LOCATION") or "global"
     )
     bucket = os.getenv("ASSET_SERVICE_GCS_BUCKET")
     db_id = os.getenv("FIRESTORE_DATABASE_ID", "(default)")
