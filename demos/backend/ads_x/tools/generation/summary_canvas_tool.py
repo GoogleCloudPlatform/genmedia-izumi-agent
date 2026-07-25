@@ -258,7 +258,19 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
         style_mode = _fmt(master_recipe.get("style_mode", "COMMERCIAL_PREMIUM"))
         brand_arch = _fmt(master_recipe.get("brand_archetype", ""))
         char = master_recipe.get("character", {})
-        actor_vibe = _fmt(char.get("actor_vibe", ""))
+        # Character styling (Cast/Wardrobe) is only bound to scenes when the
+        # campaign uses an on-screen creator. Mirror that here so product-only
+        # ads don't advertise a Cast that was never rendered. When a creator was
+        # cast, show its actual description (what the scenes reference), not the
+        # Look's generic archetype.
+        _params = tool_context.state.get(common_utils.PARAMETERS_KEY, {}) or {}
+        if not hasattr(_params, "get"):
+            _params = {}
+        show_character = bool(_params.get("generate_virtual_creator", False))
+        creator_meta = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY) or {}
+        actor_vibe = _fmt(
+            creator_meta.get("demographics") or char.get("actor_vibe", "")
+        )
         attire = _fmt(char.get("attire", ""))
         env = master_recipe.get("environment", {})
         # Display the lighting value that is actually bound to the scenes
@@ -278,6 +290,17 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
 
         sonic = _fmt(master_recipe.get("sonic_landscape", ""))
 
+        # Only render Cast/Wardrobe cards for creator-driven campaigns.
+        character_cards = ""
+        if show_character:
+            character_cards = f"""
+                <div style="background: #10b981; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
+                    👤 Cast: {actor_vibe}
+                </div>
+                <div style="background: #059669; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
+                    👗 Wardrobe: {attire}
+                </div>"""
+
         html_parts.append(f"""
         <div class="section" style="background: linear-gradient(145deg, #f1f5f9, #e2e8f0); border-left: 6px solid #2563eb; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
             <div class="section-title" style="color: #1e40af; font-size: 1.4rem; display: flex; align-items: center; gap: 8px;">
@@ -292,13 +315,7 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
                 </div>
                 <div style="background: #3b82f6; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
                     🎭 Archetype: {brand_arch}
-                </div>
-                <div style="background: #10b981; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
-                    👤 Cast: {actor_vibe}
-                </div>
-                <div style="background: #059669; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
-                    👗 Wardrobe: {attire}
-                </div>
+                </div>{character_cards}
                 <div style="background: #f59e0b; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
                     🌅 Lighting: {temporal}
                 </div>

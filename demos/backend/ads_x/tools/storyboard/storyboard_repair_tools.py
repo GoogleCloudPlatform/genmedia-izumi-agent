@@ -44,13 +44,23 @@ Truncated JSON:
 """
 
 
-def _build_art_direction_block(recipe: dict) -> str:
+def _build_art_direction_block(
+    recipe: dict,
+    include_character: bool = True,
+    cast_override: str = "",
+) -> str:
     """Builds a compact, non-negotiable art-direction block from the selected
     Look so every scene prompt is anchored to the same coherent visual identity.
 
     Covers the visual anchors (audio/sonic is handled by the music track, not
     the image/video prompts). Appended to each scene's first-frame and video
     description; the enrichment step is instructed to preserve it verbatim.
+
+    ``include_character`` gates the human-character styling (Cast/Wardrobe/
+    Grooming). It must be False for product-only campaigns so we don't force an
+    invented person into a pure product ad. ``cast_override`` (the description of
+    an already-cast virtual creator) replaces the Look's generic archetype so the
+    injected text matches the generated reference headshot.
     """
     cine = recipe.get("cinematography", {}) or {}
     illum = recipe.get("illumination", {}) or {}
@@ -58,9 +68,12 @@ def _build_art_direction_block(recipe: dict) -> str:
     fields = [
         ("Mode", recipe.get("style_mode")),
         ("Aesthetic", recipe.get("brand_archetype")),
-        ("Cast", char.get("actor_vibe")),
-        ("Wardrobe", char.get("attire")),
-        ("Grooming", char.get("grooming")),
+    ]
+    if include_character:
+        fields.append(("Cast", cast_override or char.get("actor_vibe")))
+        fields.append(("Wardrobe", char.get("attire")))
+        fields.append(("Grooming", char.get("grooming")))
+    fields += [
         ("Lighting", illum.get("vibe")),
         ("Key Light", illum.get("key_lighting")),
         ("Optics", cine.get("optics")),
@@ -147,6 +160,9 @@ async def finalize_and_persist_storyboard(
 
         target_duration_str = parameters.get("target_duration", "12s")
         template_name = parameters.get("template_name", "Custom")
+        generate_virtual_creator = bool(
+            parameters.get("generate_virtual_creator", False)
+        )
 
         # --- Fallback Removed: Resolving from the root ---
         # If the LLM omits scenes, Pydantic will now automatically raise a ValidationError
@@ -202,9 +218,32 @@ async def finalize_and_persist_storyboard(
         # We intercept the JSON output here to guarantee the full selected Look
         # (not just optics + vibe) is bound to every scene, so the final image /
         # video engine renders the coherent art direction shown in the summary.
+        #
+        # This HARD override runs ONLY in creative / "Custom" mode. When the user
+        # picks a specific template, that template ships its own coherent visual
+        # direction (per-scene cinematography_hints + style_preset_hint), which
+        # the storyboard instruction already blends with the recipe. Force-binding
+        # the auto-selected Look on top would clobber the chosen template's
+        # aesthetic, so in template mode we respect the template and skip the hard
+        # injection (the recipe still informs the music track downstream).
+        creative_modes = {"custom", "creative", "freeform", "no template"}
+        is_creative_mode = str(template_name).strip().lower() in creative_modes
         recipe = tool_context.state.get("master_production_recipe")
-        if recipe:
-            anchor_str = _build_art_direction_block(recipe)
+        if recipe and is_creative_mode:
+            # Only inject human-character styling when the campaign actually calls
+            # for an on-screen person. For product-only ads this stays False, so
+            # the Look's aesthetic (lighting/optics/color) still applies without
+            # inventing a character. When a virtual creator was cast, anchor the
+            # injected Cast to its exact description so text and reference agree.
+            creator_meta = (
+                tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY) or {}
+            )
+            cast_override = str(creator_meta.get("demographics", "") or "")
+            anchor_str = _build_art_direction_block(
+                recipe,
+                include_character=generate_virtual_creator,
+                cast_override=cast_override,
+            )
             for scene in storyboard.scenes:
                 if (
                     scene.first_frame_prompt
@@ -220,6 +259,12 @@ async def finalize_and_persist_storyboard(
                     scene.video_prompt.description = (
                         f"{scene.video_prompt.description.strip()}{anchor_str}"
                     )
+        elif recipe:
+            logger.info(
+                "Template '%s' selected; respecting its native art direction and "
+                "skipping the hard Look injection.",
+                template_name,
+            )
 
         # 5. Persist to State & Explicitly save to Creative Studio
         storyboard.storyboard_id = None

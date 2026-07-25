@@ -53,8 +53,35 @@ async def recommend_production_recipe(
     logger.error(
         "⭐⭐⭐ [NATIVE TOOL INVOCATION] `recommend_production_recipe` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
     )
+    return await select_recipe_for_campaign(
+        tool_context, vertical, campaign_theme, campaign_tone
+    )
+
+
+async def select_recipe_for_campaign(
+    tool_context: Optional[ToolContext],
+    vertical: str,
+    campaign_theme: Optional[str] = None,
+    campaign_tone: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Selects (or reuses) the single coherent production recipe for the campaign.
+
+    Idempotent: the Look is chosen ONCE per session and cached in
+    ``state['master_production_recipe']``. This lets the virtual-creator casting
+    step and the storyboard art-direction binding share the SAME Look, so the
+    generated reference headshot and the styling injected into every scene agree
+    instead of diverging.
+    """
+    # Reuse a Look already chosen earlier this session (e.g. during casting).
+    if tool_context is not None:
+        cached = tool_context.state.get("master_production_recipe")
+        if cached:
+            logger.info("🎨 [RECIPE] Reusing cached Look '%s'", cached.get("look_name"))
+            return cached
+
     logger.info(
-        f"🎬 [ADS-X PRODUCTION TOOL FIRED] Recommending Recipe for Vertical: '{vertical}', Theme: '{campaign_theme}', Tone: '{campaign_tone}'"
+        f"🎬 [ADS-X PRODUCTION TOOL FIRED] Recommending Recipe for Vertical: "
+        f"'{vertical}', Theme: '{campaign_theme}', Tone: '{campaign_tone}'"
     )
 
     tier = "ugc" if vertical in ["Social Native", "UGC"] else "commercial"
@@ -103,11 +130,19 @@ async def _select_look(
     prompt = (
         "You are a creative director selecting the single best visual 'Look' for "
         "an ad campaign. Choose the ONE Look whose aesthetic best fits the "
-        "campaign below.\n\n"
+        "campaign's BRAND POSITIONING below.\n\n"
         f"Campaign vertical: {vertical or 'General'}\n"
         f"Campaign theme: {theme or 'N/A'}\n"
         f"Campaign tone: {tone or 'N/A'}\n\n"
         f"Available Looks:\n{menu}\n\n"
+        "Guidance:\n"
+        "- Match the brand's POSITIONING, not just the product category. A snack "
+        "or CPG product is NOT automatically a playful/pop Look.\n"
+        "- If the theme or tone signals premium, luxury, gourmet, artisan, "
+        "refined, elegant, or sophisticated positioning, PREFER a premium/refined "
+        "Look even when the tone also reads energetic.\n"
+        "- Reserve bold/playful/pop Looks for briefs that are genuinely youthful, "
+        "playful, or budget/mass-market in positioning.\n\n"
         "Respond with ONLY the exact name of the best-fit Look, nothing else."
     )
 
