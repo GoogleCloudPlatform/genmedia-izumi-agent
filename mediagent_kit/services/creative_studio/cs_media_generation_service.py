@@ -439,8 +439,12 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
             if not item_id:
                 raise BackendError("No item ID returned from CS speech generation")
 
+            # 600s (not 300s): the CS backend audio worker can queue a job for
+            # minutes behind a burst of concurrent video jobs before it starts
+            # the (fast) TTS, so a short poll timeout drops jobs that would have
+            # succeeded. See generate_music for the same rationale.
             final_item = await self._wait_for_media_completion(
-                client, item_id, headers, timeout=300
+                client, item_id, headers, timeout=600
             )
 
             import mediagent_kit
@@ -482,7 +486,10 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
             "model": music_model,
             "fileName": file_name,
             "sampleCount": 1,
-            "seed": random.randint(0, 2**32 - 1),
+            # Seed must fit a signed int32 (max 2**31 - 1): the Creative Studio
+            # backend persists it into an int32 DB column, so a uint32 seed
+            # (0..2**32-1) overflows ~half the time and 500s the request.
+            "seed": random.randint(0, 2**31 - 1),
         }
 
         async with httpx.AsyncClient() as client:
@@ -499,8 +506,12 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
             if not item_id:
                 raise BackendError("No item ID returned from CS music generation")
 
+            # 600s (not 300s): the CS backend audio worker can sit queued for
+            # minutes behind concurrent video jobs before it runs the (fast)
+            # music generation, so a 300s poll timeout drops jobs that would
+            # otherwise complete.
             final_item = await self._wait_for_media_completion(
-                client, item_id, headers, timeout=300
+                client, item_id, headers, timeout=600
             )
 
             status = final_item.get("status", "completed")
