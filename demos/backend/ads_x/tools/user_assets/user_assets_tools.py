@@ -25,6 +25,7 @@ import mediagent_kit
 from ...utils.common import common_utils
 from ...utils.storyboard import template_library
 from ...instructions.user_assets import user_assets_instruction
+from ..storyboard import production_tools
 
 logger = logging.getLogger(__name__)
 
@@ -78,22 +79,80 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
             else params.target_audience
         )
         campaign_brief = params.campaign_brief or ""
+        user_creator_desc = (params.creator_description or "").strip()
+        campaign_name = params.campaign_name or ""
+        campaign_tone = params.campaign_tone or ""
 
-        # STEP 0: Casting (Deduce Demographics)
+        # Select (or reuse) the campaign's coherent Look so the cast headshot
+        # reflects the SAME styling later injected into every scene (cached in
+        # state, so the storyboard binding reuses this exact Look).
+        #
+        # We pull only WARDROBE + GROOMING as tasteful styling -- NOT the Look's
+        # persona ("actor_vibe"). Injecting the persona would turn every creator
+        # into that Look's single archetype (e.g. a "Creative Radical") no matter
+        # the brand; identity should instead come from the brand/product/audience.
+        look_style = ""
+        try:
+            recipe = await production_tools.select_recipe_for_campaign(
+                tool_context,
+                params.vertical,
+                params.campaign_theme,
+                params.campaign_tone,
+            )
+            look_char = (recipe or {}).get("character", {}) or {}
+            look_style = "; ".join(
+                b for b in (look_char.get("attire"), look_char.get("grooming")) if b
+            )
+        except Exception as e:  # pylint: disable=broad-except
+            logger.warning(f"Could not resolve Look for casting styling: {e}")
+
+        # STEP 0: Casting (Deduce Demographics).
+        # Precedence: the user's explicit description is AUTHORITATIVE. With no
+        # description we cast a CREDIBLE, BRAND-APPROPRIATE spokesperson (which
+        # varies naturally by product) rather than defaulting to the Look's
+        # archetype. The Look only contributes understated wardrobe/grooming.
+        if user_creator_desc:
+            identity_line = (
+                "PRIMARY IDENTITY (authoritative — preserve age, gender, and "
+                f"physical features EXACTLY): {user_creator_desc}"
+            )
+        else:
+            identity_line = (
+                "PRIMARY IDENTITY: not specified by the user. Cast a credible, "
+                "brand-appropriate spokesperson for THIS specific brand, product, "
+                "and audience — a believable real person, NOT a fashion model and "
+                "NOT an extreme stylized archetype. Fit the brand's positioning "
+                "and tone (e.g. premium/gourmet -> refined and understated).\n"
+                f"Brand / product: {campaign_name} — {campaign_brief}\n"
+                f"Brand tone: {campaign_tone}\n"
+                f"Target audience: {target_persona}"
+            )
+        styling_line = (
+            "WARDROBE & GROOMING (tasteful, understated styling that fits the "
+            "identity above; must NOT override it or turn the person into a "
+            f"costume): {look_style}"
+            if look_style
+            else ""
+        )
+
         casting_prompt = (
-            f"Based on the campaign brief: '{campaign_brief}'\n"
-            f"Target Audience Persona: '{target_persona}'\n\n"
-            "Identify the ideal social media creator look and personality for this product.\n"
+            "You are casting the on-screen creator for an ad.\n"
+            f"{identity_line}\n"
+            f"{styling_line}\n\n"
             "Provide a concise, one-sentence description containing ONLY:\n"
-            "- Age Range and specific Gender (Must be either Male or Female; choose based on product relevance)\n"
+            "- Age Range and specific Gender (Must be either Male or Female)\n"
             "- Physical Look (hair, style, distinguishing features)\n"
             "- Personality Vibe (e.g., approachable, chatty, enthusiastic, trustworthy)\n\n"
             "Rules:\n"
-            "1. DO NOT provide reasoning or explanations.\n"
-            "2. DO NOT describe any action, pose, or background.\n"
-            "3. DO NOT use gender-neutral or ambiguous terms; always specify Male or Female.\n"
-            "4. DO NOT generate children or celebrities.\n"
-            "5. DO NOT include glasses, rings, or jewelry in the look description unless explicitly required by the brief."
+            "1. If a PRIMARY IDENTITY is given, keep its age, gender, and physical "
+            "features EXACTLY; do NOT replace them with the styling.\n"
+            "2. The creator must be a believable, brand-appropriate real person — "
+            "NOT a stylized fashion archetype or costume.\n"
+            "3. DO NOT provide reasoning or explanations.\n"
+            "4. DO NOT describe any action, pose, or background.\n"
+            "5. Always specify Male or Female (no gender-neutral terms).\n"
+            "6. DO NOT generate children or celebrities.\n"
+            "7. DO NOT include glasses, rings, or jewelry unless explicitly required."
         )
         try:
             logger.info("Starting Casting for virtual creator...")

@@ -89,6 +89,7 @@ If the user's brief contains a script, a numbered list of scenes, or specific na
 
 ### **VIRTUAL CREATOR RULE**
 - Set `generate_virtual_creator = True` if the template is UGC ([{ugc_list_str}]) OR if requested in the brief using terms like "influencer", "real person", "virtual creator", "AI avatar", "spokesperson", or "character".
+- `creator_description`: if the user describes how the character/creator/spokesperson should LOOK (age, gender, hair, build, distinguishing features, etc.), copy that description as faithfully as possible into `creator_description`. If the user gives no appearance details, leave it EMPTY (""). Do NOT invent one. This field is authoritative and overrides any auto-selected styling.
 
 ### **COMPLETION RULE (CRITICAL)**
 - Once you receive a successful response from the `extract_campaign_parameters` tool, you MUST output the single text phrase 'Extraction Complete' to signal you are done.

@@ -247,6 +247,17 @@ class Parameters(pydantic.BaseModel):
         default=False,
         description="Whether to generate a virtual creator character. Set to True for UGC templates OR if the user explicitly requests an influencer, spokesperson, virtual creator, or character in the brief.",
     )
+    creator_description: str = pydantic.Field(
+        default="",
+        description=(
+            "The user's EXPLICIT description of how the virtual creator / character"
+            " should look (e.g., 'a 40-year-old bald man with a short beard', 'a young"
+            " woman with red curly hair'). Copy the user's wording as faithfully as"
+            " possible. Leave EMPTY if the user did not describe the character's"
+            " appearance. This is authoritative and always takes precedence over any"
+            " auto-selected styling."
+        ),
+    )
     vertical: str = pydantic.Field(
         default="General",
         description=(
