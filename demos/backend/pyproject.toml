@@ -125,7 +125,6 @@ allow-direct-references = true
 
 [tool.uv.sources]
 genmedia-izumi-agent = { path = "../..", editable = true }
-google-cloud-aiplatform = { git = "https://github.com/googleapis/python-aiplatform.git", rev = "main" }
 
 [[tool.uv.index]]
 url = "https://pypi.org/simple"
