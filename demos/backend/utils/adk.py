@@ -167,7 +167,9 @@ async def generate_image_description(
         client = genai.Client(
             vertexai=True,
             project=config.google_cloud_project,
-            location=config.google_cloud_location or "us-central1",
+            # Gemini text models are served from "global"; the deploy region
+            # (us-central1) 404s for e.g. gemini-3.5-flash.
+            location=config.google_cloud_location or "global",
         )
         model = config.models.get("text", {}).get("default", "gemini-2.5-flash")
 
