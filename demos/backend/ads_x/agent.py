@@ -140,6 +140,9 @@ generation_agent = llm_agent.LlmAgent(
         FunctionTool(generation_tools.generate_all_media),
         FunctionTool(stitching_tools.stitch_final_video),
         FunctionTool(summary_canvas_tool.create_campaign_summary),
+        # Per-scene HITL: re-render one scene without touching the others.
+        FunctionTool(generation_tools.regenerate_scene),
+        FunctionTool(generation_tools.clear_scene_assets_for_regeneration),
     ],
     before_model_callback=instrument_agent("generation_agent"),
 )

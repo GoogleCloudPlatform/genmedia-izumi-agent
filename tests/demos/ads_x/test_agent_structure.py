@@ -80,5 +80,11 @@ def test_agent_tools():
     # Storyboard Agent Creative should have recommend_production_recipe and finalize_and_persist_storyboard
     assert len(storyboard_agent_creative.tools) == 2
 
-    # Generation Agent should have generate_all_media, stitch_final_video, create_campaign_summary
-    assert len(generation_agent.tools) == 3
+    # Generation Agent: the batch pipeline plus the per-scene HITL entry points.
+    assert {t.name for t in generation_agent.tools} == {
+        "generate_all_media",
+        "stitch_final_video",
+        "create_campaign_summary",
+        "regenerate_scene",
+        "clear_scene_assets_for_regeneration",
+    }

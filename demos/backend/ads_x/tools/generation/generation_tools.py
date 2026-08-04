@@ -31,7 +31,7 @@ import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 
 from ...utils.common import common_utils, enrichment_utils, scene_generation_utils
-from ...utils.storyboard import template_library, storyboard_model
+from ...utils.storyboard import storyboard_merge, template_library, storyboard_model
 from ...utils.generation import grouping_utils, generation_helpers
 from . import voiceover_tools
 
@@ -734,3 +734,79 @@ async def generate_single_scene(
     return tool_success(
         f"🎬 **Visuals Rendered!** Successfully regenerated scene {scene_index}."
     )
+
+
+async def clear_scene_assets_for_regeneration(
+    tool_context: ToolContext, scene_id: str
+) -> ToolResult:
+    """Drops the rendered media for one scene so it can be generated again.
+
+    The media tools are idempotent — they skip any scene that already has an
+    asset — so a scene's existing frame, clip and voiceover must be released
+    before it will re-render. Prompts and all other creative content are left
+    untouched. Use this when the user wants a different take of a scene whose
+    prompt has not changed; editing a prompt already invalidates its asset.
+
+    Args:
+        scene_id: Stable id of the scene to clear (e.g. "scene_2").
+    """
+    storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
+    if not isinstance(storyboard, dict):
+        return tool_failure("No storyboard found in session state.")
+
+    index = storyboard_merge.find_scene_index(storyboard, scene_id)
+    if index is None:
+        available = [s.get("scene_id") for s in storyboard.get("scenes") or []]
+        return tool_failure(f"Unknown scene_id '{scene_id}'. Available: {available}")
+
+    cleared = storyboard_merge.clear_scene_assets(storyboard["scenes"][index])
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+
+    if not cleared:
+        return tool_success(
+            f"Scene '{scene_id}' had no rendered media; it will generate on the "
+            "next run."
+        )
+    return tool_success(
+        f"♻️ Released {cleared} rendered asset(s) for scene '{scene_id}'. "
+        "It will be re-rendered on the next generation pass."
+    )
+
+
+async def regenerate_scene(
+    tool_context: ToolContext, scene_id: str, guidance: str = ""
+) -> ToolResult:
+    """Re-renders a single scene, optionally steering it with new direction.
+
+    This is the per-scene HITL entry point: it releases the scene's existing
+    media and renders it again, leaving every other scene's work intact.
+
+    Args:
+        scene_id: Stable id of the scene to regenerate (e.g. "scene_2").
+        guidance: Optional direction to fold into the scene's visual prompt
+            (e.g. "shoot it at night"). Leave empty to re-render as-is.
+    """
+    storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
+    if not isinstance(storyboard, dict):
+        return tool_failure("No storyboard found in session state.")
+
+    index = storyboard_merge.find_scene_index(storyboard, scene_id)
+    if index is None:
+        available = [s.get("scene_id") for s in storyboard.get("scenes") or []]
+        return tool_failure(f"Unknown scene_id '{scene_id}'. Available: {available}")
+
+    scene = storyboard["scenes"][index]
+
+    if guidance.strip():
+        for prompt_key in ("first_frame_prompt", "video_prompt"):
+            prompt = scene.get(prompt_key)
+            if isinstance(prompt, dict) and prompt.get("description"):
+                prompt["description"] = (
+                    f"{prompt['description'].strip()}\n\n"
+                    f"**REVISION DIRECTION:** {guidance.strip()}"
+                )
+
+    storyboard_merge.clear_scene_assets(scene)
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+
+    return await generate_single_scene(tool_context, index)

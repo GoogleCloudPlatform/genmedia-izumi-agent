@@ -44,7 +44,15 @@ def test_ads_x_agent_definitions():
 
     # Verify Generation Agent
     assert generation_agent.name == "generation_agent"
-    assert len(generation_agent.tools) == 3
+    generation_tool_names = {t.name for t in generation_agent.tools}
+    assert generation_tool_names == {
+        "generate_all_media",
+        "stitch_final_video",
+        "create_campaign_summary",
+        # Per-scene HITL entry points.
+        "regenerate_scene",
+        "clear_scene_assets_for_regeneration",
+    }
 
     # Verify Planning Sequential Agent
     assert planning_agent_text.name == "planning_agent_text"
