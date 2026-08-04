@@ -79,6 +79,7 @@ async def extract_campaign_parameters(
         # Hardened state persistence for downstream agents
         dumped = params.model_dump()
         tool_context.state[common_utils.PARAMETERS_KEY] = dumped
+        common_utils.mark_stage_completed(tool_context, "parameters")
         logger.warning(
             f"🚨 [DEEP DEBUG UPSTREAM] Persisting to state type: {type(dumped)}"
         )
@@ -111,6 +112,7 @@ async def extract_campaign_parameters(
 
         # Hardened state persistence for downstream agents
         tool_context.state[common_utils.PARAMETERS_KEY] = params.model_dump()
+        common_utils.mark_stage_completed(tool_context, "parameters")
         logger.info(
             f"Successfully persisted repaired parameters to state: {params.campaign_name}"
         )
@@ -167,6 +169,7 @@ async def extract_campaign_parameters(
 
         # Persist to state so following agents have a baseline
         tool_context.state[common_utils.PARAMETERS_KEY] = fallback_params.model_dump()
+        common_utils.mark_stage_completed(tool_context, "parameters")
         logger.info(
             f"Successfully persisted fallback parameters to state: {fallback_params.campaign_name}"
         )

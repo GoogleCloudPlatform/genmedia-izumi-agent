@@ -639,6 +639,8 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
         storyboard.session_id = session_id
         storyboard.workspace_id = workspace_id
 
+    common_utils.mark_stage_completed(tool_context, "generation")
+
     return tool_success(
         "🎬 **Visuals Rendered!** All cinematic scenes successfully generated. Proceeding to stitching..."
     )

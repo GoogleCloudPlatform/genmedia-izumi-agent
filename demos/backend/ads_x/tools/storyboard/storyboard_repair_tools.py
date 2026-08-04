@@ -288,6 +288,7 @@ async def finalize_and_persist_storyboard(
             tool_context.state.get(common_utils.STORYBOARD_KEY), sb_dump
         )
         tool_context.state[common_utils.STORYBOARD_KEY] = sb_dump
+        common_utils.mark_stage_completed(tool_context, "storyboard")
 
         # 6. Beautify for UI
         table_rows = []

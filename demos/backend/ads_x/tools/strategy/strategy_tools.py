@@ -65,6 +65,8 @@ def map_strategy_to_metadata(tool_context: ToolContext) -> str:
     summary = "Strategy context synchronized.\n"
 
     # 2. Enforcing Least Privilege (Sanitization)
+    common_utils.mark_stage_completed(tool_context, "strategy")
+
     # If mode is NOT custom, we wipe sensitive storyline_guidance from the state.
     if params.template_name != "Custom":
         if "storyline_guidance" in params_dict:

@@ -14,8 +14,8 @@
 
 """Tools for providing curated production recommendations."""
 
+import hashlib
 import logging
-import random
 from typing import Dict, Any, List, Optional
 from ...utils.storyboard import production_presets
 from google.adk.tools.tool_context import ToolContext
@@ -180,7 +180,13 @@ def _score_look(
     tone: Optional[str],
 ) -> Dict[str, Any]:
     """Deterministic fallback: pick the Look with the best tag overlap against
-    the theme/tone text, random among candidates if nothing matches."""
+    the theme/tone text.
+
+    When nothing matches, the choice is derived from a hash of the campaign text
+    rather than drawn at random, so the same brief always resolves to the same
+    Look. Reproducibility matters for HITL: a user who accepts a Look must get
+    that same Look back on a later run or re-render of the campaign.
+    """
     text = f"{theme or ''} {tone or ''}".lower()
     best: Optional[Dict[str, Any]] = None
     best_score = -1
@@ -191,5 +197,6 @@ def _score_look(
             best_score = score
             best = c
     if best is None or best_score <= 0:
-        return random.choice(candidates)
+        digest = hashlib.sha256(text.strip().encode("utf-8")).digest()
+        return candidates[int.from_bytes(digest[:8], "big") % len(candidates)]
     return best

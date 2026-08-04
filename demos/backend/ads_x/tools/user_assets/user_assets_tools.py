@@ -240,4 +240,5 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
     )
     existing_user_assets.update(user_assets)
     tool_context.state[common_utils.USER_ASSETS_KEY] = existing_user_assets
+    common_utils.mark_stage_completed(tool_context, "user_assets")
     return tool_success(f"Ingested {len(existing_user_assets)} user assets.")
