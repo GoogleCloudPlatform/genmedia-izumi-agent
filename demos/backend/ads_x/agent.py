@@ -37,6 +37,7 @@ from .tools.generation import generation_tools, stitching_tools, summary_canvas_
 from .tools.strategy import strategy_tools
 from .tools.storyboard import (
     gate_tools,
+    look_tools,
     production_tools,
     scene_edit_tools,
     storyboard_repair_tools,
@@ -130,6 +131,12 @@ strategy_agent = llm_agent.LlmAgent(
         # agents still list this tool, but by then the choice is cached and they
         # only read it back.
         FunctionTool(production_tools.recommend_production_recipe),
+        # Let the Look be inspected and adjusted here, where it is decided.
+        FunctionTool(look_tools.list_looks),
+        FunctionTool(look_tools.set_look),
+        FunctionTool(look_tools.list_look_options),
+        FunctionTool(look_tools.edit_look_field),
+        FunctionTool(look_tools.edit_character),
     ],
     before_model_callback=instrument_agent("strategy_agent"),
 )
@@ -192,6 +199,10 @@ smallest set of edits that satisfies it, using `edit_scene`, `add_scene`,
 change only what was asked for: every edited prompt discards media that has
 already been rendered and paid for, so a needless edit is a needless re-render.
 
+If they want a different visual Look, use `set_look` and then
+`reapply_art_direction`, which restamps the new styling onto the existing
+scenes. Say plainly that this re-renders every visual, because it does.
+
 Then call `await_storyboard_approval` again. Someone who asked for changes has
 not seen the result yet, so the revised storyboard goes back to them, and round
 it goes until they accept. Summarise what you changed each time.
@@ -215,6 +226,12 @@ storyboard_gate_agent = llm_agent.LlmAgent(
         FunctionTool(scene_edit_tools.add_scene),
         FunctionTool(scene_edit_tools.remove_scene),
         FunctionTool(scene_edit_tools.reorder_scenes),
+        # A reviewer may want a different visual Look once they see the scenes.
+        # Changing it does not reach scenes that already exist, so restamping
+        # is offered alongside it.
+        FunctionTool(look_tools.list_looks),
+        FunctionTool(look_tools.set_look),
+        FunctionTool(look_tools.reapply_art_direction),
     ],
     before_model_callback=instrument_agent("storyboard_gate_agent"),
 )

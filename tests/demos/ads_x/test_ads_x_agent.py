@@ -39,6 +39,12 @@ def test_ads_x_agent_definitions():
     assert {t.name for t in strategy_agent.tools} == {
         "map_strategy_to_metadata",
         "recommend_production_recipe",
+        # The Look is chosen here, so it is inspected and adjusted here too.
+        "list_looks",
+        "set_look",
+        "list_look_options",
+        "edit_look_field",
+        "edit_character",
     }
 
     # Verify Storyboard Router
