@@ -123,7 +123,14 @@ strategy_agent = llm_agent.LlmAgent(
     description="Synchronizes campaign strategy and secures the state.",
     model="gemini-3.5-flash",
     instruction=strategy_instruction.INSTRUCTION,
-    tools=[FunctionTool(strategy_tools.map_strategy_to_metadata)],
+    tools=[
+        FunctionTool(strategy_tools.map_strategy_to_metadata),
+        # The Look is a campaign-level decision, not a per-scene one: it is
+        # injected into every scene, so it belongs with strategy. The storyboard
+        # agents still list this tool, but by then the choice is cached and they
+        # only read it back.
+        FunctionTool(production_tools.recommend_production_recipe),
+    ],
     before_model_callback=instrument_agent("strategy_agent"),
 )
 

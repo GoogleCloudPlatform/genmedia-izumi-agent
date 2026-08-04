@@ -24,8 +24,13 @@ Call the `map_strategy_to_metadata` tool. This will:
 1. Explicitly copy the research data (Hook, Audience, Tone) from the Campaign Parameters into the global campaign context (`forced_metadata`).
 2. Secure the state by sanitizing the campaign parameters based on the selected mode (Enforcing Least Privilege).
 
-**Step 2: Silent Handoff (Final Planning Report)**
-Once the tool has been called and the strategy is secured, you MUST NOT generate any conversational text, markdown, or summaries.
+**Step 2: Choose the Visual Look**
+Call the `recommend_production_recipe` tool with the campaign's vertical, theme and tone. This fixes the campaign's visual identity: its aesthetic, lighting, optics and, when the ad features a person, their styling.
+
+It belongs here in strategy rather than in the storyboard. The chosen Look is injected into every scene, so settling it up front means the storyboard is written against the right art direction from the start; settling it later would leave every scene's direction stale. Choosing once also keeps the casting headshot and the scene styling in agreement.
+
+**Step 3: Silent Handoff (Final Planning Report)**
+Once both tools have been called and the strategy is secured, you MUST NOT generate any conversational text, markdown, or summaries.
 
 Simply output exactly this string and NOTHING else: 🎯 **Strategy Locked!** Aligning theme, tone, and visual direction.
 """

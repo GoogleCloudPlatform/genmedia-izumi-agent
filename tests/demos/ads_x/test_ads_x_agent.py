@@ -33,9 +33,13 @@ def test_ads_x_agent_definitions():
     assert storyboard_agent_templated.name == "storyboard_agent_templated"
     assert len(storyboard_agent_templated.tools) == 2
 
-    # Verify Strategy Agent
+    # Verify Strategy Agent. It owns the Look choice: the recipe is injected
+    # into every scene, so it is settled here rather than per-storyboard.
     assert strategy_agent.name == "strategy_agent"
-    assert len(strategy_agent.tools) == 1
+    assert {t.name for t in strategy_agent.tools} == {
+        "map_strategy_to_metadata",
+        "recommend_production_recipe",
+    }
 
     # Verify Storyboard Router
     from google.adk.tools import AgentTool
