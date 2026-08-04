@@ -22,6 +22,7 @@ from typing import Any, List, Optional
 
 from google.adk.tools.tool_context import ToolContext
 
+from config import settings
 from utils.adk import (
     get_user_id_from_context,
     get_session_id_from_context,
@@ -33,6 +34,7 @@ from mediagent_kit.services.types import Asset
 from ...utils.common import common_utils, enrichment_utils, scene_generation_utils
 from ...utils.storyboard import storyboard_merge, template_library, storyboard_model
 from ...utils.generation import grouping_utils, generation_helpers
+from ..storyboard import gate_tools
 from . import voiceover_tools
 
 logger = logging.getLogger(__name__)
@@ -304,6 +306,18 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
         "⭐⭐⭐ [NATIVE TOOL INVOCATION] `generate_all_media` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
     )
     logger.info("Tool 'generate_all_media' invoked.")
+
+    # Backstop for the review gate. The gate agent is what normally holds the
+    # pipeline, but generation is the expensive, irreversible step, so refuse it
+    # outright unless a reviewer approved this storyboard. Only enforced when
+    # gates are enabled; otherwise there is no reviewer to have approved it.
+    if settings.ENABLE_HITL_GATES and not gate_tools.storyboard_is_approved(
+        tool_context.state
+    ):
+        return tool_failure(
+            "This storyboard has not been approved yet. Seek human review with "
+            "`await_storyboard_approval` before generating media."
+        )
 
     workspace_id, ws_error = resolve_workspace_id(tool_context)
     if ws_error:

@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.agents.sequential_agent import SequentialAgent
@@ -88,3 +90,28 @@ def test_agent_tools():
         "regenerate_scene",
         "clear_scene_assets_for_regeneration",
     }
+
+
+def test_pipeline_has_no_review_gate_by_default():
+    """Standalone Izumi must be unaffected: a gate nobody answers hangs the run."""
+    from ads_x.agent import _build_pipeline_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", False):
+        stages = [a.name for a in _build_pipeline_stages()]
+
+    assert stages == ["planning_agent_text", "generation_agent"]
+
+
+def test_review_gate_is_inserted_before_generation_when_enabled():
+    from ads_x.agent import _build_pipeline_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", True):
+        stages = [a.name for a in _build_pipeline_stages()]
+
+    assert stages == [
+        "planning_agent_text",
+        "storyboard_gate_agent",
+        "generation_agent",
+    ]
+    # The gate is worthless if it lands after the expensive step.
+    assert stages.index("storyboard_gate_agent") < stages.index("generation_agent")

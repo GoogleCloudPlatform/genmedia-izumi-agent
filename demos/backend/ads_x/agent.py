@@ -19,8 +19,11 @@ import mediagent_kit
 from mediagent_kit import MediagentKitConfig
 from google.adk.agents import llm_agent
 from google.adk.agents import sequential_agent
+from google.adk.apps.app import App, ResumabilityConfig
 from google.adk.tools import AgentTool, FunctionTool
+from google.adk.tools.long_running_tool import LongRunningFunctionTool
 
+from config import settings
 from utils.adk import blob_interceptor_callback
 from .instructions import root_instruction
 from .instructions.parameters import parameters_instruction
@@ -31,7 +34,7 @@ from .instructions.strategy import strategy_instruction
 from .tools.user_assets import user_assets_tools
 from .tools.generation import generation_tools, stitching_tools, summary_canvas_tool
 from .tools.strategy import strategy_tools
-from .tools.storyboard import production_tools, storyboard_repair_tools
+from .tools.storyboard import gate_tools, production_tools, storyboard_repair_tools
 from .utils.common import common_utils
 from .tools.parameters import parameters_tools
 
@@ -162,13 +165,52 @@ planning_agent_text = sequential_agent.SequentialAgent(
 
 from mediagent_kit.services.creative_studio import get_cs_tools
 
+GATE_INSTRUCTION = """You are the storyboard review checkpoint.
+
+Call `await_storyboard_approval` exactly once. The run will suspend there until
+a human responds; you will then see their response.
+
+When it arrives, call `record_storyboard_decision` with the reviewer's decision
+verbatim ("accept", "modify" or "regenerate") along with any guidance they gave.
+
+Never call `await_storyboard_approval` a second time for a decision you have
+already recorded, and never assume approval that was not given. If the decision
+is "modify" or "regenerate", state plainly what the reviewer asked for and stop;
+do not generate media.
+"""
+
+storyboard_gate_agent = llm_agent.LlmAgent(
+    name="storyboard_gate_agent",
+    description="Pauses the pipeline for human review of the storyboard.",
+    model="gemini-3.5-flash",
+    instruction=GATE_INSTRUCTION,
+    tools=[
+        LongRunningFunctionTool(func=gate_tools.await_storyboard_approval),
+        FunctionTool(gate_tools.record_storyboard_decision),
+    ],
+    before_model_callback=instrument_agent("storyboard_gate_agent"),
+)
+
+
+def _build_pipeline_stages() -> list:
+    """Pipeline stages, with the review gate inserted only when enabled.
+
+    The gate suspends the run until a client answers it, so a frontend that
+    cannot render the approval control would hang forever. It is therefore
+    opt-in: with ENABLE_HITL_GATES off the pipeline is exactly what it was
+    before gates existed, which is what the standalone Izumi app relies on.
+    """
+    stages: list = [planning_agent_text]
+    if settings.ENABLE_HITL_GATES:
+        stages.append(storyboard_gate_agent)
+    stages.append(generation_agent)
+    return stages
+
+
 full_pipeline_agent = sequential_agent.SequentialAgent(
     name="full_pipeline_agent",
     description="Sequential agent for the Ads-X pipeline.",
-    sub_agents=[
-        planning_agent_text,  # Use the specialized planning agent
-        generation_agent,  # Step 4: Generate & Stitch
-    ],
+    sub_agents=_build_pipeline_stages(),
 )
 
 root_agent = llm_agent.LlmAgent(
@@ -178,4 +220,18 @@ root_agent = llm_agent.LlmAgent(
     tools=get_cs_tools(),
     sub_agents=[full_pipeline_agent],
     before_model_callback=blob_interceptor_callback,
+)
+
+# Exported so both entry points get identical wiring: ADK's AgentLoader prefers a
+# module-level `app` over `root_agent`, and the Agent Engine deployment passes
+# this same object to AdkApp.
+#
+# Resumability is enabled only alongside the gates. A long-running call cannot
+# suspend a run unless the app is resumable, so the two must travel together;
+# leaving it off otherwise keeps the standalone pipeline on exactly the code
+# path it has always used.
+app = App(
+    name="ads_x",
+    root_agent=root_agent,
+    resumability_config=ResumabilityConfig(is_resumable=settings.ENABLE_HITL_GATES),
 )
