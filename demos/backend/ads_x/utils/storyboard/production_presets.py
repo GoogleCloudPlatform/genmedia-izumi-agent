@@ -345,6 +345,12 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Rembrandt Lighting: classic 'triangle' cheek highlight",
                 "highlights": "Soft edge-glow rim lighting separating subject from dark background",
             },
+            # Substituted when the ad has no on-screen person. Portrait optics
+            # ask the renderer for a face that is not in the shot; macro optics
+            # deliver the same shallow-depth look aimed at the product.
+            "product_mode": {
+                "optics": "T2.8 Macro Prime: soft background separation, dreamy bokeh, warm tones",
+            },
             "sonic_landscape": "Modern Orchestral: soaring staccato strings, cinematic brass swells, hybrid synth",
         },
     },
@@ -578,6 +584,12 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Soft window key with gentle wraparound",
                 "highlights": "Caustic light reflections through water",
             },
+            # Substituted when the ad has no on-screen person: the wellness
+            # aesthetic survives, but skin and make-up references do not.
+            "product_mode": {
+                "brand_archetype": "Earthy linens, diffused sunlight, botanical greens, raw wood, natural matte finishes.",
+                "optics": "T2.8 Macro Prime: soft separation, dreamy bokeh, warm natural tones",
+            },
             "sonic_landscape": "Ethereal Ambient: slow-moving pads, shimmering chimes, vast reverb tails",
         },
     },
@@ -625,6 +637,11 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "highlights": "Soft glow on the creator's face from the window",
             },
             "sonic_landscape": "Upbeat Lo-Fi: chill, modern, non-distracting background",
+            # Substituted when the ad has no on-screen person: a key light aimed
+            # at a face that is not in the shot just confuses the renderer.
+            "product_mode": {
+                "key_lighting": "Soft window key across the product",
+            },
         },
     },
     {

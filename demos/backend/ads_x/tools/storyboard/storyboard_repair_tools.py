@@ -15,6 +15,8 @@
 import json
 import logging
 import uuid
+from typing import Any
+
 import pydantic
 from google.adk.tools.tool_context import ToolContext
 import mediagent_kit
@@ -65,19 +67,30 @@ def _build_art_direction_block(
     cine = recipe.get("cinematography", {}) or {}
     illum = recipe.get("illumination", {}) or {}
     char = recipe.get("character", {}) or {}
+
+    # Suppressing the Cast block is not enough on its own: a few Looks carry
+    # person-oriented wording in their general styling too ("portrait optics",
+    # "flattering skin", "'no-makeup' makeup look"). Left in a product-only ad
+    # that asks the renderer to flatter a face which is not in the shot. Looks
+    # that need it therefore ship product-mode substitutes.
+    product_mode = (recipe.get("product_mode") or {}) if not include_character else {}
+
+    def styling(key: str, fallback: Any) -> Any:
+        return product_mode.get(key) or fallback
+
     fields = [
         ("Mode", recipe.get("style_mode")),
-        ("Aesthetic", recipe.get("brand_archetype")),
+        ("Aesthetic", styling("brand_archetype", recipe.get("brand_archetype"))),
     ]
     if include_character:
         fields.append(("Cast", cast_override or char.get("actor_vibe")))
         fields.append(("Wardrobe", char.get("attire")))
         fields.append(("Grooming", char.get("grooming")))
     fields += [
-        ("Lighting", illum.get("vibe")),
-        ("Key Light", illum.get("key_lighting")),
-        ("Optics", cine.get("optics")),
-        ("Texture", cine.get("motion_texture")),
+        ("Lighting", styling("vibe", illum.get("vibe"))),
+        ("Key Light", styling("key_lighting", illum.get("key_lighting"))),
+        ("Optics", styling("optics", cine.get("optics"))),
+        ("Texture", styling("motion_texture", cine.get("motion_texture"))),
     ]
     rendered = "; ".join(f"{label}: {value}" for label, value in fields if value)
     return f" [ART DIRECTION (NON-NEGOTIABLE) -> {rendered}]"
