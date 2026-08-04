@@ -112,6 +112,7 @@ def test_review_gate_is_inserted_before_generation_when_enabled():
         "planning_agent_text",
         "storyboard_review_loop",
         "generation_agent",
+        "final_cut_review_loop",
     ]
     # The gate is worthless if it lands after the expensive step.
     assert stages.index("storyboard_review_loop") < stages.index("generation_agent")
@@ -161,3 +162,29 @@ def test_both_review_loops_are_bounded():
 
     for loop in (strategy_review_loop, storyboard_review_loop):
         assert loop.max_iterations and loop.max_iterations <= 20
+
+
+def test_all_three_checkpoints_appear_in_order_when_enabled():
+    from ads_x.agent import _build_pipeline_stages, _planning_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", True):
+        planning = [a.name for a in _planning_stages()]
+        pipeline = [a.name for a in _build_pipeline_stages()]
+
+    # Strategy is reviewed before a scene is written...
+    assert planning.index("strategy_review_loop") < planning.index("storyboard_router")
+    # ...the storyboard before anything is rendered...
+    assert pipeline.index("storyboard_review_loop") < pipeline.index("generation_agent")
+    # ...and the cut after it is assembled.
+    assert pipeline.index("generation_agent") < pipeline.index("final_cut_review_loop")
+
+
+def test_no_checkpoints_at_all_when_disabled():
+    from ads_x.agent import _build_pipeline_stages, _planning_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", False):
+        names = [a.name for a in _planning_stages()] + [
+            a.name for a in _build_pipeline_stages()
+        ]
+
+    assert not [n for n in names if "gate" in n or "review" in n]

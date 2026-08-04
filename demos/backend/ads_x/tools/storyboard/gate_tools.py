@@ -280,3 +280,108 @@ def strategy_is_approved(state: Any) -> bool:
     except AttributeError:
         return False
     return isinstance(decision, dict) and decision.get("decision") == ACCEPT
+
+
+# --------------------------------------------------------------------------
+# Final cut gate (Stage C)
+# --------------------------------------------------------------------------
+
+FINAL_DECISION_KEY = "final_cut_decision"
+
+
+async def await_final_cut_approval(tool_context: ToolContext) -> ToolResult:
+    """Pauses for human review of the finished video.
+
+    Call this once the video has been stitched. Unlike the earlier checkpoints
+    this one does not protect a budget — the render is already paid for. It
+    exists because some faults only become visible in the finished cut: a clip
+    that does not match its prompt, a beat that lands wrong, a scene that reads
+    differently in sequence than it did on paper.
+
+    The reviewer can ask for individual scenes to be re-rendered; the video is
+    then restitched and comes back for another look.
+    """
+    storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
+    if not isinstance(storyboard, dict) or not storyboard.get("scenes"):
+        return tool_failure("There is no storyboard, so there is nothing to review.")
+
+    final_ref = tool_context.state.get("final_video_asset_ref")
+    final_id = tool_context.state.get("final_video_asset_id")
+    if not (final_ref or final_id):
+        return tool_failure(
+            "No stitched video yet. Generate the media and stitch it first."
+        )
+
+    tool_context.state[FINAL_DECISION_KEY] = None
+
+    clips = []
+    for scene in storyboard.get("scenes") or []:
+        if not isinstance(scene, dict):
+            continue
+        video = scene.get("video_prompt") or {}
+        action, _ = split_art_direction(video.get("description") or "")
+        clips.append(
+            {
+                "scene_id": scene.get("scene_id"),
+                "topic": scene.get("topic"),
+                "action": action,
+                "duration_seconds": video.get("duration_seconds"),
+                "asset_id": video.get("asset_id"),
+            }
+        )
+
+    return tool_success(
+        {
+            "status": "awaiting_human_review",
+            "stage": "final_cut",
+            "final_video": {"asset_id": final_id, "asset_ref": final_ref},
+            "clips": clips,
+            "expected_response": {
+                "decision": list(VALID_DECISIONS),
+                "guidance": (
+                    "optional free text, e.g. 'scene_2 is too dark, re-render it'"
+                ),
+            },
+        }
+    )
+
+
+async def record_final_cut_decision(
+    tool_context: ToolContext, decision: str, guidance: str = ""
+) -> ToolResult:
+    """Records the reviewer's verdict on the finished video.
+
+    Args:
+        decision: One of "accept", "modify" or "regenerate".
+        guidance: Any free-text direction, such as which clips to re-render.
+    """
+    normalised = (decision or "").strip().lower()
+    if normalised not in VALID_DECISIONS:
+        return tool_failure(
+            f"Unknown decision '{decision}'. Expected one of "
+            f"{', '.join(VALID_DECISIONS)}."
+        )
+
+    tool_context.state[FINAL_DECISION_KEY] = {
+        "decision": normalised,
+        "guidance": guidance.strip(),
+    }
+    logger.info("Final cut gate: reviewer chose '%s'.", normalised)
+
+    if normalised == ACCEPT:
+        tool_context.actions.escalate = True
+        return tool_success("Final cut approved. The campaign is done.")
+
+    return tool_success(
+        f"Final cut marked '{normalised}'. Re-render the clips they called out, "
+        "restitch, and show them the result."
+    )
+
+
+def final_cut_is_approved(state: Any) -> bool:
+    """Whether the finished video in ``state`` carries an explicit approval."""
+    try:
+        decision = state.get(FINAL_DECISION_KEY)
+    except AttributeError:
+        return False
+    return isinstance(decision, dict) and decision.get("decision") == ACCEPT

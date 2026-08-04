@@ -302,3 +302,79 @@ async def test_the_two_gates_keep_separate_verdicts():
 
     assert gate_tools.strategy_is_approved(ctx.state)
     assert not gate_tools.storyboard_is_approved(ctx.state)
+
+
+# --------------------------------------------------------------------------
+# Final cut gate (Stage C)
+# --------------------------------------------------------------------------
+
+
+def _finished_campaign():
+    return {
+        "storyboard": {
+            "scenes": [
+                {
+                    "scene_id": "scene_1",
+                    "topic": "hero",
+                    "video_prompt": {
+                        "description": "a hero shot. [ART DIRECTION (NON-NEGOTIABLE) -> Mode: X]",
+                        "duration_seconds": 4,
+                        "asset_id": "vid-1",
+                    },
+                }
+            ]
+        },
+        "final_video_asset_id": "final-42",
+        "final_video_asset_ref": {"id": "final-42"},
+    }
+
+
+async def test_final_gate_presents_the_cut_and_its_clips():
+    payload = (await gate_tools.await_final_cut_approval(_ctx(_finished_campaign())))[
+        "result"
+    ]
+
+    assert payload["stage"] == "final_cut"
+    assert payload["final_video"]["asset_id"] == "final-42"
+    clip = payload["clips"][0]
+    assert clip["scene_id"] == "scene_1"
+    assert clip["asset_id"] == "vid-1"
+    # The reviewer reads the action, not the art direction.
+    assert clip["action"] == "a hero shot."
+
+
+async def test_final_gate_refuses_before_anything_is_stitched():
+    state = _finished_campaign()
+    del state["final_video_asset_id"]
+    del state["final_video_asset_ref"]
+
+    assert (await gate_tools.await_final_cut_approval(_ctx(state)))[
+        "status"
+    ] == "failed"
+
+
+async def test_accepting_the_final_cut_ends_its_loop():
+    ctx = _ctx(_finished_campaign())
+    await gate_tools.record_final_cut_decision(ctx, "accept")
+
+    assert ctx.actions.escalate is True
+    assert gate_tools.final_cut_is_approved(ctx.state)
+
+
+async def test_asking_for_changes_keeps_the_final_loop_running():
+    ctx = _ctx(_finished_campaign())
+    await gate_tools.record_final_cut_decision(ctx, "modify", "scene_1 is too dark")
+
+    assert not ctx.actions.escalate
+    assert not gate_tools.final_cut_is_approved(ctx.state)
+
+
+async def test_all_three_gates_hold_independent_verdicts():
+    ctx = _ctx(_finished_campaign())
+    await gate_tools.record_strategy_decision(ctx, "accept")
+    await gate_tools.record_storyboard_decision(ctx, "accept")
+
+    # Approving the plan and the storyboard says nothing about the final cut.
+    assert gate_tools.strategy_is_approved(ctx.state)
+    assert gate_tools.storyboard_is_approved(ctx.state)
+    assert not gate_tools.final_cut_is_approved(ctx.state)

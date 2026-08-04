@@ -316,6 +316,46 @@ storyboard_review_loop = loop_agent.LoopAgent(
 )
 
 
+FINAL_CUT_GATE_INSTRUCTION = """You are the final cut checkpoint.
+
+Call `await_final_cut_approval`. The run suspends there until a human has
+watched the video and responded.
+
+When their response arrives, call `record_final_cut_decision` with the decision
+verbatim ("accept", "modify" or "regenerate") and any guidance they gave.
+
+If they want changes, re-render only the clips they called out, using
+`regenerate_scene` with that scene's `scene_id` and their direction. Then call
+`stitch_final_video` to rebuild the cut, and `await_final_cut_approval` again so
+they can watch the new version. Keep going until they accept.
+
+Re-render only what was called out. Every clip costs real money and minutes to
+produce, and the ones they did not mention are ones they were happy with.
+"""
+
+final_cut_gate_agent = llm_agent.LlmAgent(
+    name="final_cut_gate_agent",
+    description="Pauses for human review of the finished video.",
+    model="gemini-3.5-flash",
+    instruction=FINAL_CUT_GATE_INSTRUCTION,
+    tools=[
+        LongRunningFunctionTool(func=gate_tools.await_final_cut_approval),
+        FunctionTool(gate_tools.record_final_cut_decision),
+        # Fix a clip, then rebuild the cut around it.
+        FunctionTool(generation_tools.regenerate_scene),
+        FunctionTool(stitching_tools.stitch_final_video),
+    ],
+    before_model_callback=instrument_agent("final_cut_gate_agent"),
+)
+
+final_cut_review_loop = loop_agent.LoopAgent(
+    name="final_cut_review_loop",
+    description="Reviews the finished video with a human until they accept it.",
+    sub_agents=[final_cut_gate_agent],
+    max_iterations=MAX_REVIEW_ROUNDS,
+)
+
+
 def _build_pipeline_stages() -> list:
     """Pipeline stages, with the review gate inserted only when enabled.
 
@@ -328,6 +368,10 @@ def _build_pipeline_stages() -> list:
     if settings.ENABLE_HITL_GATES:
         stages.append(storyboard_review_loop)
     stages.append(generation_agent)
+    if settings.ENABLE_HITL_GATES:
+        # After stitching, not before: the fault a reviewer catches here is
+        # usually one that only shows up in the assembled cut.
+        stages.append(final_cut_review_loop)
     return stages
 
 
