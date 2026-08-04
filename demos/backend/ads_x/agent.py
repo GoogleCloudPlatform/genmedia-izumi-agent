@@ -43,7 +43,14 @@ from .tools.storyboard import (
     storyboard_repair_tools,
 )
 from .utils.common import common_utils
-from .tools.parameters import parameters_tools
+from .tools.parameters import campaign_edit_tools, parameters_tools
+
+# A review is a conversation, so each gate loops until the reviewer accepts.
+# Every pass suspends waiting for a human, so a loop cannot spin on its own;
+# this is a backstop against a model that keeps re-gating without ever
+# recording an acceptance. Exhausting it falls through, and the next stage
+# refuses for want of an approval — stuck rather than expensive.
+MAX_REVIEW_ROUNDS = 10
 
 
 async def debug_parameters_callback(*args, **kwargs):
@@ -171,15 +178,75 @@ generation_agent = llm_agent.LlmAgent(
 )
 
 # Track 1: Traditional Planning (Text-based starting from brief)
+
+STRATEGY_GATE_INSTRUCTION = """You are the campaign strategy checkpoint.
+
+Call `await_strategy_approval`. The run suspends there until a human responds.
+
+When their response arrives, call `record_strategy_decision` with the decision
+verbatim ("accept", "modify" or "regenerate") and any guidance they gave.
+
+If the decision is "modify", make the changes they asked for:
+- `edit_campaign_parameter` for the brief itself - audience, duration, tone,
+  key message and so on. `show_campaign_parameters` lists what can be changed.
+- `set_virtual_creator` to decide whether the ad features a person at all.
+- `set_look`, `edit_look_field` and `edit_character` for the visual identity.
+  `list_looks` and `list_look_options` show what is on offer.
+
+Then call `await_strategy_approval` again, so they can see the result, and keep
+going round until they accept.
+
+This checkpoint is deliberately early: nothing has been written or rendered
+yet, so a correction here is free, while the same correction after generation
+costs a full re-render. Never assume an approval that was not given.
+"""
+
+strategy_gate_agent = llm_agent.LlmAgent(
+    name="strategy_gate_agent",
+    description="Pauses the pipeline for human review of the campaign strategy.",
+    model="gemini-3.5-flash",
+    instruction=STRATEGY_GATE_INSTRUCTION,
+    tools=[
+        LongRunningFunctionTool(func=gate_tools.await_strategy_approval),
+        FunctionTool(gate_tools.record_strategy_decision),
+        FunctionTool(campaign_edit_tools.show_campaign_parameters),
+        FunctionTool(campaign_edit_tools.edit_campaign_parameter),
+        FunctionTool(campaign_edit_tools.set_virtual_creator),
+        FunctionTool(look_tools.list_looks),
+        FunctionTool(look_tools.set_look),
+        FunctionTool(look_tools.list_look_options),
+        FunctionTool(look_tools.edit_look_field),
+        FunctionTool(look_tools.edit_character),
+    ],
+    before_model_callback=instrument_agent("strategy_gate_agent"),
+)
+
+strategy_review_loop = loop_agent.LoopAgent(
+    name="strategy_review_loop",
+    description="Reviews the campaign strategy with a human until they accept it.",
+    sub_agents=[strategy_gate_agent],
+    max_iterations=MAX_REVIEW_ROUNDS,
+)
+
+
+def _planning_stages() -> list:
+    """Planning stages, with the strategy checkpoint inserted when enabled.
+
+    The gate sits after strategy and before the storyboard: late enough that
+    there is a coherent plan to review, early enough that changing it costs
+    nothing.
+    """
+    stages: list = [parameters_agent, user_assets_agent, strategy_agent]
+    if settings.ENABLE_HITL_GATES:
+        stages.append(strategy_review_loop)
+    stages.append(storyboard_router)
+    return stages
+
+
 planning_agent_text = sequential_agent.SequentialAgent(
     name="planning_agent_text",
     description="Planning pipeline that parses a text brief into a storyboard.",
-    sub_agents=[
-        parameters_agent,
-        user_assets_agent,
-        strategy_agent,  # Stage 3
-        storyboard_router,  # Stage 4
-    ],
+    sub_agents=_planning_stages(),
 )
 
 
@@ -241,12 +308,6 @@ storyboard_gate_agent = llm_agent.LlmAgent(
 # review -> edit -> review and exits when record_storyboard_decision escalates
 # on "accept".
 #
-# Each pass suspends waiting for a human, so the loop cannot spin on its own;
-# max_iterations is a backstop against a model that keeps re-gating without
-# ever recording an acceptance. Exhausting it falls through to generation,
-# which then refuses for want of an approval — stuck rather than expensive.
-MAX_REVIEW_ROUNDS = 10
-
 storyboard_review_loop = loop_agent.LoopAgent(
     name="storyboard_review_loop",
     description="Reviews the storyboard with a human until they accept it.",

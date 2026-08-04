@@ -182,3 +182,101 @@ def storyboard_is_approved(state: Any) -> bool:
     except AttributeError:
         return False
     return isinstance(decision, dict) and decision.get("decision") == ACCEPT
+
+
+# --------------------------------------------------------------------------
+# Strategy gate (Stage A)
+# --------------------------------------------------------------------------
+
+STRATEGY_DECISION_KEY = "strategy_decision"
+
+
+async def await_strategy_approval(tool_context: ToolContext) -> ToolResult:
+    """Pauses for human review of the campaign strategy before any scene exists.
+
+    Call this once the brief has been read, assets catalogued, strategy mapped
+    and a visual Look chosen. The run suspends here until the reviewer responds.
+
+    This is the cheapest possible place to catch a misunderstanding: nothing has
+    been written or rendered yet, so a correction here costs nothing, while the
+    same correction after generation costs a full re-render.
+    """
+    parameters = tool_context.state.get(common_utils.PARAMETERS_KEY)
+    if not isinstance(parameters, dict) or not parameters:
+        return tool_failure(
+            "There is no campaign strategy to review yet. Extract the brief first."
+        )
+
+    tool_context.state[STRATEGY_DECISION_KEY] = None
+
+    recipe = tool_context.state.get("master_production_recipe") or {}
+    assets = tool_context.state.get(common_utils.USER_ASSETS_KEY) or {}
+
+    return tool_success(
+        {
+            "status": "awaiting_human_review",
+            "stage": "strategy",
+            "campaign": {
+                "name": parameters.get("campaign_name"),
+                "audience": parameters.get("target_audience"),
+                "duration": parameters.get("target_duration"),
+                "orientation": parameters.get("target_orientation"),
+                "theme": parameters.get("campaign_theme"),
+                "tone": parameters.get("campaign_tone"),
+                "key_message": parameters.get("key_message"),
+                "vertical": parameters.get("vertical"),
+            },
+            "look": {
+                "name": recipe.get("look_name"),
+                "aesthetic": recipe.get("brand_archetype"),
+            },
+            "features_a_person": bool(parameters.get("generate_virtual_creator")),
+            "creator_description": parameters.get("creator_description") or None,
+            "uploaded_assets": sorted(assets) if isinstance(assets, dict) else [],
+            "expected_response": {
+                "decision": list(VALID_DECISIONS),
+                "guidance": "optional free text describing requested changes",
+            },
+        }
+    )
+
+
+async def record_strategy_decision(
+    tool_context: ToolContext, decision: str, guidance: str = ""
+) -> ToolResult:
+    """Records the reviewer's verdict on the campaign strategy.
+
+    Args:
+        decision: One of "accept", "modify" or "regenerate".
+        guidance: Any free-text direction the reviewer supplied.
+    """
+    normalised = (decision or "").strip().lower()
+    if normalised not in VALID_DECISIONS:
+        return tool_failure(
+            f"Unknown decision '{decision}'. Expected one of "
+            f"{', '.join(VALID_DECISIONS)}."
+        )
+
+    tool_context.state[STRATEGY_DECISION_KEY] = {
+        "decision": normalised,
+        "guidance": guidance.strip(),
+    }
+    logger.info("Strategy gate: reviewer chose '%s'.", normalised)
+
+    if normalised == ACCEPT:
+        tool_context.actions.escalate = True
+        return tool_success("Strategy approved. Building the storyboard.")
+
+    return tool_success(
+        f"Strategy marked '{normalised}'. Apply the requested changes, then "
+        "seek approval again before the storyboard is written."
+    )
+
+
+def strategy_is_approved(state: Any) -> bool:
+    """Whether the campaign strategy in ``state`` carries an explicit approval."""
+    try:
+        decision = state.get(STRATEGY_DECISION_KEY)
+    except AttributeError:
+        return False
+    return isinstance(decision, dict) and decision.get("decision") == ACCEPT

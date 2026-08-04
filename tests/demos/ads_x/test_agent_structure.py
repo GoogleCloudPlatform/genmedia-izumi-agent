@@ -128,3 +128,36 @@ def test_review_is_a_bounded_loop_around_the_gate():
     # re-gates forever without ever recording an acceptance - not a throttle.
     assert storyboard_review_loop.max_iterations
     assert storyboard_review_loop.max_iterations <= 20
+
+
+def test_planning_has_no_strategy_gate_by_default():
+    from ads_x.agent import _planning_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", False):
+        stages = [a.name for a in _planning_stages()]
+
+    assert stages == [
+        "parameters_agent",
+        "user_assets_agent",
+        "strategy_agent",
+        "storyboard_router",
+    ]
+
+
+def test_strategy_gate_sits_between_strategy_and_the_storyboard():
+    from ads_x.agent import _planning_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", True):
+        stages = [a.name for a in _planning_stages()]
+
+    # Late enough that there is a plan to review, early enough that changing
+    # it costs nothing.
+    assert stages.index("strategy_agent") < stages.index("strategy_review_loop")
+    assert stages.index("strategy_review_loop") < stages.index("storyboard_router")
+
+
+def test_both_review_loops_are_bounded():
+    from ads_x.agent import storyboard_review_loop, strategy_review_loop
+
+    for loop in (strategy_review_loop, storyboard_review_loop):
+        assert loop.max_iterations and loop.max_iterations <= 20

@@ -246,3 +246,59 @@ async def test_a_rejected_decision_does_not_end_the_loop():
 
     assert result["status"] == "failed"
     assert not ctx.actions.escalate
+
+
+# --------------------------------------------------------------------------
+# Strategy gate (Stage A)
+# --------------------------------------------------------------------------
+
+
+async def test_strategy_gate_summarises_the_campaign_for_review():
+    ctx = _ctx(
+        {
+            "parameters": {
+                "campaign_name": "Aurora",
+                "target_audience": "urban professionals",
+                "campaign_tone": "refined",
+                "generate_virtual_creator": False,
+            },
+            "master_production_recipe": {"look_name": "Organic Wellness"},
+            "user_assets": {"bottle.png": {}},
+        }
+    )
+    payload = (await gate_tools.await_strategy_approval(ctx))["result"]
+
+    assert payload["stage"] == "strategy"
+    assert payload["campaign"]["name"] == "Aurora"
+    assert payload["look"]["name"] == "Organic Wellness"
+    assert payload["features_a_person"] is False
+    assert payload["uploaded_assets"] == ["bottle.png"]
+
+
+async def test_strategy_gate_refuses_before_a_brief_exists():
+    assert (await gate_tools.await_strategy_approval(_ctx()))["status"] == "failed"
+
+
+async def test_accepting_strategy_ends_its_review_loop():
+    ctx = _ctx()
+    await gate_tools.record_strategy_decision(ctx, "accept")
+
+    assert ctx.actions.escalate is True
+    assert gate_tools.strategy_is_approved(ctx.state)
+
+
+async def test_modifying_strategy_keeps_its_loop_running():
+    ctx = _ctx()
+    await gate_tools.record_strategy_decision(ctx, "modify", "shorter, please")
+
+    assert not ctx.actions.escalate
+    assert not gate_tools.strategy_is_approved(ctx.state)
+
+
+async def test_the_two_gates_keep_separate_verdicts():
+    # Approving strategy must not imply approving the storyboard.
+    ctx = _ctx()
+    await gate_tools.record_strategy_decision(ctx, "accept")
+
+    assert gate_tools.strategy_is_approved(ctx.state)
+    assert not gate_tools.storyboard_is_approved(ctx.state)
