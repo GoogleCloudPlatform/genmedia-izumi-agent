@@ -34,7 +34,12 @@ from .instructions.strategy import strategy_instruction
 from .tools.user_assets import user_assets_tools
 from .tools.generation import generation_tools, stitching_tools, summary_canvas_tool
 from .tools.strategy import strategy_tools
-from .tools.storyboard import gate_tools, production_tools, storyboard_repair_tools
+from .tools.storyboard import (
+    gate_tools,
+    production_tools,
+    scene_edit_tools,
+    storyboard_repair_tools,
+)
 from .utils.common import common_utils
 from .tools.parameters import parameters_tools
 
@@ -173,10 +178,16 @@ a human responds; you will then see their response.
 When it arrives, call `record_storyboard_decision` with the reviewer's decision
 verbatim ("accept", "modify" or "regenerate") along with any guidance they gave.
 
+If the decision is "modify", translate the reviewer's guidance into the
+smallest set of edits that satisfies it, using `edit_scene`, `add_scene`,
+`remove_scene` and `reorder_scenes`. Address scenes by their `scene_id`, and
+change only what was asked for: every edited prompt discards media that has
+already been rendered and paid for, so a needless edit is a needless re-render.
+
 Never call `await_storyboard_approval` a second time for a decision you have
-already recorded, and never assume approval that was not given. If the decision
-is "modify" or "regenerate", state plainly what the reviewer asked for and stop;
-do not generate media.
+already recorded, and never assume approval that was not given. Media follows
+an "accept" and nothing else; for any other verdict, say plainly what you
+changed and stop.
 """
 
 storyboard_gate_agent = llm_agent.LlmAgent(
@@ -187,6 +198,12 @@ storyboard_gate_agent = llm_agent.LlmAgent(
     tools=[
         LongRunningFunctionTool(func=gate_tools.await_storyboard_approval),
         FunctionTool(gate_tools.record_storyboard_decision),
+        # Editing tools, so a "modify" verdict can be acted on in place
+        # rather than by regenerating the whole storyboard.
+        FunctionTool(scene_edit_tools.edit_scene),
+        FunctionTool(scene_edit_tools.add_scene),
+        FunctionTool(scene_edit_tools.remove_scene),
+        FunctionTool(scene_edit_tools.reorder_scenes),
     ],
     before_model_callback=instrument_agent("storyboard_gate_agent"),
 )
