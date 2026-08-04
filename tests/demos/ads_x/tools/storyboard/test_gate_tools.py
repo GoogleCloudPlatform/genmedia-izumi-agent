@@ -9,7 +9,10 @@ from demos.backend.ads_x.tools.storyboard import gate_tools
 
 
 def _ctx(state=None):
-    return SimpleNamespace(state=dict(state or {}))
+    # A real ToolContext always carries .actions; the gate sets escalate on it.
+    return SimpleNamespace(
+        state=dict(state or {}), actions=SimpleNamespace(escalate=None)
+    )
 
 
 def _storyboard():
@@ -212,3 +215,34 @@ async def test_digest_surfaces_a_readable_action_and_the_voiceover():
     assert scene["action"] == "A hero shot."
     assert scene["art_direction"] == "[ART DIRECTION (NON-NEGOTIABLE) -> Mode: X]"
     assert scene["voiceover"] == "Stay cold. Stay sharp."
+
+
+# --------------------------------------------------------------------------
+# Loop control — accept ends the review, anything else continues it
+# --------------------------------------------------------------------------
+
+
+async def test_accept_escalates_to_end_the_review_loop():
+    ctx = _ctx()
+    await gate_tools.record_storyboard_decision(ctx, "accept")
+
+    assert ctx.actions.escalate is True
+    assert gate_tools.storyboard_is_approved(ctx.state)
+
+
+@pytest.mark.parametrize("decision", ["modify", "regenerate"])
+async def test_other_verdicts_keep_the_loop_running(decision):
+    # Not escalating is what sends the revised storyboard back for another look.
+    ctx = _ctx()
+    await gate_tools.record_storyboard_decision(ctx, decision, "make it shorter")
+
+    assert not ctx.actions.escalate
+    assert not gate_tools.storyboard_is_approved(ctx.state)
+
+
+async def test_a_rejected_decision_does_not_end_the_loop():
+    ctx = _ctx()
+    result = await gate_tools.record_storyboard_decision(ctx, "ship it")
+
+    assert result["status"] == "failed"
+    assert not ctx.actions.escalate

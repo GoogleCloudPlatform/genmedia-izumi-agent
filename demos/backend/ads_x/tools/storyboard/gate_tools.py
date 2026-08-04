@@ -161,10 +161,16 @@ async def record_storyboard_decision(
     logger.info("Storyboard gate: reviewer chose '%s'.", normalised)
 
     if normalised == ACCEPT:
+        # Escalating breaks the surrounding review loop. Anything else leaves it
+        # running, so the storyboard comes back for another look once the
+        # requested changes have been applied.
+        tool_context.actions.escalate = True
         return tool_success("Storyboard approved. Generation may proceed.")
+
     return tool_success(
         f"Storyboard marked '{normalised}'. Apply the requested changes, then "
-        "seek approval again before generating."
+        "seek approval again — the reviewer sees the storyboard once more "
+        "before anything is generated."
     )
 
 

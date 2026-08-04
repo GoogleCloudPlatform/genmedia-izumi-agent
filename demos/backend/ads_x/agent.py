@@ -18,6 +18,7 @@ import os
 import mediagent_kit
 from mediagent_kit import MediagentKitConfig
 from google.adk.agents import llm_agent
+from google.adk.agents import loop_agent
 from google.adk.agents import sequential_agent
 from google.adk.apps.app import App, ResumabilityConfig
 from google.adk.tools import AgentTool, FunctionTool
@@ -172,8 +173,8 @@ from mediagent_kit.services.creative_studio import get_cs_tools
 
 GATE_INSTRUCTION = """You are the storyboard review checkpoint.
 
-Call `await_storyboard_approval` exactly once. The run will suspend there until
-a human responds; you will then see their response.
+Call `await_storyboard_approval`. The run suspends there until a human
+responds; you will then see their response.
 
 When it arrives, call `record_storyboard_decision` with the reviewer's decision
 verbatim ("accept", "modify" or "regenerate") along with any guidance they gave.
@@ -184,10 +185,13 @@ smallest set of edits that satisfies it, using `edit_scene`, `add_scene`,
 change only what was asked for: every edited prompt discards media that has
 already been rendered and paid for, so a needless edit is a needless re-render.
 
-Never call `await_storyboard_approval` a second time for a decision you have
-already recorded, and never assume approval that was not given. Media follows
-an "accept" and nothing else; for any other verdict, say plainly what you
-changed and stop.
+Then call `await_storyboard_approval` again. Someone who asked for changes has
+not seen the result yet, so the revised storyboard goes back to them, and round
+it goes until they accept. Summarise what you changed each time.
+
+Never assume an approval that was not given, and never call
+`await_storyboard_approval` twice in a row without having changed something in
+between. Media follows an "accept" and nothing else.
 """
 
 storyboard_gate_agent = llm_agent.LlmAgent(
@@ -208,6 +212,24 @@ storyboard_gate_agent = llm_agent.LlmAgent(
     before_model_callback=instrument_agent("storyboard_gate_agent"),
 )
 
+# Review is a conversation, not a single question: a reviewer who asks for a
+# change has to see the result before approving it. The loop repeats
+# review -> edit -> review and exits when record_storyboard_decision escalates
+# on "accept".
+#
+# Each pass suspends waiting for a human, so the loop cannot spin on its own;
+# max_iterations is a backstop against a model that keeps re-gating without
+# ever recording an acceptance. Exhausting it falls through to generation,
+# which then refuses for want of an approval — stuck rather than expensive.
+MAX_REVIEW_ROUNDS = 10
+
+storyboard_review_loop = loop_agent.LoopAgent(
+    name="storyboard_review_loop",
+    description="Reviews the storyboard with a human until they accept it.",
+    sub_agents=[storyboard_gate_agent],
+    max_iterations=MAX_REVIEW_ROUNDS,
+)
+
 
 def _build_pipeline_stages() -> list:
     """Pipeline stages, with the review gate inserted only when enabled.
@@ -219,7 +241,7 @@ def _build_pipeline_stages() -> list:
     """
     stages: list = [planning_agent_text]
     if settings.ENABLE_HITL_GATES:
-        stages.append(storyboard_gate_agent)
+        stages.append(storyboard_review_loop)
     stages.append(generation_agent)
     return stages
 

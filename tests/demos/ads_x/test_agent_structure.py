@@ -110,8 +110,21 @@ def test_review_gate_is_inserted_before_generation_when_enabled():
 
     assert stages == [
         "planning_agent_text",
-        "storyboard_gate_agent",
+        "storyboard_review_loop",
         "generation_agent",
     ]
     # The gate is worthless if it lands after the expensive step.
-    assert stages.index("storyboard_gate_agent") < stages.index("generation_agent")
+    assert stages.index("storyboard_review_loop") < stages.index("generation_agent")
+
+
+def test_review_is_a_bounded_loop_around_the_gate():
+    """Review is a conversation: modify -> edit -> review again, until accept."""
+    from ads_x.agent import storyboard_review_loop
+
+    assert [a.name for a in storyboard_review_loop.sub_agents] == [
+        "storyboard_gate_agent"
+    ]
+    # Each pass waits on a human, so this is a backstop against a model that
+    # re-gates forever without ever recording an acceptance - not a throttle.
+    assert storyboard_review_loop.max_iterations
+    assert storyboard_review_loop.max_iterations <= 20

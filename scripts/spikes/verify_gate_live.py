@@ -96,7 +96,8 @@ async def main() -> int:
     print(f"• Project : {args.project}")
     print(f"• Stages  : {[a.name for a in full_pipeline_agent.sub_agents]}")
     print(f"• Resumable: {app.resumability_config.is_resumable}")
-    if "storyboard_gate_agent" not in [a.name for a in full_pipeline_agent.sub_agents]:
+    stage_names = [a.name for a in full_pipeline_agent.sub_agents]
+    if not any("gate" in n or "review" in n for n in stage_names):
         print("!! Gate absent - ENABLE_HITL_GATES did not take effect.")
         return 1
 
