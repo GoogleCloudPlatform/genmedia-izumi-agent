@@ -52,6 +52,25 @@ REGENERATE = "regenerate"
 VALID_DECISIONS = (ACCEPT, MODIFY, REGENERATE)
 
 
+# Marker that _build_art_direction_block appends to every generated prompt.
+ART_DIRECTION_MARKER = "[ART DIRECTION (NON-NEGOTIABLE)"
+
+
+def split_art_direction(description: str) -> tuple[str, str]:
+    """Separates a prompt's human-readable action from its art-direction block.
+
+    Prompts carry several hundred characters of machine direction appended
+    inline. A reviewer needs to read the action, so the two are returned apart
+    rather than making every client parse the marker itself.
+    """
+    if not description:
+        return "", ""
+    head, marker, tail = description.partition(ART_DIRECTION_MARKER)
+    if not marker:
+        return description.strip(), ""
+    return head.strip(), (marker + tail).strip()
+
+
 def _scene_digest(storyboard: Dict[str, Any]) -> list[Dict[str, Any]]:
     """Compact per-scene view for the approval UI."""
     digest = []
@@ -59,11 +78,15 @@ def _scene_digest(storyboard: Dict[str, Any]) -> list[Dict[str, Any]]:
         if not isinstance(scene, dict):
             continue
         video = scene.get("video_prompt") or {}
+        voiceover = scene.get("voiceover_prompt") or {}
+        action, art_direction = split_art_direction(video.get("description") or "")
         digest.append(
             {
                 "scene_id": scene.get("scene_id"),
                 "topic": scene.get("topic"),
-                "action": video.get("description"),
+                "action": action,
+                "art_direction": art_direction,
+                "voiceover": voiceover.get("text"),
                 "duration_seconds": video.get("duration_seconds"),
                 "rendered": bool(video.get("asset_id")),
             }

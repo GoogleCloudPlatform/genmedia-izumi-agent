@@ -167,3 +167,48 @@ async def test_generation_is_not_gated_when_the_feature_is_off():
 
     assert result["status"] == "failed"
     assert "not been approved" not in result.get("error_message", "")
+
+
+# --------------------------------------------------------------------------
+# Payload readability
+# --------------------------------------------------------------------------
+
+
+def test_art_direction_is_split_from_the_action():
+    description = (
+        "Extreme close-up of a water droplet. "
+        "[ART DIRECTION (NON-NEGOTIABLE) -> Mode: COMMERCIAL_PREMIUM; "
+        "Lighting: Golden Hour]"
+    )
+    action, art = gate_tools.split_art_direction(description)
+
+    assert action == "Extreme close-up of a water droplet."
+    assert art.startswith("[ART DIRECTION")
+    assert "COMMERCIAL_PREMIUM" in art
+
+
+def test_prompt_without_art_direction_is_unchanged():
+    action, art = gate_tools.split_art_direction("Just a plain prompt.")
+    assert action == "Just a plain prompt."
+    assert art == ""
+
+
+def test_split_tolerates_empty_description():
+    assert gate_tools.split_art_direction("") == ("", "")
+
+
+async def test_digest_surfaces_a_readable_action_and_the_voiceover():
+    storyboard = _storyboard()
+    storyboard["scenes"][0]["video_prompt"][
+        "description"
+    ] = "A hero shot. [ART DIRECTION (NON-NEGOTIABLE) -> Mode: X]"
+    storyboard["scenes"][0]["voiceover_prompt"] = {"text": "Stay cold. Stay sharp."}
+
+    result = await gate_tools.await_storyboard_approval(
+        _ctx({"storyboard": storyboard})
+    )
+    scene = result["result"]["scenes"][0]
+
+    assert scene["action"] == "A hero shot."
+    assert scene["art_direction"] == "[ART DIRECTION (NON-NEGOTIABLE) -> Mode: X]"
+    assert scene["voiceover"] == "Stay cold. Stay sharp."
