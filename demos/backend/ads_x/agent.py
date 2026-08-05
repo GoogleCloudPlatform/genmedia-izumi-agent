@@ -39,6 +39,7 @@ from .tools.storyboard import (
     gate_tools,
     look_tools,
     production_tools,
+    regenerate_tools,
     scene_edit_tools,
     storyboard_repair_tools,
 )
@@ -270,6 +271,13 @@ If they want a different visual Look, use `set_look` and then
 `reapply_art_direction`, which restamps the new styling onto the existing
 scenes. Say plainly that this re-renders every visual, because it does.
 
+If the decision is "regenerate", they are rejecting the storyboard itself, not
+asking for corrections — no amount of editing turns a wrong concept into a
+right one. Call `regenerate_storyboard` with what they want different, then
+immediately call `storyboard_agent_creative` to write the replacement. Never
+leave the campaign without a storyboard. Use `regenerate_music` if it is only
+the music they dislike.
+
 Then call `await_storyboard_approval` again. Someone who asked for changes has
 not seen the result yet, so the revised storyboard goes back to them, and round
 it goes until they accept. Summarise what you changed each time.
@@ -299,6 +307,11 @@ storyboard_gate_agent = llm_agent.LlmAgent(
         FunctionTool(look_tools.list_looks),
         FunctionTool(look_tools.set_look),
         FunctionTool(look_tools.reapply_art_direction),
+        # "Regenerate" is a rejection, not a correction: discard and rewrite
+        # rather than trying to edit a wrong concept into a right one.
+        FunctionTool(regenerate_tools.regenerate_storyboard),
+        FunctionTool(regenerate_tools.regenerate_music),
+        AgentTool(agent=storyboard_agent_creative),
     ],
     before_model_callback=instrument_agent("storyboard_gate_agent"),
 )
@@ -331,6 +344,12 @@ they can watch the new version. Keep going until they accept.
 
 Re-render only what was called out. Every clip costs real money and minutes to
 produce, and the ones they did not mention are ones they were happy with.
+
+If the decision is "regenerate" and they are rejecting the whole video rather
+than naming clips, call `regenerate_all_media` with their direction, then
+`generate_all_media` and `stitch_final_video`. Reach for this only when they
+really do mean all of it. If only the music is wrong, `regenerate_music` redoes
+that alone.
 """
 
 final_cut_gate_agent = llm_agent.LlmAgent(
@@ -344,6 +363,10 @@ final_cut_gate_agent = llm_agent.LlmAgent(
         # Fix a clip, then rebuild the cut around it.
         FunctionTool(generation_tools.regenerate_scene),
         FunctionTool(stitching_tools.stitch_final_video),
+        # For a wholesale rejection rather than a note about specific clips.
+        FunctionTool(regenerate_tools.regenerate_all_media),
+        FunctionTool(regenerate_tools.regenerate_music),
+        FunctionTool(generation_tools.generate_all_media),
     ],
     before_model_callback=instrument_agent("final_cut_gate_agent"),
 )
