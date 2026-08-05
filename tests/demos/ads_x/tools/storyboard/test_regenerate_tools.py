@@ -129,8 +129,23 @@ async def test_the_stale_stitched_cut_is_dropped():
     ctx = _ctx()
     await regenerate_tools.regenerate_all_media(ctx)
 
-    assert "final_video_asset_id" not in ctx.state
-    assert "final_video_asset_ref" not in ctx.state
+    # Cleared by assignment: ADK's State has no pop/del, so a real run would
+    # crash if this tried to remove the keys.
+    assert not ctx.state["final_video_asset_id"]
+    assert not ctx.state["final_video_asset_ref"]
+
+
+async def test_clearing_the_cut_works_on_a_real_adk_state_object():
+    # The plain dict used elsewhere in these tests hides the pop/del problem.
+    from google.adk.sessions.state import State
+
+    ctx = _ctx()
+    ctx.state = State(value=dict(ctx.state), delta={})
+
+    result = await regenerate_tools.regenerate_all_media(ctx)
+
+    assert result["status"] == "succeeded"
+    assert not ctx.state.get("final_video_asset_id")
 
 
 async def test_guidance_reaches_every_scene():

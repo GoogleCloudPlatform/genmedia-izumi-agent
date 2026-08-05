@@ -59,6 +59,12 @@ def _configure_environment(project: str, location: str) -> None:
     os.environ["USE_CREATIVE_STUDIO"] = "False"
 
 
+def _user(text):
+    from google.genai import types as _t
+
+    return _t.Content(role="user", parts=[_t.Part(text=text)])
+
+
 def _summarise(event) -> None:
     author = getattr(event, "author", "?")
     for part in (event.content.parts if event.content else None) or []:
@@ -74,6 +80,9 @@ async def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--project", default="project-izumi-dev")
     parser.add_argument("--location", default="global")
+    parser.add_argument(
+        "--max-gates", type=int, default=4, help="Safety bound on checkpoints"
+    )
     parser.add_argument(
         "--approve",
         action="store_true",
@@ -106,69 +115,95 @@ async def main() -> int:
         app_name="ads_x", user_id="gate-verifier"
     )
 
-    gate_payload, long_running_ids = None, set()
+    async def current_state():
+        live = await runner.session_service.get_session(
+            app_name="ads_x", user_id="gate-verifier", session_id=session.id
+        )
+        return live.state if live else {}
 
-    async def turn(label: str, text: str) -> None:
-        nonlocal gate_payload
-        print(f"\n[{label}] {text[:70]}...\n")
+    seen_gates: list = []
+
+    async def drive(label: str, message) -> tuple:
+        """Runs one turn; returns (pending_call, payload) if a gate suspended."""
+        print(f"\n[{label}]\n")
+        pending, payload = None, None
         async for event in runner.run_async(
-            user_id="gate-verifier",
-            session_id=session.id,
-            new_message=types.Content(role="user", parts=[types.Part(text=text)]),
+            user_id="gate-verifier", session_id=session.id, new_message=message
         ):
             _summarise(event)
-            if getattr(event, "long_running_tool_ids", None):
-                long_running_ids.update(event.long_running_tool_ids)
+            ids = getattr(event, "long_running_tool_ids", None) or set()
             for part in (event.content.parts if event.content else None) or []:
+                call = getattr(part, "function_call", None)
+                if call is not None and call.id in ids:
+                    pending = (call.id, call.name)
                 response = getattr(part, "function_response", None)
-                if response and response.name == "await_storyboard_approval":
-                    gate_payload = response.response
+                if response is not None and str(response.name).startswith("await_"):
+                    payload = response.response
+        return pending, payload
 
-    # The root agent presents a "creative blueprint" and waits for explicit
-    # confirmation before handing off to full_pipeline_agent (root_instruction
-    # Step 1C/1D), so driving it takes two turns.
-    await turn("turn 1: brief", BRIEF)
-    if not long_running_ids:
-        await turn(
-            "turn 2: confirm",
-            "Yes, the blueprint looks right. Please proceed and build the "
-            "storyboard.",
+    def answer(call, decision="accept", guidance=""):
+        call_id, name = call
+        return types.Content(
+            role="user",
+            parts=[
+                types.Part(
+                    function_response=types.FunctionResponse(
+                        id=call_id,
+                        name=name,
+                        response={"decision": decision, "guidance": guidance},
+                    )
+                )
+            ],
         )
 
-    session = await runner.session_service.get_session(
-        app_name="ads_x", user_id="gate-verifier", session_id=session.id
-    )
-    state = session.state if session else {}
+    # The root agent presents a blueprint and waits for confirmation before
+    # handing off to the pipeline, so the first two turns are conversational.
+    pending, payload = await drive("turn 1: brief", _user(BRIEF))
+    if not pending:
+        pending, payload = await drive(
+            "turn 2: confirm",
+            _user("Yes, that looks right. Please proceed."),
+        )
+
+    # Then answer each checkpoint in turn until the pipeline runs out of them.
+    for round_number in range(1, args.max_gates + 1):
+        if not pending:
+            break
+        call_id, name = pending
+        stage = (payload or {}).get("result", {}).get("stage", name)
+        seen_gates.append(stage)
+        print(f"\n{'=' * 70}\nGATE {round_number}: {stage}  (call {call_id})")
+        print(json.dumps(payload, indent=2, default=str)[:1800])
+        print("=" * 70)
+        pending, payload = await drive(
+            f"answering {stage} -> accept", answer(pending, "accept")
+        )
+
+    print(f"\ncheckpoints reached: {seen_gates}")
+
+    state = await current_state()
     storyboard = state.get("storyboard") or {}
 
     print("\n" + "=" * 70)
+    print(f"storyboard scenes : {len(storyboard.get('scenes') or [])}")
     print(
-        f"storyboard built     : {bool(storyboard.get('scenes'))} "
-        f"({len(storyboard.get('scenes') or [])} scenes)"
+        f"scene ids         : {[s.get('scene_id') for s in storyboard.get('scenes') or []]}"
     )
-    print(
-        f"gate suspended run   : {bool(long_running_ids)}  {sorted(long_running_ids)}"
+    print(f"stage cursor      : {state.get('stage_completed')}")
+    print(f"strategy approved : {bool(state.get('strategy_decision'))}")
+    print(f"storyboard approved: {bool(state.get('storyboard_decision'))}")
+    print(f"final cut approved : {bool(state.get('final_cut_decision'))}")
+    print(f"final video asset : {state.get('final_video_asset_id')}")
+    rendered = sum(
+        1
+        for sc in storyboard.get("scenes") or []
+        if (sc.get("video_prompt") or {}).get("asset_id")
     )
-    print(
-        f"scene ids assigned   : "
-        f"{[s.get('scene_id') for s in storyboard.get('scenes') or []]}"
-    )
-    print(f"stage cursor         : {state.get('stage_completed')}")
-    print(f"approved             : {gate_tools.storyboard_is_approved(state)}")
-
-    if gate_payload:
-        print("\n--- payload delivered to the frontend ---")
-        print(json.dumps(gate_payload, indent=2, default=str)[:2000])
-
-    rendered = any(
-        (s.get("video_prompt") or {}).get("asset_id")
-        for s in storyboard.get("scenes") or []
-    )
-    print(f"\nmedia rendered before approval: {rendered}  <- must be False")
+    print(f"clips rendered    : {rendered}")
     print("=" * 70)
 
-    ok = bool(long_running_ids) and not rendered
-    print("\n==> GATE VERIFIED" if ok else "\n==> GATE DID NOT BEHAVE AS EXPECTED")
+    ok = len(seen_gates) >= 1
+    print(f"\n==> reached {len(seen_gates)} checkpoint(s): {seen_gates}")
     return 0 if ok else 1
 
 

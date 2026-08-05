@@ -44,6 +44,7 @@ from .tools.storyboard import (
     storyboard_repair_tools,
 )
 from .utils.common import common_utils
+from .utils.common.resumable_agent import ResumableLlmAgent
 from .tools.parameters import campaign_edit_tools, parameters_tools
 
 # A review is a conversation, so each gate loops until the reviewer accepts.
@@ -404,7 +405,9 @@ full_pipeline_agent = sequential_agent.SequentialAgent(
     sub_agents=_build_pipeline_stages(),
 )
 
-root_agent = llm_agent.LlmAgent(
+# ResumableLlmAgent, not LlmAgent: a transferring root can only be resumed once
+# in stock ADK, which would cap a run at a single review. See resumable_agent.
+root_agent = ResumableLlmAgent(
     model="gemini-3.5-flash",
     name="ads_x_agent",
     instruction=root_instruction.get_instruction,

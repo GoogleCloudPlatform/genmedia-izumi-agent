@@ -163,9 +163,11 @@ async def regenerate_all_media(
                     )
         released += storyboard_merge.clear_scene_assets(scene)
 
-    # The stitched cut is assembled from clips that no longer exist.
-    tool_context.state.pop("final_video_asset_id", None)
-    tool_context.state.pop("final_video_asset_ref", None)
+    # The stitched cut is assembled from clips that no longer exist. Cleared by
+    # assignment rather than deletion: ADK's State supports neither pop nor del,
+    # so removing a key raises at runtime.
+    tool_context.state["final_video_asset_id"] = None
+    tool_context.state["final_video_asset_ref"] = None
     tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
 
     logger.info(
