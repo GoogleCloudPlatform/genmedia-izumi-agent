@@ -21,7 +21,7 @@ import mediagent_kit
 from utils.adk import get_session_id_from_context
 
 from ...utils.common import common_utils
-from ...utils.storyboard import storyboard_model
+from ...utils.storyboard import storyboard_merge, storyboard_model
 
 logger = logging.getLogger(__name__)
 
@@ -278,6 +278,15 @@ async def finalize_and_persist_storyboard(
         )
         sb_dump["session_id"] = session_id
         sb_dump["workspace_id"] = workspace_id
+
+        # Merge over the persisted storyboard rather than replacing it. The dump
+        # above is parsed from the LLM's JSON and therefore carries no asset ids,
+        # so a plain assignment would discard every already-rendered frame, clip
+        # and voiceover on any storyboard re-run. The merge assigns stable
+        # scene ids and carries forward assets whose prompts are unchanged.
+        sb_dump = storyboard_merge.merge_storyboard(
+            tool_context.state.get(common_utils.STORYBOARD_KEY), sb_dump
+        )
         tool_context.state[common_utils.STORYBOARD_KEY] = sb_dump
 
         # 6. Beautify for UI
