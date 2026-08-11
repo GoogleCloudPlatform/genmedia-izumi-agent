@@ -362,9 +362,17 @@ class MediaGenerationServiceInterface(ABC):
         start_image: Optional[AssetRef] = None,
         end_image: Optional[AssetRef] = None,
         reference_videos: Optional[list[AssetRef]] = None,
+        generate_audio: bool = False,
         idempotency_key: Optional[str] = None,
     ) -> GeneratedAsset:
-        """Generates a video clip (text-to-video or image-to-video)."""
+        """Generates a video clip (text-to-video or image-to-video).
+
+        Args:
+            generate_audio: Whether the model should produce an audio track
+                alongside the video. Needed for UGC and lip-sync work, where
+                the clip's own audio is what ends up on the timeline. Defaults
+                to False, so a caller that does not ask gets a silent clip.
+        """
 
     @abstractmethod
     async def generate_speech(

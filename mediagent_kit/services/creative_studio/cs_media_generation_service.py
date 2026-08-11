@@ -316,9 +316,15 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         start_image: Optional[AssetRef] = None,
         end_image: Optional[AssetRef] = None,
         reference_videos: Optional[list[AssetRef]] = None,
+        generate_audio: bool = False,
         idempotency_key: Optional[str] = None,
     ) -> GeneratedAsset:
-        """Generates a video via CS POST /api/videos/generate-videos and polls for completion."""
+        """Generates a video via CS POST /api/videos/generate-videos and polls for completion.
+
+        Creative Studio's video endpoint has no audio toggle, so
+        ``generate_audio`` is accepted for interface parity and
+        recorded on the asset, but not forwarded.
+        """
         ws_id = self._get_workspace_id(workspace_id)
         token = self._get_user_auth_token()
 

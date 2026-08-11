@@ -31,6 +31,26 @@ from ...utils.storyboard import template_library
 
 logger = logging.getLogger(__name__)
 
+
+def _clip_carries_audio(video_asset: Any) -> bool:
+    """Whether this clip has an audio track worth placing on the timeline.
+
+    A silent clip contributes nothing, and asking the stitcher to lay down an
+    empty track is at best wasted work. The generator records whether it asked
+    the model for audio; when it does not say, fall back to "it is a video, try
+    it", which is the older behaviour and errs towards keeping audio.
+    """
+    if not str(getattr(video_asset, "mime_type", "")).startswith("video/"):
+        return False
+
+    metadata = getattr(video_asset, "generation_metadata", None)
+    generated_audio = getattr(metadata, "generate_audio", None) if metadata else None
+    if generated_audio is None:
+        # Unknown: uploaded clips and backends that do not report it.
+        return True
+    return bool(generated_audio)
+
+
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
 tool_failure = common_utils.tool_failure
@@ -324,9 +344,7 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                     # NOTE: Unified AssetServiceInterface adaptation.
                     # This would break legacy version due to function signature and method name mismatch.
                     video_asset = await asset_service.get_asset(video_ref)
-                    if video_asset and getattr(video_asset, "mime_type", "").startswith(
-                        "video/"
-                    ):
+                    if video_asset and _clip_carries_audio(video_asset):
                         # Look up by stable scene_id (previously by array
                         # index). See stable-scene-ids migration.
                         scene_id = scene.get("scene_id")

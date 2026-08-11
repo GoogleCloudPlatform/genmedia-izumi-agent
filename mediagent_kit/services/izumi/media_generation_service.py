@@ -98,6 +98,7 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
         mime_type_fallback: str,
         model: Optional[str] = None,
         prompt: Optional[str] = None,
+        generate_audio: Optional[bool] = None,
     ) -> GeneratedAsset:
         """Maps a legacy ``Asset`` to a terminal ``GeneratedAsset``."""
         current = getattr(asset, "current", None)
@@ -119,7 +120,10 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
             duration_seconds=float(duration) if duration is not None else None,
             error_message=None,
             generation_metadata=GenerationMetadata(
-                source="izumi", model=model, prompt=prompt
+                source="izumi",
+                model=model,
+                prompt=prompt,
+                generate_audio=generate_audio,
             ),
         )
 
@@ -203,6 +207,7 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
         start_image: Optional[AssetRef] = None,
         end_image: Optional[AssetRef] = None,
         reference_videos: Optional[list[AssetRef]] = None,
+        generate_audio: bool = False,
         idempotency_key: Optional[str] = None,
     ) -> GeneratedAsset:
         """Generates a video via native Veo (image-to-video when a start
@@ -220,6 +225,7 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
             last_frame_filename=last_frame,
             method="image_to_video",
             model=generation_model,
+            generate_audio=generate_audio,
         )
         return self._to_generated_asset(
             asset,
@@ -227,6 +233,7 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
             mime_type_fallback="video/mp4",
             model=generation_model,
             prompt=prompt,
+            generate_audio=generate_audio,
         )
 
     async def generate_speech(

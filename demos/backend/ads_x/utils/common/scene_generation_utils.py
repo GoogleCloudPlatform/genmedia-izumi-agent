@@ -184,6 +184,7 @@ async def generate_scene_video(
                 duration_seconds=int(valid_duration),
                 file_name=filename,
                 start_image=start_image_ref,
+                generate_audio=should_generate_audio,
             )
             if "video_prompt" in scene:
                 scene["video_prompt"]["asset_id"] = video_asset.id

@@ -139,6 +139,13 @@ class GenerationMetadata(BaseModel):
     prompt: Optional[str] = None
     negative_prompt: Optional[str] = None
     seed: Optional[int] = None
+    generate_audio: Optional[bool] = None
+    """Whether the model was asked to produce an audio track with the video.
+
+    None when unknown or not applicable (stills, audio assets, or a backend
+    that does not report it). Consumers deciding whether to place a clip's own
+    audio on a timeline should treat None as "unknown", not as "no audio".
+    """
     references: list[AssetRef] = Field(default_factory=list)
     raw: dict = Field(default_factory=dict)
 
