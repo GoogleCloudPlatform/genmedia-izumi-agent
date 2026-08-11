@@ -31,7 +31,7 @@ def mock_config():
     config.models = {
         "text": {"default": "gemini-2.5-flash"},
         "image_imagen": {"default": "imagen-4.0-generate-001"},
-        "image_gemini": {"default": "gemini-3.1-flash-image-preview"},
+        "image_gemini": {"default": "gemini-3.1-flash-image"},
         "video": {"default": "veo-3.1-generate-001"},
         "music": {"default": "lyria-002"},
         "tts": {"default": "gemini-2.5-pro-tts"},

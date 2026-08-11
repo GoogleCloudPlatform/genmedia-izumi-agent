@@ -21,7 +21,7 @@ async def test_generate_background_music_success(
 
     mock_asset = MagicMock(spec=Asset)
     mock_asset.id = "music_123"
-    mock_mediagen.generate_music_with_lyria.return_value = mock_asset
+    mock_mediagen.generate_music.return_value = mock_asset
 
     music_prompt = {"description": "Upbeat jazz"}
     result = await generate_background_music("user1", music_prompt)
@@ -38,7 +38,7 @@ async def test_generate_background_music_failure(
     mock_mediagen = AsyncMock()
     mock_get_media_gen_service.return_value = mock_mediagen
 
-    mock_mediagen.generate_music_with_lyria.side_effect = Exception("API Error")
+    mock_mediagen.generate_music.side_effect = Exception("API Error")
 
     music_prompt = {"description": "Upbeat jazz"}
     result = await generate_background_music("user1", music_prompt)
@@ -59,11 +59,8 @@ async def test_generate_scene_voiceover_success(
 
     mock_asset = MagicMock(spec=Asset)
     mock_asset.id = "voice_123"
-    # Mock duration
-    mock_version = MagicMock()
-    mock_version.duration_seconds = 3.0
-    mock_asset.versions = [mock_version]
-    mock_mediagen.generate_speech_single_speaker.return_value = mock_asset
+    mock_asset.duration_seconds = 3.0
+    mock_mediagen.generate_speech.return_value = mock_asset
 
     voice_prompt = {"text": "Hello world", "gender": "male"}
     result = await generate_scene_voiceover("user1", voice_prompt, index=0)
@@ -87,18 +84,14 @@ async def test_generate_scene_voiceover_too_long_shorten(
 
     mock_asset_long = MagicMock(spec=Asset)
     mock_asset_long.id = "voice_long"
-    mock_version_long = MagicMock()
-    mock_version_long.duration_seconds = 10.0
-    mock_asset_long.versions = [mock_version_long]
+    mock_asset_long.duration_seconds = 10.0
 
     mock_asset_short = MagicMock(spec=Asset)
     mock_asset_short.id = "voice_short"
-    mock_version_short = MagicMock()
-    mock_version_short.duration_seconds = 3.0
-    mock_asset_short.versions = [mock_version_short]
+    mock_asset_short.duration_seconds = 3.0
 
     # First call returns long asset, second returns short asset
-    mock_mediagen.generate_speech_single_speaker.side_effect = [
+    mock_mediagen.generate_speech.side_effect = [
         mock_asset_long,
         mock_asset_short,
     ]

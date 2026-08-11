@@ -19,7 +19,7 @@ import { request } from './client';
 export const assetsApi = {
   async getAssets(projectId: string) {
     console.log(`[API] Fetching assets for project (user_id) ${projectId}`);
-    return request(`/users/${projectId}/assets`);
+    return request(`/workspaces/${projectId}/assets`);
   },
 
   async createAsset(projectId: string, file: File) {
@@ -29,7 +29,7 @@ export const assetsApi = {
     formData.append('file_name', file.name);
     formData.append('mime_type', file.type);
 
-    return request(`/users/${projectId}/assets`, {
+    return request(`/workspaces/${projectId}/assets`, {
       method: 'POST',
       body: formData,
     });

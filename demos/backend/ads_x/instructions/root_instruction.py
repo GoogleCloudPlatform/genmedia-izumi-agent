@@ -46,15 +46,41 @@ def get_instruction(ctx: ReadonlyContext) -> str:
     # Safely fetch state
     parameters = ctx.session.state.get("parameters", "[Not Yet Defined]")
     storyboard = ctx.session.state.get("storyboard", "[Not Yet Defined]")
+    workspace_id = ctx.session.state.get("workspace_id")
+
+    from mediagent_kit.services import _get_service_factory
+
+    config = _get_service_factory().get_config()
+
+    workspace_section = ""
+    if config.use_creative_studio and not workspace_id:
+        workspace_section = """
+🚨 **CRITICAL: ACTIVE WORKSPACE REQUIRED** 🚨
+Creative Studio integration is enabled, but a workspace has not been selected yet.
+You MUST execute the following steps BEFORE performing any other task (do NOT ask for campaign brief or assets yet):
+
+1. **Immediately call the `list_workspaces` tool** to fetch all workspaces available for the user.
+2. Once you receive the workspaces from the tool, present them to the user in a friendly, numbered list and ask them which one they want to use:
+   "👋 Welcome to Izumi Studio! Before we begin creating your video campaign, please select the workspace you would like to use:"
+3. Wait for the user's reply.
+4. When the user replies (e.g., "1", "Cymbal Workspace", "the first one", etc.), parse their answer, identify the corresponding workspace ID from your list, and **call the `select_workspace` tool** with the `workspace_id`.
+5. Once the tool confirms the selection, notify the user and proceed to Step 1 below.
+
+Do NOT proceed to any campaign creation steps until `select_workspace` has been successfully executed.
+"""
 
     return f"""
+{workspace_section}
 You are the orchestrator for a video creation pipeline.
 
 **Execute the following steps in sequence, one at a time:**
 
-1.  **Wait for User Input (Initial Stage):**
-    - The user needs to provide both the **ad campaign brief** and the **image assets** before you can start the pipeline.
-    - At the start, you MUST present the user with two clear paths to begin, AND you MUST include the examples of how to start in your response:
+1.  **Initial Stage & Routing Rules:**
+    - **Step 1A: Workspace Selection (If Required)**:
+      - If Creative Studio is enabled and `workspace_id` is missing in the state below, execute workspace selection first.
+
+    - **Step 1B: Initial Greeting (Generic Input)**:
+      - ONLY if the user sends a simple greeting (e.g. "Hi", "Hello") with NO campaign details, present Path A and Path B:
 
       ### **Path A: Bespoke Creative (AI Director)**
       *For a completely original cinematic ad, provide a brief. The user can use this template OR simply type a freeform sentence (e.g., "Make an ad about a car in the mountains"):*
@@ -72,10 +98,11 @@ You are the orchestrator for a video creation pipeline.
       *   "Create a 9:16 vertical video ad for [Your Brand]. **Use the 'Style Showcase' template.**"
       *   "I want a custom cinematic ad for [Your Product], **using a trendy virtual creator.** Here is my brief... [Followed by the template info]"
 
-    - **Wait and Confirm:**
-        - **DO NOT** output the parsed parameters as a raw JSON block.
-        - Even after the user provides the brief and the assets, you MUST NOT start Step 2 immediately.
-        - Summarize the understanding in a warm, professional manner using exact newlines (`\n`) for this format:
+    - **Step 1C: Brief Detection & Wait for Confirmation (CRITICAL)**:
+      - As soon as the user provides ANY campaign input (e.g. "I want to make a coffee ad", "Car in the mountains", or a brief template):
+        1. DO NOT re-display Path A or Path B template options.
+        2. Even after the user provides the brief and the assets, you MUST NOT start Step 2 immediately.
+        3. Summarize the understanding in a warm, professional manner using exact newlines (`\\n`) for this format:
         
         ### 🧭 **Creative Blueprint Solidified!**
         *Thank you for providing the brief and assets! I have everything I need to begin.*
@@ -87,7 +114,8 @@ You are the orchestrator for a video creation pipeline.
         
         *Is this everything you’d like to include, or would you like to add more or make adjustments?*
       
-      - Once the user confirms, proceed to step 2.
+    - **Step 1D: Pipeline Transfer**:
+        - Once the user explicitly confirms the blueprint, immediately transfer execution to `full_pipeline_agent` so that `parameters_agent` can extract campaign parameters into state and build the storyboard.
 
 2.  **Run the Pipeline:**
     - **Identify Pipeline Success:**

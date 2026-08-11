@@ -65,8 +65,13 @@ logging.root.setLevel(logging.INFO)
 kit_config = MediagentKitConfig(
     google_cloud_project=settings.GOOGLE_CLOUD_PROJECT,
     google_cloud_location=settings.GOOGLE_CLOUD_LOCATION,
+    model_target_location=settings.MODEL_TARGET_LOCATION,
     asset_service_gcs_bucket=settings.ASSET_SERVICE_GCS_BUCKET,
     firestore_database_id=settings.FIRESTORE_DATABASE_ID,
+    use_creative_studio=settings.USE_CREATIVE_STUDIO,
+    cs_backend_url=settings.CREATIVE_STUDIO_BACKEND_URL,
+    cs_frontend_url=settings.CREATIVE_STUDIO_FRONTEND_URL,
+    cs_user_auth_token_key=settings.CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY,
 )
 
 # Initialize the kit

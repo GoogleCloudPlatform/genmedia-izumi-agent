@@ -18,11 +18,15 @@ import asyncio
 import logging
 import json
 import uuid
-from typing import Any, List
+from typing import Any, List, Optional
 
 from google.adk.tools.tool_context import ToolContext
 
-from utils.adk import get_user_id_from_context
+from utils.adk import (
+    get_user_id_from_context,
+    get_session_id_from_context,
+    resolve_workspace_id,
+)
 import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 
@@ -41,10 +45,10 @@ tool_failure = common_utils.tool_failure
 
 
 async def generate_scene_video(
-    user_id: str,
     scene: dict[str, Any],
     index: int,
     aspect_ratio: str,
+    workspace_id: str,
     uid: str = "",
     veo_method: str = "image_to_video",
     first_frame_asset: Asset | None = None,
@@ -55,13 +59,23 @@ async def generate_scene_video(
     video_prompt_data = scene["video_prompt"]
 
     # Idempotency: Skip if already generated
-    if video_prompt_data.get("asset_id"):
+    if video_prompt_data.get("asset_ref"):
         logger.info(f"Video for scene {index} already exists. Skipping generation.")
         asset_service = mediagent_kit.services.aio.get_asset_service()
-        video_asset = await asset_service.get_asset(video_prompt_data["asset_id"])
+        # NOTE: Unified AssetServiceInterface adaptation.
+        # This would break legacy version due to function signature and method name mismatch.
+        from mediagent_kit.services.types.common import AssetRef
+
+        ref_dict = video_prompt_data["asset_ref"]
+        ref = AssetRef(
+            id=str(ref_dict["id"]),
+            asset_type=ref_dict["asset_type"],
+            workspace_id=str(workspace_id),
+        )
+        video_asset = await asset_service.get_asset(ref)
         return [first_frame_asset, video_asset] if first_frame_asset else [video_asset]
 
-    logger.info(f"Generating video for scene {index}")
+    logger.info(f"Generating video for scene {index} (Workspace: {workspace_id})")
     mediagent_service = mediagent_kit.services.aio.get_media_generation_service()
     asset_service = mediagent_kit.services.aio.get_asset_service()
     voiceover_text = scene.get("voiceover_prompt", {}).get("text", "")
@@ -71,6 +85,7 @@ async def generate_scene_video(
             f"Skipping video generation for scene {index} due to missing first frame."
         )
         scene["video_prompt"]["asset_id"] = None
+        scene["video_prompt"]["asset_ref"] = None
         return []
 
     valid_duration = generation_helpers.clamp_duration(
@@ -87,7 +102,7 @@ async def generate_scene_video(
 
     final_video_prompt, enrichment_asset_id = (
         await enrichment_utils.enrich_prompt_with_llm(
-            user_id,
+            workspace_id,
             video_prompt_data["description"],
             enrichment_data,
             scene_index=index,
@@ -102,7 +117,7 @@ async def generate_scene_video(
 
     try:
         winner_asset = await scene_generation_utils.generate_scene_video(
-            user_id=user_id,
+            workspace_id=workspace_id,
             scene=scene,
             index=index,
             valid_duration=valid_duration,
@@ -116,6 +131,11 @@ async def generate_scene_video(
 
         # Sync back to storyboard for persistence
         video_prompt_data["asset_id"] = winner_asset.id
+        video_prompt_data["asset_ref"] = {
+            "id": winner_asset.id,
+            "asset_type": "generated",
+            "workspace_id": workspace_id,
+        }
         return [first_frame_asset, winner_asset]
 
     except Exception as e:
@@ -125,65 +145,127 @@ async def generate_scene_video(
             f"Video generation failed for scene {index}. Using static frame."
         )
         video_prompt_data["asset_id"] = first_frame_asset.id
+        video_prompt_data["asset_ref"] = {
+            "id": first_frame_asset.id,
+            "asset_type": "generated",
+            "workspace_id": workspace_id,
+        }
         return [first_frame_asset, first_frame_asset]
 
 
-async def generate_scene(
-    user_id: str,
+async def generate_scene_first_frame_step(
     scene: dict[str, Any],
     index: int,
     aspect_ratio: str,
+    workspace_id: str,
     uid: str = "",
-    use_voiceover: bool = True,
-    veo_method: str = "image_to_video",
     allow_veo_audio: bool = False,
     global_context: str = "",
-) -> List[Asset]:
-    """Generates the media for one scene."""
-    # Idempotency: Skip if first frame already exists
+    asset_refs: Optional[dict[str, Any]] = None,
+) -> tuple[Asset | None, str]:
+    """Generates (or reuses) the first-frame image for one scene.
+
+    This is the "fast lane" half of scene generation, split out from
+    ``generate_scene`` so the orchestrator can run every first frame (plus the
+    voiceover and music) to completion BEFORE launching the slow video jobs.
+    That ordering keeps audio from queuing behind the video burst on the shared
+    Creative Studio worker pool.
+
+    Returns ``(first_frame_asset, first_frame_desc)``; on failure returns
+    ``(None, "")`` after logging so the caller can gather results and skip the
+    scene's video gracefully.
+    """
     first_frame_prompt = scene.get("first_frame_prompt", {})
     first_frame_asset = None
     first_frame_desc = ""
 
-    if first_frame_prompt.get("asset_id"):
+    if first_frame_prompt.get("asset_ref"):
         logger.info(
             f"First frame for scene {index} already exists. Skipping generation."
         )
         asset_service = mediagent_kit.services.aio.get_asset_service()
-        first_frame_asset = await asset_service.get_asset(
-            first_frame_prompt["asset_id"]
+        # NOTE: Unified AssetServiceInterface adaptation.
+        # This would break legacy version due to function signature and method name mismatch.
+        from mediagent_kit.services.types.common import AssetRef
+
+        ref_dict = first_frame_prompt["asset_ref"]
+        ref = AssetRef(
+            id=str(ref_dict["id"]),
+            asset_type=ref_dict["asset_type"],
+            workspace_id=str(ref_dict.get("workspace_id", workspace_id)),
         )
+        first_frame_asset = await asset_service.get_asset(ref)
     else:
         logger.info(f"Starting generation for scene {index}")
 
         try:
             first_frame_asset, first_frame_desc = (
                 await scene_generation_utils.generate_scene_first_frame(
-                    user_id,
                     scene["first_frame_prompt"],
                     index,
                     aspect_ratio,
+                    workspace_id=workspace_id,
                     voiceover_text=scene.get("voiceover_prompt", {}).get("text", ""),
                     on_screen_text_hint=scene.get("on_screen_text_hint", ""),
                     uid=uid,
                     is_ugc=allow_veo_audio,
                     context=global_context,
+                    asset_refs=asset_refs,
                 )
             )
-            # Persist first frame asset id
+            # Persist first frame asset id and asset_ref
             scene["first_frame_prompt"]["asset_id"] = first_frame_asset.id
+            scene["first_frame_prompt"]["asset_ref"] = {
+                "id": first_frame_asset.id,
+                "asset_type": "generated",
+                "workspace_id": workspace_id,
+            }
         except Exception as e:
             logger.error(
                 f"Critical failure generating first frame for scene {index}: {e}"
             )
-            return []
+            return None, ""
+
+    return first_frame_asset, first_frame_desc
+
+
+async def generate_scene(
+    scene: dict[str, Any],
+    index: int,
+    aspect_ratio: str,
+    workspace_id: str,
+    uid: str = "",
+    use_voiceover: bool = True,
+    veo_method: str = "image_to_video",
+    allow_veo_audio: bool = False,
+    global_context: str = "",
+    asset_refs: Optional[dict[str, Any]] = None,
+) -> List[Asset]:
+    """Generates the media for one scene (first frame -> video, sequentially).
+
+    Retained for the single-scene regeneration path; ``generate_all_media`` no
+    longer uses this and instead drives the two phases (first frame, then video)
+    itself so audio and images finish before the slow video jobs start.
+    """
+    first_frame_asset, first_frame_desc = await generate_scene_first_frame_step(
+        scene,
+        index,
+        aspect_ratio,
+        workspace_id,
+        uid=uid,
+        allow_veo_audio=allow_veo_audio,
+        global_context=global_context,
+        asset_refs=asset_refs,
+    )
+    if first_frame_asset is None:
+        return []
 
     # Voiceover handling (idempotent helper will skip if asset_id exists)
     voiceover_task = None
     if use_voiceover:
         target_duration = scene.get("duration_seconds", 4.0)
         voiceover_task = generation_helpers.generate_scene_voiceover(
-            user_id,
+            workspace_id,
             scene["voiceover_prompt"],
             index,
             uid,
@@ -197,12 +279,12 @@ async def generate_scene(
         )
 
     video_task = generate_scene_video(
-        user_id,
         scene,
         index,
         aspect_ratio,
-        uid,
-        veo_method,
+        workspace_id=workspace_id,
+        uid=uid,
+        veo_method=veo_method,
         first_frame_asset=first_frame_asset,
         context=blended_video_context,
         allow_veo_audio=allow_veo_audio,
@@ -222,6 +304,10 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
         "⭐⭐⭐ [NATIVE TOOL INVOCATION] `generate_all_media` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
     )
     logger.info("Tool 'generate_all_media' invoked.")
+
+    workspace_id, ws_error = resolve_workspace_id(tool_context)
+    if ws_error:
+        return tool_failure(ws_error)
 
     if (storyboard := tool_context.state.get(common_utils.STORYBOARD_KEY)) is None:
         return tool_failure("Missing storyboard.")
@@ -243,10 +329,15 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
     )
 
     uid = uuid.uuid4().hex[:4]
-    user_id = get_user_id_from_context(tool_context)
 
-    # --- VOICE OVER GROUPING LOGIC ---
+    # --- VOICE OVER GROUPING (decision only) ---
+    # Build the grouped-voiceover tasks here but DO NOT await them yet: they are
+    # gathered together with music and the scenes below so nothing serially
+    # blocks on voiceover generation (a slow/timing-out voiceover previously
+    # delayed all scene rendering). Only the grouping decision is needed now, to
+    # choose grouped vs per-scene voiceover.
     voiceover_groups = []
+    group_vo_tasks = []
     if not is_ugc:
         try:
             storyboard_obj = storyboard_model.Storyboard(**storyboard)
@@ -260,7 +351,6 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
                 s["scene_id"]: s for s in storyboard["scenes"] if s.get("scene_id")
             }
 
-            group_tasks = []
             for i, group in enumerate(voiceover_groups):
                 first_scene_id = group.scene_ids[0]
                 first_scene = scene_by_id.get(first_scene_id)
@@ -273,30 +363,33 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
                 style_description = first_scene["voiceover_prompt"].get(
                     "description", "A professional commercial voiceover."
                 )
-                group_tasks.append(
+                group_vo_tasks.append(
                     voiceover_tools.generate_group_voiceover(
-                        user_id=user_id,
                         group=group,
+                        workspace_id=workspace_id,
                         style_prompt=style_description,
                         group_index=i,
                     )
                 )
-
-            if group_tasks:
-                await asyncio.gather(*group_tasks)
-                storyboard["voiceover_groups"] = [
-                    g.model_dump() for g in voiceover_groups
-                ]
         except Exception as e:
             logger.error(f"Voiceover grouping failure: {e}")
+            voiceover_groups = []
+            group_vo_tasks = []
 
     use_per_scene_voiceover = use_voiceover if not voiceover_groups else False
 
     # --- ASSET BINDING (Hardened & Sanitized) ---
     user_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
     creator_metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY, {})
-    creator_id = creator_metadata.get("asset_id") or next(
-        (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
+    creator_id_val = (
+        creator_metadata.get("asset_ref", {}).get("id") if creator_metadata else None
+    )
+    creator_id = (
+        f"virtual_creator_{creator_id_val}.png"
+        if creator_id_val
+        else next(
+            (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
+        )
     )
     primary_product = next(
         (
@@ -334,11 +427,18 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
             "HUMAN",
             "TALKING HEAD",
         ]
+        has_creator = any(
+            (
+                isinstance(a, str)
+                and (a.startswith("virtual_creator_") or a == creator_id)
+            )
+            for a in assets
+        )
         if creator_id and (
             any(t in desc for t in char_triggers)
             or any(t in guidance for t in char_triggers)
         ):
-            if creator_id not in assets:
+            if not has_creator:
                 assets.append(creator_id)
                 logger.info(
                     f"Bound Creator {creator_id} to scene based on description/guidance."
@@ -397,33 +497,148 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
 
         scene["first_frame_prompt"]["assets"] = assets
 
-    # --- CORE GENERATION ---
+    # --- CORE GENERATION (phased: fast lane -> slow lane) ---
+    # The Creative Studio backend runs audio/image/video jobs through one shared
+    # worker pool, and a video job holds a worker for minutes. Submitting
+    # everything at once lets a voiceover job sit queued behind the video burst
+    # and blow its poll timeout. So we run two phases:
+    #   Phase 1 (fast): grouped/per-scene voiceover + music + every first frame.
+    #   Phase 2 (slow): the scene videos, each anchored to its ready first frame.
+    # Audio and images all finish before any video competes, so audio no longer
+    # starves. There is no cross-dependency between these until stitch time.
     if "background_music_prompt" not in storyboard:
         return tool_failure(
             "Malformed storyboard: 'background_music_prompt' key is missing."
         )
 
-    music_task = generation_helpers.generate_background_music(
-        user_id, storyboard["background_music_prompt"], uid
-    )
-    scene_tasks = [
-        generate_scene(
-            user_id,
-            scene,
-            index,
-            aspect_ratio,
-            uid=uid,
-            use_voiceover=use_per_scene_voiceover,
-            veo_method=veo_method,
-            allow_veo_audio=is_ugc,
-            global_context=generation_helpers.build_global_context_string(
-                storyboard, scene
-            ),
-        )
-        for index, scene in enumerate(storyboard["scenes"])
+    asset_refs = tool_context.state.get("asset_refs", {})
+    scene_list = storyboard["scenes"]
+    global_contexts = [
+        generation_helpers.build_global_context_string(storyboard, scene)
+        for scene in scene_list
     ]
 
-    results = await asyncio.gather(music_task, *scene_tasks, return_exceptions=True)
+    # Phase 1 -- fast lane: audio (grouped VO + music + per-scene VO) + first
+    # frames. All are seconds-scale, so they drain before any slow video starts.
+    music_task = generation_helpers.generate_background_music(
+        workspace_id, storyboard["background_music_prompt"], uid
+    )
+    per_scene_vo_tasks = []
+    if use_per_scene_voiceover:
+        per_scene_vo_tasks = [
+            generation_helpers.generate_scene_voiceover(
+                workspace_id,
+                scene["voiceover_prompt"],
+                index,
+                uid,
+                target_duration=scene.get("duration_seconds", 4.0),
+            )
+            for index, scene in enumerate(scene_list)
+        ]
+    first_frame_tasks = [
+        generate_scene_first_frame_step(
+            scene=scene,
+            index=index,
+            aspect_ratio=aspect_ratio,
+            workspace_id=workspace_id,
+            uid=uid,
+            allow_veo_audio=is_ugc,
+            global_context=global_contexts[index],
+            asset_refs=asset_refs,
+        )
+        for index, scene in enumerate(scene_list)
+    ]
+
+    num_vo = len(group_vo_tasks)
+    num_ps_vo = len(per_scene_vo_tasks)
+    phase1 = await asyncio.gather(
+        *group_vo_tasks,
+        music_task,
+        *per_scene_vo_tasks,
+        *first_frame_tasks,
+        return_exceptions=True,
+    )
+    vo_results = phase1[:num_vo]
+    music_result = phase1[num_vo]
+    ps_vo_results = phase1[num_vo + 1 : num_vo + 1 + num_ps_vo]
+    frame_results = phase1[num_vo + 1 + num_ps_vo :]
+
+    # Audio degrades gracefully -- a missing VO/music track still yields a usable
+    # video -- so log and continue.
+    for i, res in enumerate(vo_results):
+        if isinstance(res, Exception):
+            logger.error(f"Grouped voiceover {i} failed; continuing without it: {res}")
+    if isinstance(music_result, Exception):
+        logger.error(f"Background music failed; continuing without it: {music_result}")
+    for i, res in enumerate(ps_vo_results):
+        if isinstance(res, Exception):
+            logger.error(
+                f"Per-scene voiceover {i} failed; continuing without it: {res}"
+            )
+
+    # Phase 2 -- slow lane: scene videos, each anchored to its ready first frame.
+    # A missing first frame is non-fatal (skip that scene's video), matching the
+    # previous behavior where generate_scene returned [] on a frame failure.
+    video_tasks = []
+    for index, frame in enumerate(frame_results):
+        if not isinstance(frame, tuple):
+            # A BaseException captured by gather (or any unexpected shape) means
+            # the first frame failed -- skip that scene's video (non-fatal).
+            logger.error(f"Scene {index} first frame failed; skipping video: {frame}")
+            continue
+        first_frame_asset, first_frame_desc = frame
+        if first_frame_asset is None:
+            logger.error(f"Scene {index} produced no first frame; skipping video.")
+            continue
+        blended_context = global_contexts[index]
+        if first_frame_desc:
+            blended_context += (
+                f"\n\n**STARTING IMAGE DESCRIPTION (VISUAL ANCHOR):**"
+                f"\n{first_frame_desc}"
+            )
+        video_tasks.append(
+            generate_scene_video(
+                scene_list[index],
+                index,
+                aspect_ratio,
+                workspace_id=workspace_id,
+                uid=uid,
+                veo_method=veo_method,
+                first_frame_asset=first_frame_asset,
+                context=blended_context,
+                allow_veo_audio=is_ugc,
+            )
+        )
+
+    scene_results = await asyncio.gather(*video_tasks, return_exceptions=True)
+
+    # A failed scene video breaks the stitch, so scene failures remain fatal.
+    scene_exceptions = [res for res in scene_results if isinstance(res, Exception)]
+    if scene_exceptions:
+        for ex in scene_exceptions:
+            logger.error(f"Scene generation failed: {ex}")
+        return tool_failure(
+            f"Critical failure during scene generation: {scene_exceptions[0]}"
+        )
+
+    # Persist the (now-generated) grouped voiceover assets for the stitch step.
+    if voiceover_groups:
+        storyboard["voiceover_groups"] = [g.model_dump() for g in voiceover_groups]
+
+    # Re-sync updated storyboard with generated asset_refs back into context state
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+
+    session_id = get_session_id_from_context(tool_context)
+    workspace_id = str(
+        tool_context.state.get("workspace_id") or tool_context.state.get("user_id", "")
+    )
+    if isinstance(storyboard, dict):
+        storyboard["session_id"] = session_id
+        storyboard["workspace_id"] = workspace_id
+    elif hasattr(storyboard, "session_id") and hasattr(storyboard, "workspace_id"):
+        storyboard.session_id = session_id
+        storyboard.workspace_id = workspace_id
+
     return tool_success(
         "🎬 **Visuals Rendered!** All cinematic scenes successfully generated. Proceeding to stitching..."
     )
@@ -451,13 +666,25 @@ async def generate_single_scene(
         or (parameters.get("vertical") in ["Social Native", "UGC"])
     )
 
-    user_id = get_user_id_from_context(tool_context)
     scene = storyboard["scenes"][scene_index]
+
+    workspace_id = str(
+        tool_context.state.get("workspace_id") or tool_context.state.get("user_id", "")
+    )
+    session_id = get_session_id_from_context(tool_context)
 
     # Simple Binding refresh
     user_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
-    creator_id = next(
-        (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
+    creator_metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY, {})
+    creator_id_val = (
+        creator_metadata.get("asset_ref", {}).get("id") if creator_metadata else None
+    )
+    creator_id = (
+        f"virtual_creator_{creator_id_val}.png"
+        if creator_id_val
+        else next(
+            (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
+        )
     )
     primary_product = next(
         (
@@ -470,16 +697,21 @@ async def generate_single_scene(
 
     desc = scene["first_frame_prompt"].get("description", "").upper()
     assets = scene["first_frame_prompt"].get("assets", [])
+    has_creator = any(
+        (isinstance(a, str) and (a.startswith("virtual_creator_") or a == creator_id))
+        for a in assets
+    )
     if creator_id and ("[CHARACTER REQUIRED]" in desc or "CREATOR" in desc):
-        if creator_id not in assets:
+        if not has_creator:
             assets.append(creator_id)
     scene["first_frame_prompt"]["assets"] = assets
 
+    asset_refs = tool_context.state.get("asset_refs", {})
     await generate_scene(
-        user_id,
-        scene,
-        scene_index,
-        aspect_ratio,
+        scene=scene,
+        index=scene_index,
+        aspect_ratio=aspect_ratio,
+        workspace_id=workspace_id,
         uid=uuid.uuid4().hex[:4],
         use_voiceover=template_obj.use_voiceover,
         veo_method=template_obj.veo_method,
@@ -487,7 +719,18 @@ async def generate_single_scene(
         global_context=generation_helpers.build_global_context_string(
             storyboard, scene
         ),
+        asset_refs=asset_refs,
     )
+
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+
+    if isinstance(storyboard, dict):
+        storyboard["session_id"] = session_id
+        storyboard["workspace_id"] = workspace_id
+    elif hasattr(storyboard, "session_id") and hasattr(storyboard, "workspace_id"):
+        storyboard.session_id = session_id
+        storyboard.workspace_id = workspace_id
+
     return tool_success(
         f"🎬 **Visuals Rendered!** Successfully regenerated scene {scene_index}."
     )

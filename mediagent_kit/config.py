@@ -23,17 +23,23 @@ class MediagentKitConfig:
 
     google_cloud_project: str | None = None
     google_cloud_location: str | None = None
+    model_target_location: str | None = None
     asset_service_gcs_bucket: str | None = None
     firestore_database_id: str | None = None
+    use_creative_studio: bool = False
+    cs_backend_url: str | None = None
+    cs_frontend_url: str | None = None
+    cs_user_auth_token_key: str = "user_auth_token"
     models: dict = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
+
         # Hardcoded defaults as fallback
         self.models = {
             "text": {
-                "default": "gemini-2.5-flash",
-                "repair": "gemini-2.5-flash",
-                "enrichment": "gemini-3.1-flash-preview",
+                "default": "gemini-3.5-flash",
+                "repair": "gemini-3.5-flash",
+                "enrichment": "gemini-3.5-flash",
             },
             "image_imagen": {"default": "imagen-4.0-generate-001"},
             "image_gemini": {"default": "gemini-3.1-flash-image"},
@@ -42,8 +48,24 @@ class MediagentKitConfig:
             "tts": {"default": "gemini-3.1-flash-tts-preview"},
         }
 
-        config_path = "mediagent_config.json"
-        if os.path.exists(config_path):
+        # Resolve mediagent_config.json regardless of the process working
+        # directory. The backend server runs from demos/backend, but the file
+        # lives at the repo root; a bare relative path silently missed it and
+        # fell back to the hardcoded defaults above. Search order:
+        #   1. MEDIAGENT_CONFIG_PATH env override (explicit),
+        #   2. the current working directory (back-compat),
+        #   3. the repo root (the parent of this package directory).
+        _package_dir = os.path.dirname(os.path.abspath(__file__))
+        _repo_root = os.path.dirname(_package_dir)
+        _candidate_paths = [
+            os.environ.get("MEDIAGENT_CONFIG_PATH"),
+            "mediagent_config.json",
+            os.path.join(_repo_root, "mediagent_config.json"),
+        ]
+        config_path = next(
+            (p for p in _candidate_paths if p and os.path.exists(p)), None
+        )
+        if config_path:
             try:
                 with open(config_path, "r") as f:
                     data = json.load(f)

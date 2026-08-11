@@ -200,3 +200,70 @@ def test_exporter_export_large_payload(mock_super_export):
 
                 mock_store_gcs.assert_called_once()
                 mock_super_export.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("google.genai.Client")
+@patch("mediagent_kit.services.aio.get_config")
+async def test_generate_image_description_asyncio_defined(
+    mock_get_config, mock_client_cls
+):
+    mock_config = MagicMock()
+    mock_config.google_cloud_project = "test_proj"
+    mock_config.google_cloud_location = "us-central1"
+    mock_config.models = {}
+    mock_get_config.return_value = mock_config
+
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = MagicMock(
+        text="An image of a mountain."
+    )
+    mock_client_cls.return_value = mock_client
+
+    from utils.adk import generate_image_description
+
+    desc = await generate_image_description(b"test data", "image/png", "123")
+    assert desc == "An image of a mountain."
+    mock_client.models.generate_content.assert_called_once()
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_asset_service")
+@patch("google.cloud.storage.Client")
+async def test_blob_interceptor_callback_with_file_data(
+    mock_storage_client_cls, mock_get_asset_service
+):
+    mock_storage_client = MagicMock()
+    mock_bucket = MagicMock()
+    mock_blob = MagicMock()
+    mock_blob.download_as_bytes.return_value = b"gcs data"
+    mock_bucket.blob.return_value = mock_blob
+    mock_storage_client.bucket.return_value = mock_bucket
+    mock_storage_client_cls.return_value = mock_storage_client
+
+    mock_callback_context = MagicMock()
+    mock_llm_request = MagicMock()
+
+    mock_part = MagicMock()
+    del mock_part.inline_data
+    mock_part.file_data.mime_type = "image/png"
+    mock_part.file_data.file_uri = "gs://test-bucket/test.png"
+    mock_part.file_data.display_name = "test.png"
+
+    mock_content = MagicMock()
+    mock_content.role = "user"
+    mock_content.parts = [mock_part]
+    mock_llm_request.contents = [mock_content]
+
+    mock_asset_service_inst = MagicMock()
+    mock_get_asset_service.return_value = mock_asset_service_inst
+
+    async def mock_upload_asset(*args, **kwargs):
+        return MagicMock()
+
+    mock_asset_service_inst.upload_asset = mock_upload_asset
+
+    from utils.adk import blob_interceptor_callback
+
+    await blob_interceptor_callback(mock_callback_context, mock_llm_request)
+    mock_blob.download_as_bytes.assert_called_once()

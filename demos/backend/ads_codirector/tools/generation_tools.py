@@ -107,7 +107,7 @@ async def _generate_single_keyframe(
     asset = await mediagen_service.generate_image_with_gemini(
         user_id=user_id,
         file_name=f"iter_{iteration_num}_scene_{index}_cycle_{refinement_cycle}.png",
-        model="gemini-3.1-flash-image-preview",
+        model="gemini-3.1-flash-image",
         prompt=full_prompt,
         reference_image_filenames=cleaned_references,
         aspect_ratio=aspect_ratio,

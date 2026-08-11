@@ -8,25 +8,45 @@ from google.adk.tools import ToolContext
 def mock_tool_context():
     context = MagicMock(spec=ToolContext)
     context.state = {
+        "workspace_id": "1",
         "storyboard": {
             "template_name": "Custom",
             "scenes": [
                 {
                     "topic": "Scene 1",
                     "video_prompt": {
-                        "asset_id": "asset_vid_1",
+                        "asset_ref": {
+                            "id": "asset_vid_1",
+                            "asset_type": "generated",
+                            "workspace_id": "user_123",
+                        },
                         "description": "Vid desc",
                     },
                     "first_frame_prompt": {
-                        "asset_id": "asset_img_1",
+                        "asset_ref": {
+                            "id": "asset_img_1",
+                            "asset_type": "generated",
+                            "workspace_id": "user_123",
+                        },
                         "description": "Img desc",
                     },
-                    "voiceover_prompt": {"asset_id": "asset_vo_1", "text": "Hello"},
+                    "voiceover_prompt": {
+                        "asset_ref": {
+                            "id": "asset_vo_1",
+                            "asset_type": "generated",
+                            "workspace_id": "user_123",
+                        },
+                        "text": "Hello",
+                    },
                 }
             ],
             "background_music_prompt": {
                 "description": "Music desc",
-                "asset_id": "asset_bgm_1",
+                "asset_ref": {
+                    "id": "asset_bgm_1",
+                    "asset_type": "generated",
+                    "workspace_id": "user_123",
+                },
             },
         },
         "parameters": {"campaign_brief": "A test campaign"},
@@ -39,11 +59,8 @@ def mock_asset_service():
     service = AsyncMock()
     mock_asset = MagicMock()
     mock_asset.file_name = "mock_file.mp4"
-    service.get_asset_by_id.return_value = mock_asset
-
-    mock_blob = MagicMock()
-    mock_blob.content = b"Enriched prompt text"
-    service.get_asset_blob.return_value = mock_blob
+    service.get_asset.return_value = mock_asset
+    service.download_asset_bytes.return_value = b"Enriched prompt text"
     return service
 
 
@@ -57,7 +74,6 @@ def mock_canvas_service():
 
 
 @pytest.mark.asyncio
-@patch("ads_x.tools.generation.summary_canvas_tool.get_user_id_from_context")
 @patch("mediagent_kit.services.aio.get_asset_service")
 @patch("mediagent_kit.services.aio.get_canvas_service")
 @patch(
@@ -67,12 +83,10 @@ async def test_create_campaign_summary_success(
     mock_get_template,
     mock_get_canvas_service,
     mock_get_asset_service,
-    mock_get_user_id,
     mock_tool_context,
     mock_asset_service,
     mock_canvas_service,
 ):
-    mock_get_user_id.return_value = "user_123"
     mock_get_asset_service.return_value = mock_asset_service
     mock_get_canvas_service.return_value = mock_canvas_service
 
@@ -96,9 +110,7 @@ async def test_create_campaign_summary_success(
 
 
 @pytest.mark.asyncio
-@patch("ads_x.tools.generation.summary_canvas_tool.get_user_id_from_context")
 async def test_create_campaign_summary_missing_storyboard(
-    mock_get_user_id,
     mock_tool_context,
 ):
     mock_tool_context.state = {}  # Empty state

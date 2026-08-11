@@ -62,11 +62,11 @@ from google.genai import types
 parameters_agent = llm_agent.LlmAgent(
     name="parameters_agent",
     description="Agent that parses the user brief into ad campaign parameters.",
-    model="gemini-2.5-flash",
-    instruction=parameters_instruction.AGENT_INSTRUCTION,
+    model="gemini-3.5-flash",
+    instruction=f"{parameters_instruction.AGENT_INSTRUCTION}\n\n{parameters_instruction.INSTRUCTION}",
     tools=[FunctionTool(parameters_tools.extract_campaign_parameters)],
-    disallow_transfer_to_parent=False,
-    disallow_transfer_to_peers=False,
+    disallow_transfer_to_parent=True,
+    disallow_transfer_to_peers=True,
     before_model_callback=instrument_agent("parameters_agent"),
     after_model_callback=debug_parameters_callback,
 )
@@ -74,7 +74,7 @@ parameters_agent = llm_agent.LlmAgent(
 user_assets_agent = llm_agent.LlmAgent(
     name="user_assets_agent",
     description="Agent that ingests the user-provided assets.",
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash",
     instruction=user_assets_instruction.INSTRUCTION,
     tools=[FunctionTool(user_assets_tools.ingest_assets)],
     before_model_callback=instrument_agent("user_assets_agent"),
@@ -90,29 +90,29 @@ storyboard_agent_creative = llm_agent.LlmAgent(
         FunctionTool(production_tools.recommend_production_recipe),
         FunctionTool(storyboard_repair_tools.finalize_and_persist_storyboard),
     ],
-    disallow_transfer_to_parent=False,
-    disallow_transfer_to_peers=False,
+    disallow_transfer_to_parent=True,
+    disallow_transfer_to_peers=True,
     before_model_callback=instrument_agent("storyboard_agent_creative"),
 )
 
 storyboard_agent_templated = llm_agent.LlmAgent(
     name="storyboard_agent_templated",
     description="Creates a storyboard following a strict template.",
-    model="gemini-3-flash-preview",
+    model="gemini-3.5-flash",
     instruction=storyboard_instruction.get_templated_instruction,
     tools=[
         FunctionTool(production_tools.recommend_production_recipe),
         FunctionTool(storyboard_repair_tools.finalize_and_persist_storyboard),
     ],
-    disallow_transfer_to_parent=False,
-    disallow_transfer_to_peers=False,
+    disallow_transfer_to_parent=True,
+    disallow_transfer_to_peers=True,
     before_model_callback=instrument_agent("storyboard_agent_templated"),
 )
 
 strategy_agent = llm_agent.LlmAgent(
     name="strategy_agent",
     description="Synchronizes campaign strategy and secures the state.",
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash",
     instruction=strategy_instruction.INSTRUCTION,
     tools=[FunctionTool(strategy_tools.map_strategy_to_metadata)],
     before_model_callback=instrument_agent("strategy_agent"),
@@ -121,7 +121,7 @@ strategy_agent = llm_agent.LlmAgent(
 storyboard_router = llm_agent.LlmAgent(
     name="storyboard_router",
     description="Routes the campaign to the correct specialized storyboard generator and persists the output.",
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash",
     instruction=storyboard_instruction.get_router_instruction,
     tools=[
         AgentTool(agent=storyboard_agent_creative),
@@ -134,7 +134,7 @@ storyboard_router = llm_agent.LlmAgent(
 generation_agent = llm_agent.LlmAgent(
     name="generation_agent",
     description="Agent that generates all media and stitches them together.",
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash",
     instruction=generation_instruction.INSTRUCTION,
     tools=[
         FunctionTool(generation_tools.generate_all_media),
@@ -157,6 +157,8 @@ planning_agent_text = sequential_agent.SequentialAgent(
 )
 
 
+from mediagent_kit.services.creative_studio import get_cs_tools
+
 full_pipeline_agent = sequential_agent.SequentialAgent(
     name="full_pipeline_agent",
     description="Sequential agent for the Ads-X pipeline.",
@@ -167,9 +169,10 @@ full_pipeline_agent = sequential_agent.SequentialAgent(
 )
 
 root_agent = llm_agent.LlmAgent(
-    model="gemini-2.5-flash",
+    model="gemini-3.5-flash",
     name="ads_x_agent",
     instruction=root_instruction.get_instruction,
+    tools=get_cs_tools(),
     sub_agents=[full_pipeline_agent],
     before_model_callback=blob_interceptor_callback,
 )

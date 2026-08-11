@@ -25,7 +25,7 @@ def test_e2e_media_generation_polling(client: TestClient):
     2. Long-poll GET /users/{user_id}/jobs/{job_id} until COMPLETED
     3. Verify result_asset_id is returned
     """
-    user_id = "test_user_e2e_media_polling"
+    workspace_id = "test_user_e2e_media_polling"
     file_name = "test_gemini_image_e2e.png"
 
     # --- 1. Submit Generation Job ---
@@ -37,7 +37,7 @@ def test_e2e_media_generation_polling(client: TestClient):
     }
 
     response = client.post(
-        f"/users/{user_id}/media:generate-image-with-gemini", json=payload
+        f"/workspaces/{workspace_id}/media:generate-image-with-gemini", json=payload
     )
     assert response.status_code == 202, f"Submission failed: {response.text}"
 
@@ -52,7 +52,7 @@ def test_e2e_media_generation_polling(client: TestClient):
     completed = False
 
     for _ in range(max_retries):
-        response = client.get(f"/users/{user_id}/jobs/{job_id}")
+        response = client.get(f"/workspaces/{workspace_id}/jobs/{job_id}")
         assert response.status_code == 200
         job_state = response.json()
 

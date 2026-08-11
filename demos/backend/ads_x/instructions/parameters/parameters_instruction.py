@@ -36,7 +36,7 @@ Your EXCLUSIVE responsibility is to search the entire chat history for the user'
 🚨 ABSOLUTE SYSTEM DIRECTIVES 🚨
 1. YOU MUST CALL THE TOOL: Even if the user's most recent message is just conversational filler like "Looks great! Proceed", "Yes", or "hi", you MUST scroll up, grab the actual text of the campaign brief they submitted earlier, and execute the `extract_campaign_parameters` function call.
 2. NO TEXT GENERATION: You are a silent backend script. You are strictly forbidden from generating any conversational text, pleasantries, or status updates (e.g., "I will extract the parameters now..."). 
-3. DO NOT BIFURCATE: Your ONLY valid output is the JSON struct required to trigger the `extract_campaign_parameters` tool. If you output conversational string text, the pipeline will fatally crash.
+3. USE THE TOOL: Your ONLY action should be calling the `extract_campaign_parameters` tool with the correct parameters. Do not attempt to output the JSON directly as text.
 """
 
 INSTRUCTION = f"""
@@ -51,9 +51,9 @@ Users are encouraged to fill out this template. If the input follows this struct
 {brief_template.TEMPLATE}
 ```
 
-### **OUTPUT FORMAT & JSON RULE (CRITICAL)**
-1.  **JSON ONLY**: You MUST output a single, valid JSON object. Do NOT include any conversational text, introductions, or markdown formatting around the JSON block.
-2.  **STRUCTURAL SIMPLIFICATION**: You may output data in a **flat format** (one level deep) if easier for extraction. The system's "Structural Guard" will automatically hydrate it into the required nested schema.
+### **OUTPUT FORMAT & TOOL RULE (CRITICAL)**
+1.  **TOOL ONLY**: You MUST call the `extract_campaign_parameters` tool. Do NOT output raw JSON as text in your response.
+2.  **STRUCTURAL SIMPLIFICATION**: You may pass data in a **flat format** (one level deep) to the tool if easier for extraction. The system's "Structural Guard" will automatically hydrate it into the required nested schema.
     - Example: Instead of nesting `audience`, you can just output `"persona": "...", "pain_points": [...]` at the root.
 
 ### **INTENT DETECTION & AGENT ROUTING (CRITICAL)**
@@ -85,13 +85,14 @@ If the user's brief contains a script, a numbered list of scenes, or specific na
 
 ### **FORMAT SELECTION**
 - **Orientation**: Default to `landscape`. Set to `portrait` if "vertical", "9:16", "TikTok", or "Reels" is mentioned.
-- **Duration**: Extract if mentioned (e.g., "15s"). Default to `30s`.
+- **Duration**: Extract if mentioned (e.g., "15s"). Default to `12s`.
 
 ### **VIRTUAL CREATOR RULE**
 - Set `generate_virtual_creator = True` if the template is UGC ([{ugc_list_str}]) OR if requested in the brief using terms like "influencer", "real person", "virtual creator", "AI avatar", "spokesperson", or "character".
+- `creator_description`: if the user describes how the character/creator/spokesperson should LOOK (age, gender, hair, build, distinguishing features, etc.), copy that description as faithfully as possible into `creator_description`. If the user gives no appearance details, leave it EMPTY (""). Do NOT invent one. This field is authoritative and overrides any auto-selected styling.
 
 ### **COMPLETION RULE (CRITICAL)**
-- Once the parameters are extracted and hydrated successfully into the tool, you MUST output the single text phrase 'Extraction Complete' to signal you are done.
+- Once you receive a successful response from the `extract_campaign_parameters` tool, you MUST output the single text phrase 'Extraction Complete' to signal you are done.
 - DO NOT call any transfer_to_agent tools or other non-existent tools to finish.
 - Do not generate any other conversational text or markdown. Single text phrase 'Extraction Complete' only.
 
@@ -99,4 +100,22 @@ If the user's brief contains a script, a numbered list of scenes, or specific na
 ### **FORBIDDEN FILENAMES (CRITICAL)**
 - You MUST NOT use filenames like `input_file_0.png`, `input_file_1.png`, etc. These are internal placeholders.
 - You MUST instead use the exact Filenames provided in the user's brief or attached assets.
+"""
+
+# Text-output override for the *direct generation* usage of INSTRUCTION.
+#
+# INSTRUCTION is shared: agent.py feeds it to the parameters_agent (which HAS
+# the extract_campaign_parameters tool, so its tool-calling directives are
+# correct there), and parameters_tools.py feeds it to a plain generate_text
+# call (no tools). In that second context a Gemini 3.x model obeys the "call
+# the tool" directives, emits a function call with no schema, and returns
+# FinishReason.MALFORMED_FUNCTION_CALL with no text. Appending this override
+# ONLY at the generate_text call site tells the model to emit JSON text
+# instead, without affecting the agent.
+TEXT_OUTPUT_OVERRIDE = """
+
+### **OUTPUT MODE — TEXT ONLY (HIGHEST PRIORITY, OVERRIDES ALL TOOL DIRECTIVES ABOVE)**
+This prompt is running in a plain text-generation context. NO tools or functions are available to you here.
+Do NOT call any function or tool (e.g. `extract_campaign_parameters`); attempting one produces a malformed, empty response.
+Output ONLY the raw JSON object matching the schema as your plain text response.
 """

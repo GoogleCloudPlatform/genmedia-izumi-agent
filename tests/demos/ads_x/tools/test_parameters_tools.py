@@ -44,13 +44,6 @@ def test_extract_campaign_parameters_success(
             return_value=mock_asset_service,
         ):
 
-            # Setup mock behavior
-            mock_asset = MagicMock()
-            mock_asset.id = "extraction_asset_id"
-            mock_media_gen_service.generate_text_with_gemini.return_value = mock_asset
-
-            mock_blob = MagicMock()
-            # Valid JSON matching schema
             valid_json = json.dumps(
                 {
                     "campaign_brief": "Test campaign brief content",
@@ -63,8 +56,7 @@ def test_extract_campaign_parameters_success(
                     "scenes": [],
                 }
             )
-            mock_blob.content = valid_json.encode()
-            mock_asset_service.get_asset_blob.return_value = mock_blob
+            mock_media_gen_service.generate_text = AsyncMock(return_value=valid_json)
 
             # Call tool
             import asyncio
@@ -97,11 +89,6 @@ def test_extract_campaign_parameters_json_cleaning(
             return_value=mock_asset_service,
         ):
 
-            mock_asset = MagicMock()
-            mock_media_gen_service.generate_text_with_gemini.return_value = mock_asset
-
-            mock_blob = MagicMock()
-            # JSON wrapped in markdown
             markdown_json = (
                 "```json\n"
                 + json.dumps(
@@ -118,8 +105,7 @@ def test_extract_campaign_parameters_json_cleaning(
                 )
                 + "\n```"
             )
-            mock_blob.content = markdown_json.encode()
-            mock_asset_service.get_asset_blob.return_value = mock_blob
+            mock_media_gen_service.generate_text = AsyncMock(return_value=markdown_json)
 
             import asyncio
 
@@ -131,4 +117,90 @@ def test_extract_campaign_parameters_json_cleaning(
             assert (
                 mock_tool_context.state["parameters"]["campaign_name"]
                 == "Test Campaign Mark"
+            )
+
+
+def test_extract_campaign_parameters_fallback_defaults_to_custom(
+    mock_tool_context, mock_media_gen_service, mock_asset_service
+):
+    """When both the primary extraction and the repair turn fail, the
+    intelligent fallback MUST default template_name to 'Custom' (creative /
+    AI Director mode) rather than forcing a specific template.
+
+    Regression test for the bug where a creative brief was silently routed
+    into templated mode in Creative Studio because the fallback called
+    suggest_template() (which never returns 'Custom').
+    """
+    from demos.backend.ads_x.tools.parameters.parameters_tools import (
+        extract_campaign_parameters,
+    )
+
+    with patch(
+        "mediagent_kit.services.aio.get_media_generation_service",
+        return_value=mock_media_gen_service,
+    ):
+        with patch(
+            "mediagent_kit.services.aio.get_asset_service",
+            return_value=mock_asset_service,
+        ):
+            # Both the primary extract and the repair turn return unparseable
+            # output -> force the fallback path.
+            mock_media_gen_service.generate_text = AsyncMock(
+                return_value="not valid json at all"
+            )
+
+            import asyncio
+
+            result = asyncio.run(
+                extract_campaign_parameters(
+                    mock_tool_context,
+                    # A generic creative brief that names no template.
+                    "Make a cinematic 15s ad for a coffee brand",
+                )
+            )
+
+            assert "Robust Mode" in result
+            params = mock_tool_context.state["parameters"]
+            assert params["template_name"] == "Custom", (
+                "fallback must default to Custom (creative), not a forced "
+                f"template; got {params['template_name']!r}"
+            )
+
+
+def test_extract_campaign_parameters_fallback_honors_named_template(
+    mock_tool_context, mock_media_gen_service, mock_asset_service
+):
+    """If the user explicitly names a template in the brief, the fallback
+    may still honor it (literal match) -- only the auto-suggestion is
+    removed."""
+    from demos.backend.ads_x.tools.parameters.parameters_tools import (
+        extract_campaign_parameters,
+    )
+
+    with patch(
+        "mediagent_kit.services.aio.get_media_generation_service",
+        return_value=mock_media_gen_service,
+    ):
+        with patch(
+            "mediagent_kit.services.aio.get_asset_service",
+            return_value=mock_asset_service,
+        ):
+            mock_media_gen_service.generate_text = AsyncMock(
+                return_value="not valid json at all"
+            )
+
+            import asyncio
+
+            # Brief literally names the "Pet Companion" template.
+            result = asyncio.run(
+                extract_campaign_parameters(
+                    mock_tool_context,
+                    "Use the Pet Companion template for my dog food ad",
+                )
+            )
+
+            assert "Robust Mode" in result
+            assert (
+                mock_tool_context.state["parameters"]["template_name"]
+                == "Pet Companion"
             )

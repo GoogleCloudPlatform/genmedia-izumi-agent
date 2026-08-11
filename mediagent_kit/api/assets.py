@@ -35,9 +35,9 @@ def get_async_asset_service() -> AsyncAssetService:
     return mediagent_kit.services.aio.get_asset_service()
 
 
-@router.post("/users/{user_id}/assets", response_model=Asset, tags=["Assets"])
+@router.post("/workspaces/{workspace_id}/assets", response_model=Asset, tags=["Assets"])
 async def create_asset(
-    user_id: str,
+    workspace_id: str,
     file: Annotated[UploadFile, File()],
     file_name: Annotated[str, Form()],
     mime_type: Annotated[str, Form()],
@@ -45,12 +45,12 @@ async def create_asset(
 ) -> Asset:
     """
     Creates a new asset by uploading a file. If an asset with the same file_name
-    for the user already exists, a new version will be created.
+    for the workspace already exists, a new version will be created.
     """
     content = await file.read()
     try:
         asset = await asset_service.save_asset(
-            user_id=user_id,
+            user_id=workspace_id,  # TODO: rename inside asset_service
             file_name=file_name,
             blob=content,
             mime_type=mime_type,
@@ -60,20 +60,26 @@ async def create_asset(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@router.get("/users/{user_id}/assets", response_model=list[Asset], tags=["Assets"])
+@router.get(
+    "/workspaces/{workspace_id}/assets", response_model=list[Asset], tags=["Assets"]
+)
 def list_assets(
-    user_id: str,
+    workspace_id: str,
     asset_service: Annotated[AssetService, Depends(get_asset_service)],
 ) -> list[Asset]:
     """
-    Lists all assets for a specific user.
+    Lists all assets for a specific workspace.
     """
-    return asset_service.list_assets(user_id=user_id)
+    return asset_service.list_assets(user_id=workspace_id)
 
 
-@router.get("/users/{user_id}/assets/{asset_id}", response_model=Asset, tags=["Assets"])
+@router.get(
+    "/workspaces/{workspace_id}/assets/{asset_id}",
+    response_model=Asset,
+    tags=["Assets"],
+)
 def get_asset(
-    user_id: str,
+    workspace_id: str,
     asset_id: str,
     asset_service: Annotated[AssetService, Depends(get_asset_service)],
 ) -> Asset:
@@ -81,16 +87,18 @@ def get_asset(
     Retrieves a specific asset by its ID.
     """
     asset = asset_service.get_asset_by_id(asset_id)
-    if not asset or asset.user_id != user_id:
+    if not asset or asset.user_id != workspace_id:
         raise HTTPException(status_code=404, detail="Asset not found")
     return asset
 
 
 @router.patch(
-    "/users/{user_id}/assets/{asset_id}", response_model=Asset, tags=["Assets"]
+    "/workspaces/{workspace_id}/assets/{asset_id}",
+    response_model=Asset,
+    tags=["Assets"],
 )
 def update_asset(
-    user_id: str,
+    workspace_id: str,
     asset_id: str,
     update_data: AssetUpdate,
     asset_service: Annotated[AssetService, Depends(get_asset_service)],
@@ -99,7 +107,7 @@ def update_asset(
     Updates an asset's metadata (e.g., file_name).
     """
     asset = asset_service.get_asset_by_id(asset_id)
-    if not asset or asset.user_id != user_id:
+    if not asset or asset.user_id != workspace_id:
         raise HTTPException(status_code=404, detail="Asset not found")
 
     update_args = update_data.model_dump(exclude_unset=True)
@@ -112,9 +120,11 @@ def update_asset(
     return updated_asset
 
 
-@router.delete("/users/{user_id}/assets/{asset_id}", status_code=204, tags=["Assets"])
+@router.delete(
+    "/workspaces/{workspace_id}/assets/{asset_id}", status_code=204, tags=["Assets"]
+)
 def delete_asset(
-    user_id: str,
+    workspace_id: str,
     asset_id: str,
     asset_service: Annotated[AssetService, Depends(get_asset_service)],
 ) -> None:
@@ -122,15 +132,15 @@ def delete_asset(
     Deletes an asset and all its versions.
     """
     asset = asset_service.get_asset_by_id(asset_id)
-    if not asset or asset.user_id != user_id:
+    if not asset or asset.user_id != workspace_id:
         raise HTTPException(status_code=404, detail="Asset not found")
     else:
         asset_service.delete_asset(asset_id)
 
 
-@router.get("/users/{user_id}/assets/{asset_id}/download", tags=["Assets"])
+@router.get("/workspaces/{workspace_id}/assets/{asset_id}/download", tags=["Assets"])
 def download_asset(
-    user_id: str,
+    workspace_id: str,
     asset_id: str,
     asset_service: Annotated[AssetService, Depends(get_asset_service)],
     version: int | None = None,
@@ -140,7 +150,7 @@ def download_asset(
     the latest version is downloaded.
     """
     asset = asset_service.get_asset_by_id(asset_id)
-    if not asset or asset.user_id != user_id:
+    if not asset or asset.user_id != workspace_id:
         raise HTTPException(status_code=404, detail="Asset not found")
 
     try:
@@ -157,10 +167,12 @@ def download_asset(
 
 
 @router.get(
-    "/users/{user_id}/assets/{asset_id}/view", response_model=None, tags=["Assets"]
+    "/workspaces/{workspace_id}/assets/{asset_id}/view",
+    response_model=None,
+    tags=["Assets"],
 )
 def view_asset(
-    user_id: str,
+    workspace_id: str,
     asset_id: str,
     request: Request,
     asset_service: Annotated[AssetService, Depends(get_asset_service)],
@@ -172,7 +184,7 @@ def view_asset(
     This endpoint supports browser caching.
     """
     asset = asset_service.get_asset_by_id(asset_id)
-    if not asset or asset.user_id != user_id:
+    if not asset or asset.user_id != workspace_id:
         raise HTTPException(status_code=404, detail="Asset not found")
 
     if version is None:

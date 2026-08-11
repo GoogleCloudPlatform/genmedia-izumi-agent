@@ -122,10 +122,15 @@ class MediaGenerationService:
         self._asset_service = asset_service
         self._config = config
 
-    def _get_genai_client(self, region: str | None = None) -> genai.Client:
+    def _get_genai_client(
+        self, region: str | None = None, model: str | None = None
+    ) -> genai.Client:
         project = self._config.google_cloud_project
         if not region:
-            region = self._config.google_cloud_location
+            if model and "preview" in model:
+                region = "global"
+            else:
+                region = self._config.google_cloud_location
 
         if not project or not region:
             raise ValueError(
@@ -471,7 +476,7 @@ class MediaGenerationService:
         ]
         contents.append(types.Part.from_text(text=prompt))
 
-        client = self._get_genai_client()
+        client = self._get_genai_client(model=model)
         response = self._generate_gemini_text_content(
             client=client,
             model=model,
@@ -509,7 +514,7 @@ class MediaGenerationService:
             for part in parts:
                 if not part.text:
                     continue
-                if part.thought:
+                if getattr(part, "thought", False) is True:
                     thought_text_parts.append(part.text)
                 else:
                     response_text_parts.append(part.text)

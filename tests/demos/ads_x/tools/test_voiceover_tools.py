@@ -35,13 +35,9 @@ def test_rewrite_group_script_success(mock_mediagen_service, mock_asset_service)
         narrative_block="BODY",
     )
 
-    mock_response_asset = MagicMock()
-    mock_response_asset.id = "response_asset_id"
-    mock_mediagen_service.generate_text_with_gemini.return_value = mock_response_asset
-
-    mock_blob = MagicMock()
-    mock_blob.content = b"Rewritten script text."
-    mock_asset_service.get_asset_blob.return_value = mock_blob
+    mock_mediagen_service.generate_text = AsyncMock(
+        return_value="Rewritten script text."
+    )
 
     with patch(
         "mediagent_kit.services.aio.get_media_generation_service",
@@ -57,10 +53,7 @@ def test_rewrite_group_script_success(mock_mediagen_service, mock_asset_service)
             result = asyncio.run(rewrite_group_script("user_123", group))
 
             assert result == "Rewritten script text."
-            mock_mediagen_service.generate_text_with_gemini.assert_called_once()
-            mock_asset_service.get_asset_blob.assert_called_once_with(
-                "response_asset_id"
-            )
+            mock_mediagen_service.generate_text.assert_called_once()
 
 
 def test_generate_group_voiceover_success(mock_mediagen_service, mock_asset_service):
@@ -88,11 +81,12 @@ def test_generate_group_voiceover_success(mock_mediagen_service, mock_asset_serv
 
         mock_voiceover_asset = MagicMock()
         mock_voiceover_asset.id = "voiceover_asset_id"
+        mock_voiceover_asset.duration_seconds = 5.0
         mock_version = MagicMock()
         mock_version.duration_seconds = 5.0
         mock_voiceover_asset.versions = [mock_version]
-        mock_mediagen_service.generate_speech_single_speaker.return_value = (
-            mock_voiceover_asset
+        mock_mediagen_service.generate_speech = AsyncMock(
+            return_value=mock_voiceover_asset
         )
 
         with patch(
@@ -102,7 +96,9 @@ def test_generate_group_voiceover_success(mock_mediagen_service, mock_asset_serv
 
             import asyncio
 
-            result = asyncio.run(generate_group_voiceover("user_123", group))
+            result = asyncio.run(
+                generate_group_voiceover(group=group, workspace_id="workspace_1")
+            )
 
             assert result == mock_voiceover_asset
             assert group.audio_asset_id == "voiceover_asset_id"

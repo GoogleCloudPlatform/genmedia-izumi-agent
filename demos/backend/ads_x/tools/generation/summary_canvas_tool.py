@@ -19,9 +19,10 @@ import mediagent_kit
 from mediagent_kit.services import types
 from typing import Any
 from google.adk.tools import ToolContext
-from utils.adk import get_user_id_from_context
+
 from ...utils.common import common_utils
 from ...utils.storyboard import template_library
+from utils.adk import resolve_workspace_id
 
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
@@ -176,9 +177,11 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
     if not storyboard:
         return tool_failure("No storyboard found in state.")
 
-    user_id = get_user_id_from_context(tool_context)
     asset_service = mediagent_kit.services.aio.get_asset_service()
     canvas_service = mediagent_kit.services.aio.get_canvas_service()
+    workspace_id, ws_error = resolve_workspace_id(tool_context)
+    if ws_error:
+        return tool_failure(ws_error)
 
     # Get Template Definition
     template_name = storyboard.get("template_name", "Custom")
@@ -186,24 +189,50 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
     if template_name and template_name != "Custom":
         template_def = template_library.get_template_by_name(template_name)
 
-    # Helper to resolve asset ID to filename (for asset:// URI)
-    async def get_filename(asset_id):
-        if not asset_id:
+    from mediagent_kit.services.types.common import AssetRef
+
+    # Helper to resolve AssetRef to filename (for asset:// URI)
+    # NOTE: Unified AssetServiceInterface adaptation.
+    # This would break legacy version due to function signature and method name mismatch.
+    async def get_filename(asset_ref):
+        if not asset_ref:
             return None
         try:
-            asset = await asset_service.get_asset_by_id(asset_id)
+            if isinstance(asset_ref, dict):
+                ref = AssetRef(
+                    id=str(asset_ref["id"]),
+                    asset_type=asset_ref.get("asset_type", "generated"),
+                    workspace_id=str(asset_ref.get("workspace_id") or workspace_id),
+                )
+            elif isinstance(asset_ref, AssetRef):
+                ref = asset_ref
+            else:
+                return None
+            asset = await asset_service.get_asset(ref)
             return asset.file_name if asset else None
-        except:
+        except Exception:
             return None
 
-    # Helper to fetch text content from asset ID
-    async def get_text_content(asset_id):
-        if not asset_id:
+    # Helper to fetch text content from AssetRef
+    # NOTE: Unified AssetServiceInterface adaptation.
+    # This would break legacy version due to function signature and method name mismatch.
+    async def get_text_content(asset_ref):
+        if not asset_ref:
             return None
         try:
-            blob = await asset_service.get_asset_blob(asset_id)
-            return blob.content.decode("utf-8")
-        except:
+            if isinstance(asset_ref, dict):
+                ref = AssetRef(
+                    id=str(asset_ref["id"]),
+                    asset_type=asset_ref.get("asset_type", "uploaded"),
+                    workspace_id=str(asset_ref.get("workspace_id") or workspace_id),
+                )
+            elif isinstance(asset_ref, AssetRef):
+                ref = asset_ref
+            else:
+                return None
+            blob_bytes = await asset_service.download_asset_bytes(ref)
+            return blob_bytes.decode("utf-8")
+        except Exception:
             return None
 
     # --- Build HTML ---
@@ -229,10 +258,28 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
         style_mode = _fmt(master_recipe.get("style_mode", "COMMERCIAL_PREMIUM"))
         brand_arch = _fmt(master_recipe.get("brand_archetype", ""))
         char = master_recipe.get("character", {})
-        actor_vibe = _fmt(char.get("actor_vibe", ""))
+        # Character styling (Cast/Wardrobe) is only bound to scenes when the
+        # campaign uses an on-screen creator. Mirror that here so product-only
+        # ads don't advertise a Cast that was never rendered. When a creator was
+        # cast, show its actual description (what the scenes reference), not the
+        # Look's generic archetype.
+        _params = tool_context.state.get(common_utils.PARAMETERS_KEY, {}) or {}
+        if not hasattr(_params, "get"):
+            _params = {}
+        show_character = bool(_params.get("generate_virtual_creator", False))
+        creator_meta = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY) or {}
+        actor_vibe = _fmt(
+            creator_meta.get("demographics") or char.get("actor_vibe", "")
+        )
         attire = _fmt(char.get("attire", ""))
         env = master_recipe.get("environment", {})
-        temporal = _fmt(env.get("temporal", ""))
+        # Display the lighting value that is actually bound to the scenes
+        # (illumination.vibe is what the art-direction injection uses), so the
+        # summary matches what the generator receives.
+        temporal = _fmt(
+            master_recipe.get("illumination", {}).get("vibe", "")
+            or env.get("temporal", "")
+        )
 
         cine = master_recipe.get("cinematography", {})
         optics = _fmt(cine.get("optics", ""))
@@ -242,6 +289,17 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
         key_lighting = _fmt(illum.get("key_lighting", ""))
 
         sonic = _fmt(master_recipe.get("sonic_landscape", ""))
+
+        # Only render Cast/Wardrobe cards for creator-driven campaigns.
+        character_cards = ""
+        if show_character:
+            character_cards = f"""
+                <div style="background: #10b981; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
+                    👤 Cast: {actor_vibe}
+                </div>
+                <div style="background: #059669; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
+                    👗 Wardrobe: {attire}
+                </div>"""
 
         html_parts.append(f"""
         <div class="section" style="background: linear-gradient(145deg, #f1f5f9, #e2e8f0); border-left: 6px solid #2563eb; box-shadow: 0 4px 15px rgba(0,0,0,0.05);">
@@ -257,13 +315,7 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
                 </div>
                 <div style="background: #3b82f6; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
                     🎭 Archetype: {brand_arch}
-                </div>
-                <div style="background: #10b981; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
-                    👤 Cast: {actor_vibe}
-                </div>
-                <div style="background: #059669; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
-                    👗 Wardrobe: {attire}
-                </div>
+                </div>{character_cards}
                 <div style="background: #f59e0b; color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 0.9rem; font-weight: 600;">
                     🌅 Lighting: {temporal}
                 </div>
@@ -287,8 +339,8 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
     parameters = tool_context.state.get(common_utils.PARAMETERS_KEY, {})
     user_brief = parameters.get("campaign_brief", "Not captured")
     bg_music_prompt = storyboard.get("background_music_prompt", {})
-    bg_music_id = bg_music_prompt.get("asset_id")
-    bg_music_filename = await get_filename(bg_music_id)
+    bg_music_ref = bg_music_prompt.get("asset_ref")
+    bg_music_filename = await get_filename(bg_music_ref)
 
     html_parts.append(
         '<div class="section"><div class="section-title">🎯 Global Strategy & Brief</div>'
@@ -328,19 +380,30 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
 
     for i, scene in enumerate(storyboard.get("scenes", [])):
         # Fetch Data
-        vid_id = scene.get("video_prompt", {}).get("asset_id")
-        img_id = scene.get("first_frame_prompt", {}).get("asset_id")
-        aud_id = scene.get("voiceover_prompt", {}).get("asset_id")
+        vid_ref = scene.get("video_prompt", {}).get("asset_ref")
+        img_ref = scene.get("first_frame_prompt", {}).get("asset_ref")
+        aud_ref = scene.get("voiceover_prompt", {}).get("asset_ref")
+
+        vid_file = await get_filename(vid_ref)
+        img_file = await get_filename(img_ref)
+        aud_file = await get_filename(aud_ref)
 
         enrich_vid_id = scene.get("video_prompt", {}).get("enrichment_asset_id")
         enrich_img_id = scene.get("first_frame_prompt", {}).get("enrichment_asset_id")
 
-        vid_file = await get_filename(vid_id)
-        img_file = await get_filename(img_id)
-        aud_file = await get_filename(aud_id)
-
-        enrich_vid = await get_text_content(enrich_vid_id)
-        enrich_img = await get_text_content(enrich_img_id)
+        # TODO: Double check this
+        # Because we are no longer saving the text generation to the assets,
+        # the else statement should kick in here and retung eithere the video_prompt or the description
+        enrich_vid = (
+            (await get_text_content(enrich_vid_id))
+            if enrich_vid_id
+            else scene.get("video_prompt", {}).get("description")
+        )
+        enrich_img = (
+            (await get_text_content(enrich_img_id))
+            if enrich_img_id
+            else scene.get("first_frame_prompt", {}).get("description")
+        )
 
         template_scene = None
         if template_def and i < len(template_def.scene_structure):
@@ -449,8 +512,9 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
     html_parts.append("</div>")  # End section
 
     # 3. Final Video
-    if final_asset_id := tool_context.state.get("final_video_asset_id"):
-        final_file = await get_filename(final_asset_id)
+    final_asset_ref = tool_context.state.get("final_video_asset_ref")
+    if final_asset_ref:
+        final_file = await get_filename(final_asset_ref)
         if final_file:
             html_parts.append(
                 f'<div class="section"><div class="section-title">🏆 Final Stitched Delivery</div>'
@@ -462,35 +526,45 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
 
     # Collect IDs for permission (using all asset references)
     all_asset_ids = []
-    if bg_music_id:
-        all_asset_ids.append(bg_music_id)
-    for s in storyboard.get("scenes", []):
-        if vid := s.get("video_prompt", {}).get("asset_id"):
-            all_asset_ids.append(vid)
-        if img := s.get("first_frame_prompt", {}).get("asset_id"):
-            all_asset_ids.append(img)
-        if aud := s.get("voiceover_prompt", {}).get("asset_id"):
-            all_asset_ids.append(aud)
-        if evid := s.get("video_prompt", {}).get("enrichment_asset_id"):
-            all_asset_ids.append(evid)
-        if eimg := s.get("first_frame_prompt", {}).get("enrichment_asset_id"):
-            all_asset_ids.append(eimg)
+    if bg_music_ref and isinstance(bg_music_ref, dict):
+        all_asset_ids.append(str(bg_music_ref["id"]))
 
-    if final_asset_id := tool_context.state.get("final_video_asset_id"):
-        all_asset_ids.append(final_asset_id)
+    for s in storyboard.get("scenes", []):
+        if vid_r := s.get("video_prompt", {}).get("asset_ref"):
+            if isinstance(vid_r, dict):
+                all_asset_ids.append(str(vid_r["id"]))
+        if img_r := s.get("first_frame_prompt", {}).get("asset_ref"):
+            if isinstance(img_r, dict):
+                all_asset_ids.append(str(img_r["id"]))
+        if aud_r := s.get("voiceover_prompt", {}).get("asset_ref"):
+            if isinstance(aud_r, dict):
+                all_asset_ids.append(str(aud_r["id"]))
+
+    if final_asset_ref and isinstance(final_asset_ref, dict):
+        all_asset_ids.append(str(final_asset_ref["id"]))
 
     html_obj = types.Html(content=full_html, asset_ids=all_asset_ids)
 
-    canvas = await canvas_service.create_canvas(
-        user_id=user_id, title=f"Campaign Summary - {template_name}", html=html_obj
-    )
-
-    tool_context.state["summary_canvas_id"] = canvas.id
-
-    # Construct Deep Link
     from utils.adk import get_session_id_from_context
+    from mediagent_kit.services.errors import UnsupportedFeatureError
 
     session_id = get_session_id_from_context(tool_context)
+
+    try:
+        canvas = await canvas_service.create_canvas(
+            workspace_id=workspace_id,
+            user_id=workspace_id,
+            session_id=session_id,
+            title=f"Campaign Summary - {template_name}",
+            html=html_obj,
+        )
+        tool_context.state["summary_canvas_id"] = canvas.id
+        canvas_id = canvas.id
+    except UnsupportedFeatureError:
+        logger.warning(
+            "HTML Canvas not supported by the current backend. Skipping canvas creation."
+        )
+        canvas_id = "unsupported"
 
     # TODO: Replace with the actual deployment URL of your Izumi UI
     import os
@@ -502,7 +576,7 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
             "CLOUD_RUN_SERVICE_URL", "http://localhost:5173"
         )
 
-    izumi_deep_link = f"{IZUMI_BASE_URL}/studio/#/project/{user_id}/chat/{session_id}?contentTab=canvas&canvasId={canvas.id}"
+    izumi_deep_link = f"{IZUMI_BASE_URL}/studio/#/project/{workspace_id}/chat/{session_id}?contentTab=canvas&canvasId={canvas_id}"
 
     # Return ONLY the link for cleaner composition
     return tool_success(f"[View Campaign Summary in Izumi Studio]({izumi_deep_link})")

@@ -83,6 +83,55 @@ mock_storage_client.return_value.bucket.return_value = mock_bucket
 mock_bucket.blob.return_value = mock_blob
 mock_blob.upload_from_string.return_value = True
 mock_blob.download_as_bytes.return_value = b"fake media content"
+# Patch Firestore clients globally for tests to prevent hangs
+mock_firestore_patcher = patch("google.cloud.firestore.Client")
+mock_firestore_async_patcher = patch("google.cloud.firestore.AsyncClient")
+mock_firestore_client = mock_firestore_patcher.start()
+mock_firestore_async_client = mock_firestore_async_patcher.start()
+mock_doc_ref = MagicMock()
+mock_doc_ref.id = "mock_job_id"
+mock_firestore_client.return_value.collection.return_value.add.return_value = (
+    None,
+    mock_doc_ref,
+)
+import datetime
+
+now = datetime.datetime.now(datetime.UTC)
+mock_doc_snapshot = (
+    mock_firestore_client.return_value.collection.return_value.document.return_value.get.return_value
+)
+mock_doc_snapshot.id = "mock_job_id"
+mock_doc_snapshot.to_dict.return_value = {
+    "id": "mock_job_id",
+    "user_id": "test_user_e2e_media_polling",
+    "job_type": "IMAGE_GENERATION",
+    "status": "COMPLETED",
+    "created_at": now,
+    "updated_at": now,
+    "result_asset_id": "mock_asset_id",
+    "mime_type": "image/png",
+    "file_name": "mock_file.png",
+    "current_version": 1,
+    "title": "mock_title",
+    "video_timeline": {
+        "title": "mock_timeline",
+        "video_clips": [
+            {
+                "asset": {
+                    "id": "mock_asset_id",
+                    "mime_type": "video/mp4",
+                    "file_name": "mock.mp4",
+                    "user_id": "test",
+                    "current_version": 1,
+                    "versions": [],
+                },
+                "start_time": 0.0,
+                "end_time": 1.0,
+            }
+        ],
+        "transitions": [],
+    },
+}
 
 # Patch Gemini image generation globally for tests
 mock_gemini_patcher = patch(

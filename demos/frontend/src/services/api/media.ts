@@ -30,7 +30,7 @@ export const mediaApi = {
     requestBody: GenerateMusicRequest,
   ): Promise<Job> {
     console.log(`[API] Generating music for user ${userId}`);
-    return request(`/users/${userId}/media:generate-music`, {
+    return request(`/workspaces/${userId}/media:generate-music`, {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
@@ -41,7 +41,7 @@ export const mediaApi = {
     requestBody: GenerateImageWithImagenRequest,
   ): Promise<Job> {
     console.log(`[API] Generating image with Imagen for user ${userId}`);
-    return request(`/users/${userId}/media:generate-image-with-imagen`, {
+    return request(`/workspaces/${userId}/media:generate-image-with-imagen`, {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
@@ -52,7 +52,7 @@ export const mediaApi = {
     requestBody: GenerateImageWithGeminiRequest,
   ): Promise<Job> {
     console.log(`[API] Generating image with Gemini for user ${userId}`);
-    return request(`/users/${userId}/media:generate-image-with-gemini`, {
+    return request(`/workspaces/${userId}/media:generate-image-with-gemini`, {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
@@ -63,7 +63,7 @@ export const mediaApi = {
     requestBody: GenerateVideoRequest,
   ): Promise<Job> {
     console.log(`[API] Generating video for user ${userId}`);
-    return request(`/users/${userId}/media:generate-video`, {
+    return request(`/workspaces/${userId}/media:generate-video`, {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
@@ -74,14 +74,14 @@ export const mediaApi = {
     requestBody: GenerateSpeechSingleSpeakerRequest,
   ): Promise<Job> {
     console.log(`[API] Generating speech for user ${userId}`);
-    return request(`/users/${userId}/media:generate-speech-single-speaker`, {
+    return request(`/workspaces/${userId}/media:generate-speech-single-speaker`, {
       method: 'POST',
       body: JSON.stringify(requestBody),
     });
   },
 
   async getJob(userId: string, jobId: string): Promise<Job> {
-    return request(`/users/${userId}/jobs/${jobId}`, {
+    return request(`/workspaces/${userId}/jobs/${jobId}`, {
       method: 'GET',
     });
   },

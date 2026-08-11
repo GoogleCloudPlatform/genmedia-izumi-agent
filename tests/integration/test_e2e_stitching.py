@@ -31,7 +31,7 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
     4. Poll Job until COMPLETED.
     5. Clean up.
     """
-    user_id = "test_user_e2e_stitching"
+    workspace_id = "test_user_e2e_media_polling"
     canvas_id = f"test_canvas_{uuid.uuid4().hex}"
 
     # --- 1. Upload Dummy Assets ---
@@ -44,7 +44,7 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
     for i in range(2):
         data = {"file_name": f"clip_{i}.mp4", "mime_type": "video/mp4"}
         response = client.post(
-            f"/users/{user_id}/assets",
+            f"/workspaces/{workspace_id}/assets",
             files={"file": (f"clip_{i}.mp4", b"fake mp4 content", "video/mp4")},
             data=data,
         )
@@ -63,7 +63,7 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
         # VideoClip expects an Asset object (even if mock) to serialize correctly
         mock_asset = Asset(
             id=asset_id,
-            user_id=user_id,
+            user_id=workspace_id,
             mime_type="video/mp4",
             file_name="clip.mp4",
             current_version=1,
@@ -78,7 +78,7 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
     )
     canvas = Canvas(
         id=canvas_id,
-        user_id=user_id,
+        user_id=workspace_id,
         title="Test Stitching Canvas",
         video_timeline=timeline,
     )
@@ -86,7 +86,9 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
     collection.document(canvas_id).set(canvas.to_firestore())
 
     # --- 3. Trigger Stitching ---
-    response = client.post(f"/users/{user_id}/canvases/{canvas_id}:stitch")
+    response = client.post(f"/workspaces/{workspace_id}/canvases/{canvas_id}:stitch")
+    if response.status_code != 202:
+        print(f"Stitch failed: {response.text}")
     assert response.status_code == 202
     job_id = response.json()["id"]
 
@@ -96,7 +98,7 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
     completed = False
 
     for _ in range(max_retries):
-        response = client.get(f"/users/{user_id}/jobs/{job_id}")
+        response = client.get(f"/workspaces/{workspace_id}/jobs/{job_id}")
         assert response.status_code == 200
         job_state = response.json()
 
@@ -119,4 +121,4 @@ def test_e2e_video_stitching_with_injection(client: TestClient):
     # --- 5. Cleanup ---
     collection.document(canvas_id).delete()
     for asset_id in asset_ids:
-        client.delete(f"/users/{user_id}/assets/{asset_id}")
+        client.delete(f"/workspaces/{workspace_id}/assets/{asset_id}")

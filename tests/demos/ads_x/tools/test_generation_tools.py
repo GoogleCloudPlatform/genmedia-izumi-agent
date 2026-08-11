@@ -6,7 +6,7 @@ import json
 @pytest.fixture
 def mock_tool_context():
     context = MagicMock()
-    context.state = {}
+    context.state = {"workspace_id": "1"}
     return context
 
 
@@ -57,26 +57,45 @@ def test_generate_all_media_success(mock_tool_context):
         "template_name": "Custom",
     }
 
-    # Mock helpers to avoid real API calls
-    with patch(
-        "demos.backend.ads_x.utils.generation.generation_helpers.generate_background_music",
-        new_callable=AsyncMock,
-    ) as mock_gen_music:
-        with patch(
-            "demos.backend.ads_x.tools.generation.generation_tools.generate_scene",
+    # Mock helpers to avoid real API calls. generate_all_media now runs a fast
+    # lane (first frames + audio) then a slow lane (videos); it no longer calls
+    # generate_scene, so mock the first-frame step and the video step directly.
+    with (
+        patch(
+            "demos.backend.ads_x.utils.generation.generation_helpers.generate_background_music",
             new_callable=AsyncMock,
-        ) as mock_gen_scene:
+        ) as mock_gen_music,
+        patch(
+            "demos.backend.ads_x.utils.generation.generation_helpers.generate_scene_voiceover",
+            new_callable=AsyncMock,
+        ) as mock_scene_vo,
+        patch(
+            "demos.backend.ads_x.tools.generation.voiceover_tools.generate_group_voiceover",
+            new_callable=AsyncMock,
+        ) as mock_group_vo,
+        patch(
+            "demos.backend.ads_x.tools.generation.generation_tools.generate_scene_first_frame_step",
+            new_callable=AsyncMock,
+        ) as mock_first_frame,
+        patch(
+            "demos.backend.ads_x.tools.generation.generation_tools.generate_scene_video",
+            new_callable=AsyncMock,
+        ) as mock_gen_video,
+    ):
+        mock_gen_music.return_value = MagicMock()
+        mock_scene_vo.return_value = MagicMock()
+        mock_group_vo.return_value = MagicMock()
+        mock_first_frame.return_value = (MagicMock(), "desc")
+        mock_gen_video.return_value = [MagicMock()]
 
-            mock_gen_music.return_value = MagicMock()
-            mock_gen_scene.return_value = [MagicMock()]
+        import asyncio
 
-            import asyncio
+        result = asyncio.run(generate_all_media(mock_tool_context))
 
-            result = asyncio.run(generate_all_media(mock_tool_context))
-
-            assert result["status"] == "succeeded"
-            mock_gen_music.assert_called_once()
-            mock_gen_scene.assert_called_once()
+        assert result["status"] == "succeeded"
+        mock_gen_music.assert_called_once()
+        mock_first_frame.assert_called_once()
+        mock_gen_video.assert_called_once()
 
 
 def test_generate_all_media_missing_storyboard(mock_tool_context):
@@ -175,7 +194,7 @@ async def test_generate_scene_video_success_internal(
     first_frame_asset.id = "frame_id"
 
     result = await generate_scene_video(
-        user_id="user_123",
+        workspace_id="workspace_1",
         scene=scene,
         index=0,
         aspect_ratio="16:9",
@@ -227,7 +246,7 @@ async def test_generate_scene_success_internal(
     }
 
     result = await generate_scene(
-        user_id="user_123",
+        workspace_id="workspace_1",
         scene=scene,
         index=0,
         aspect_ratio="16:9",

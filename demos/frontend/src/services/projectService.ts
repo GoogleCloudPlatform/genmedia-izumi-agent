@@ -93,7 +93,7 @@ const mapApiAssetToProjectAsset = (
           : asset.mime_type.startsWith('image')
             ? 'image'
             : 'binary',
-    url: `${API_BASE_URL}/users/${projectId}/assets/${asset.id}/view?version=${asset.current_version}`,
+    url: `${API_BASE_URL}/workspaces/${projectId}/assets/${asset.id}/view?version=${asset.current_version}`,
     thumbnailUrl: undefined,
     fileName: asset.file_name,
     createdAt: currentVersion?.create_time,
@@ -209,7 +209,7 @@ const projectService = {
         type: c.canvas_type,
         url:
           c.canvas_type === 'html'
-            ? `${API_BASE_URL}/users/${projectId}/canvases/${c.id}/view`
+            ? `${API_BASE_URL}/workspaces/${projectId}/canvases/${c.id}/view`
             : undefined,
         videoTimeline:
           c.canvas_type === 'video_timeline' ? c.video_timeline : undefined,
@@ -245,7 +245,7 @@ const projectService = {
         type: canvasType,
         url:
           canvasType === 'html'
-            ? `${API_BASE_URL}/users/${projectId}/canvases/${c.id}/view`
+            ? `${API_BASE_URL}/workspaces/${projectId}/canvases/${c.id}/view`
             : undefined,
         videoTimeline: c.video_timeline,
         createdAt: c.create_time,

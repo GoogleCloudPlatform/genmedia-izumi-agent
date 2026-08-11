@@ -19,15 +19,8 @@ async def test_enrich_prompt_with_llm_success(
     mock_asset_service = AsyncMock()
     mock_get_asset_service.return_value = mock_asset_service
 
-    # Mock generate_text_with_gemini
-    mock_asset = MagicMock()
-    mock_asset.id = "asset_123"
-    mock_mediagen.generate_text_with_gemini.return_value = mock_asset
-
-    # Mock get_asset_blob
-    mock_blob = MagicMock()
-    mock_blob.content = b"Enriched prompt text"
-    mock_asset_service.get_asset_blob.return_value = mock_blob
+    # Mock generate_text
+    mock_mediagen.generate_text.return_value = "Enriched prompt text"
 
     prompt_data = {
         "cinematography": {
@@ -42,7 +35,7 @@ async def test_enrich_prompt_with_llm_success(
     }
 
     enriched_text, asset_id = await enrich_prompt_with_llm(
-        user_id="user1",
+        workspace_id="workspace_1",
         description="A dog running",
         prompt_data=prompt_data,
         scene_index=0,
@@ -52,8 +45,8 @@ async def test_enrich_prompt_with_llm_success(
     )
 
     assert enriched_text == "Enriched prompt text"
-    assert asset_id == "asset_123"
-    mock_mediagen.generate_text_with_gemini.assert_called_once()
+    assert asset_id is None
+    mock_mediagen.generate_text.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -67,7 +60,7 @@ async def test_enrich_prompt_with_llm_failure_fallback(
     mock_get_media_gen_service.return_value = mock_mediagen
 
     # Simulate failure
-    mock_mediagen.generate_text_with_gemini.side_effect = Exception("API Error")
+    mock_mediagen.generate_text.side_effect = Exception("API Error")
 
     prompt_data = {
         "cinematography": {"camera_description": "Pan"},
@@ -75,7 +68,7 @@ async def test_enrich_prompt_with_llm_failure_fallback(
     }
 
     enriched_text, asset_id = await enrich_prompt_with_llm(
-        user_id="user1",
+        workspace_id="workspace_1",
         description="A dog running",
         prompt_data=prompt_data,
         scene_index=0,
@@ -103,15 +96,13 @@ async def test_shorten_script_success(
     mock_asset_service = AsyncMock()
     mock_get_asset_service.return_value = mock_asset_service
 
-    mock_asset = MagicMock()
-    mock_asset.id = "asset_short"
-    mock_mediagen.generate_text_with_gemini.return_value = mock_asset
+    mock_mediagen.generate_text.return_value = "Shortened text"
 
     mock_blob = MagicMock()
     mock_blob.content = b"Shortened text"
     mock_asset_service.get_asset_blob.return_value = mock_blob
 
-    result = await shorten_script("Long text", 10.0, "user1")
+    result = await shorten_script("Long text", 10.0, workspace_id="workspace_1")
 
     assert result == "Shortened text"
 
@@ -124,8 +115,8 @@ async def test_shorten_script_failure_fallback(
     mock_mediagen = AsyncMock()
     mock_get_media_gen_service.return_value = mock_mediagen
 
-    mock_mediagen.generate_text_with_gemini.side_effect = Exception("API Error")
+    mock_mediagen.generate_text.side_effect = Exception("API Error")
 
-    result = await shorten_script("Long text", 10.0, "user1")
+    result = await shorten_script("Long text", 10.0, workspace_id="workspace_1")
 
     assert result == "Long text"

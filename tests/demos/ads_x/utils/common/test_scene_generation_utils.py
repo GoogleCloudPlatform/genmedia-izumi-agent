@@ -13,8 +13,9 @@ from ads_x.utils.common.scene_generation_utils import (
     "ads_x.utils.common.enrichment_utils.enrich_prompt_with_llm",
     new_callable=AsyncMock,
 )
+@patch("mediagent_kit.services.aio.get_asset_service")
 async def test_generate_scene_first_frame_success(
-    mock_enrich_prompt, mock_get_media_gen_service
+    mock_get_asset_service, mock_enrich_prompt, mock_get_media_gen_service
 ):
     mock_media_gen_service = MagicMock()
     mock_get_media_gen_service.return_value = mock_media_gen_service
@@ -22,15 +23,18 @@ async def test_generate_scene_first_frame_success(
     mock_asset = MagicMock()
     mock_asset.id = "asset_id_123"
 
-    mock_media_gen_service.generate_image_with_gemini = AsyncMock(
-        return_value=mock_asset
-    )
+    mock_media_gen_service.generate_image = AsyncMock(return_value=mock_asset)
+
+    mock_asset_service = MagicMock()
+    mock_asset_service.search_assets = AsyncMock(return_value=[])
+    mock_get_asset_service.return_value = mock_asset_service
+
     mock_enrich_prompt.return_value = ("Enriched prompt", "enrich_id_456")
 
     first_frame_prompt = {"description": "Original prompt"}
 
     result_asset, result_prompt = await generate_scene_first_frame(
-        user_id="user_123",
+        workspace_id="workspace_1",
         first_frame_prompt=first_frame_prompt,
         index=1,
         aspect_ratio="16:9",
@@ -52,14 +56,14 @@ async def test_generate_scene_video_success(mock_get_media_gen_service):
     mock_asset = MagicMock()
     mock_asset.file_name = "scene_1_video.mp4"
 
-    mock_media_gen_service.generate_video_with_veo = AsyncMock(return_value=mock_asset)
+    mock_media_gen_service.generate_video = AsyncMock(return_value=mock_asset)
 
     scene = {"first_frame_prompt": {"assets": []}}
     first_frame_asset = MagicMock()
     first_frame_asset.file_name = "scene_1_first_frame.png"
 
     result = await generate_scene_video(
-        user_id="user_123",
+        workspace_id="workspace_1",
         scene=scene,
         index=1,
         valid_duration=5.0,
@@ -79,21 +83,25 @@ async def test_generate_scene_video_success(mock_get_media_gen_service):
     "ads_x.utils.common.enrichment_utils.enrich_prompt_with_llm",
     new_callable=AsyncMock,
 )
+@patch("mediagent_kit.services.aio.get_asset_service")
 async def test_generate_scene_first_frame_failure(
-    mock_enrich_prompt, mock_get_media_gen_service
+    mock_get_asset_service, mock_enrich_prompt, mock_get_media_gen_service
 ):
+    mock_asset_service = MagicMock()
+    mock_asset_service.search_assets = AsyncMock(return_value=[])
+    mock_get_asset_service.return_value = mock_asset_service
     mock_media_gen_service = MagicMock()
     mock_get_media_gen_service.return_value = mock_media_gen_service
 
     # Force failure
-    mock_media_gen_service.generate_image_with_gemini = AsyncMock(
+    mock_media_gen_service.generate_image = AsyncMock(
         side_effect=Exception("Gen failure")
     )
     mock_enrich_prompt.return_value = ("Enriched prompt", None)
 
     with pytest.raises(Exception) as exc_info:
         await generate_scene_first_frame(
-            user_id="user_123",
+            workspace_id="workspace_1",
             first_frame_prompt={"description": "Original"},
             index=1,
             aspect_ratio="16:9",
@@ -107,7 +115,7 @@ async def test_generate_scene_video_failure(mock_get_media_gen_service):
     mock_media_gen_service = MagicMock()
     mock_get_media_gen_service.return_value = mock_media_gen_service
 
-    mock_media_gen_service.generate_video_with_veo = AsyncMock(
+    mock_media_gen_service.generate_video = AsyncMock(
         side_effect=Exception("Veo failure")
     )
 
@@ -117,7 +125,7 @@ async def test_generate_scene_video_failure(mock_get_media_gen_service):
 
     with pytest.raises(Exception) as exc_info:
         await generate_scene_video(
-            user_id="user_123",
+            workspace_id="workspace_1",
             scene=scene,
             index=1,
             valid_duration=5.0,
@@ -137,14 +145,15 @@ async def test_generate_scene_video_reference_to_video(mock_get_media_gen_servic
     mock_get_media_gen_service.return_value = mock_media_gen_service
 
     mock_asset = MagicMock()
-    mock_media_gen_service.generate_video_with_veo = AsyncMock(return_value=mock_asset)
+    mock_media_gen_service.generate_video = AsyncMock(return_value=mock_asset)
 
     scene = {"first_frame_prompt": {"assets": ["other.png"]}}
     first_frame_asset = MagicMock()
+    first_frame_asset.id = "first_frame_id"
     first_frame_asset.file_name = "scene_1_first_frame.png"
 
     await generate_scene_video(
-        user_id="user_123",
+        workspace_id="workspace_1",
         scene=scene,
         index=1,
         valid_duration=5.0,
@@ -155,6 +164,5 @@ async def test_generate_scene_video_reference_to_video(mock_get_media_gen_servic
         final_video_prompt="Final prompt",
     )
 
-    # Verify first_frame_asset.file_name was prepended
-    call_args = mock_media_gen_service.generate_video_with_veo.call_args[1]
-    assert call_args["reference_image_filenames"][0] == "scene_1_first_frame.png"
+    call_args = mock_media_gen_service.generate_video.call_args[1]
+    assert call_args["start_image"].id == "first_frame_id"

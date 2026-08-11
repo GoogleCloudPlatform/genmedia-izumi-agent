@@ -18,6 +18,7 @@ import uuid
 import pydantic
 from google.adk.tools.tool_context import ToolContext
 import mediagent_kit
+from utils.adk import get_session_id_from_context
 
 from ...utils.common import common_utils
 from ...utils.storyboard import storyboard_model
@@ -41,6 +42,45 @@ Rules:
 Truncated JSON:
 {raw_json}
 """
+
+
+def _build_art_direction_block(
+    recipe: dict,
+    include_character: bool = True,
+    cast_override: str = "",
+) -> str:
+    """Builds a compact, non-negotiable art-direction block from the selected
+    Look so every scene prompt is anchored to the same coherent visual identity.
+
+    Covers the visual anchors (audio/sonic is handled by the music track, not
+    the image/video prompts). Appended to each scene's first-frame and video
+    description; the enrichment step is instructed to preserve it verbatim.
+
+    ``include_character`` gates the human-character styling (Cast/Wardrobe/
+    Grooming). It must be False for product-only campaigns so we don't force an
+    invented person into a pure product ad. ``cast_override`` (the description of
+    an already-cast virtual creator) replaces the Look's generic archetype so the
+    injected text matches the generated reference headshot.
+    """
+    cine = recipe.get("cinematography", {}) or {}
+    illum = recipe.get("illumination", {}) or {}
+    char = recipe.get("character", {}) or {}
+    fields = [
+        ("Mode", recipe.get("style_mode")),
+        ("Aesthetic", recipe.get("brand_archetype")),
+    ]
+    if include_character:
+        fields.append(("Cast", cast_override or char.get("actor_vibe")))
+        fields.append(("Wardrobe", char.get("attire")))
+        fields.append(("Grooming", char.get("grooming")))
+    fields += [
+        ("Lighting", illum.get("vibe")),
+        ("Key Light", illum.get("key_lighting")),
+        ("Optics", cine.get("optics")),
+        ("Texture", cine.get("motion_texture")),
+    ]
+    rendered = "; ".join(f"{label}: {value}" for label, value in fields if value)
+    return f" [ART DIRECTION (NON-NEGOTIABLE) -> {rendered}]"
 
 
 async def finalize_and_persist_storyboard(
@@ -77,29 +117,15 @@ async def finalize_and_persist_storyboard(
 
         # 3. Trigger Repair Turn using mediagent_kit
         mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-        user_id = tool_context.state.get("user_id", "default_user")
-        uid = uuid.uuid4().hex[:8]
-        repair_result = await mediagen_service.generate_text_with_gemini(
-            user_id=user_id,
-            file_name=f"storyboard_repair_{uid}.json",
-            model="gemini-2.5-flash",  # Fast model for repair
-            prompt=REPAIR_PROMPT.format(
-                raw_json=clean_json[-5000:]
-            ),  # Send last 5k chars for context
-            reference_image_filenames=[],
+        workspace_id = str(
+            tool_context.state.get("workspace_id")
+            or tool_context.state.get("user_id", "default_user")
         )
-
-        # Note: We might need to stitch if the repair only returned the tail,
-        # but usually it's safer to have the repair model return the whole corrected block
-        # OR we just use the repair output if it's broad enough.
-        # For simplicity, let's assume the repair model returns the FULL valid JSON.
-
-        repair_blob = (
-            await mediagent_kit.services.aio.get_asset_service().get_asset_blob(
-                repair_result.id
-            )
+        repaired_json = await mediagen_service.generate_text(
+            workspace_id=workspace_id,
+            prompt=REPAIR_PROMPT.format(raw_json=clean_json[-5000:]),
         )
-        repaired_json = repair_blob.content.decode().strip()
+        repaired_json = repaired_json.strip()
 
         # Clean repair output
         if repaired_json.startswith("```json"):
@@ -115,6 +141,11 @@ async def finalize_and_persist_storyboard(
 
     # 4. Validate against Pydantic Model
     try:
+        # Drop any ID hallucinated by the LLM before validation
+        if isinstance(storyboard_data, dict):
+            for id_key in ("storyboard_id", "id", "current_storyboard_id"):
+                storyboard_data.pop(id_key, None)
+
         storyboard = storyboard_model.Storyboard.model_validate(storyboard_data)
 
         parameters = tool_context.state.get(common_utils.PARAMETERS_KEY, {})
@@ -129,6 +160,9 @@ async def finalize_and_persist_storyboard(
 
         target_duration_str = parameters.get("target_duration", "12s")
         template_name = parameters.get("template_name", "Custom")
+        generate_virtual_creator = bool(
+            parameters.get("generate_virtual_creator", False)
+        )
 
         # --- Fallback Removed: Resolving from the root ---
         # If the LLM omits scenes, Pydantic will now automatically raise a ValidationError
@@ -181,14 +215,35 @@ async def finalize_and_persist_storyboard(
         # ----------------------------------------
 
         # --- PROGRAMMATIC ART DIRECTION INJECTION (SAFETY GUARD) ---
-        # We intercept the JSON output here to absolutely guarantee that every technical parameter
-        # from the Master Recipe is securely digested by the final video engine.
+        # We intercept the JSON output here to guarantee the full selected Look
+        # (not just optics + vibe) is bound to every scene, so the final image /
+        # video engine renders the coherent art direction shown in the summary.
+        #
+        # This HARD override runs ONLY in creative / "Custom" mode. When the user
+        # picks a specific template, that template ships its own coherent visual
+        # direction (per-scene cinematography_hints + style_preset_hint), which
+        # the storyboard instruction already blends with the recipe. Force-binding
+        # the auto-selected Look on top would clobber the chosen template's
+        # aesthetic, so in template mode we respect the template and skip the hard
+        # injection (the recipe still informs the music track downstream).
+        creative_modes = {"custom", "creative", "freeform", "no template"}
+        is_creative_mode = str(template_name).strip().lower() in creative_modes
         recipe = tool_context.state.get("master_production_recipe")
-        if recipe:
-            c_optics = recipe.get("cinematography", {}).get("optics", "")
-            i_vibe = recipe.get("illumination", {}).get("vibe", "")
-
-            anchor_str = f" [Aesthetic Anchor: {i_vibe}, {c_optics}]"
+        if recipe and is_creative_mode:
+            # Only inject human-character styling when the campaign actually calls
+            # for an on-screen person. For product-only ads this stays False, so
+            # the Look's aesthetic (lighting/optics/color) still applies without
+            # inventing a character. When a virtual creator was cast, anchor the
+            # injected Cast to its exact description so text and reference agree.
+            creator_meta = (
+                tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY) or {}
+            )
+            cast_override = str(creator_meta.get("demographics", "") or "")
+            anchor_str = _build_art_direction_block(
+                recipe,
+                include_character=generate_virtual_creator,
+                cast_override=cast_override,
+            )
             for scene in storyboard.scenes:
                 if (
                     scene.first_frame_prompt
@@ -204,9 +259,26 @@ async def finalize_and_persist_storyboard(
                     scene.video_prompt.description = (
                         f"{scene.video_prompt.description.strip()}{anchor_str}"
                     )
+        elif recipe:
+            logger.info(
+                "Template '%s' selected; respecting its native art direction and "
+                "skipping the hard Look injection.",
+                template_name,
+            )
 
-        # 5. Persist to State (Redundant but safe)
-        tool_context.state[common_utils.STORYBOARD_KEY] = storyboard.model_dump()
+        # 5. Persist to State & Explicitly save to Creative Studio
+        storyboard.storyboard_id = None
+        sb_dump = storyboard.model_dump()
+        for id_key in ("storyboard_id", "id", "current_storyboard_id"):
+            sb_dump.pop(id_key, None)
+        session_id = get_session_id_from_context(tool_context)
+        workspace_id = str(
+            tool_context.state.get("workspace_id")
+            or tool_context.state.get("user_id", "")
+        )
+        sb_dump["session_id"] = session_id
+        sb_dump["workspace_id"] = workspace_id
+        tool_context.state[common_utils.STORYBOARD_KEY] = sb_dump
 
         # 6. Beautify for UI
         table_rows = []

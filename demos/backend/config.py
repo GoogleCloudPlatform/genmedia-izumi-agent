@@ -31,6 +31,11 @@ class Config:
     RETRY_MAX_ATTEMPTS: int = 5
     RETRY_INITIAL_DELAY_SECONDS: float = 30.0
     FIRESTORE_DATABASE_ID: str = ""
+    USE_CREATIVE_STUDIO: bool = False
+    CREATIVE_STUDIO_BACKEND_URL: str = ""
+    CREATIVE_STUDIO_FRONTEND_URL: str = ""
+    CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY: str = "user_auth_token"
+    MODEL_TARGET_LOCATION: str | None = None
 
 
 def check_firestore_emulator():
@@ -83,6 +88,14 @@ def load_config() -> Config:
             os.environ.get("RETRY_INITIAL_DELAY_SECONDS", "30.0")
         ),
         FIRESTORE_DATABASE_ID=os.environ.get("FIRESTORE_DATABASE_ID", ""),
+        USE_CREATIVE_STUDIO=os.environ.get("USE_CREATIVE_STUDIO", "False").lower()
+        in ["true", "1"],
+        CREATIVE_STUDIO_BACKEND_URL=os.environ.get("CREATIVE_STUDIO_BACKEND_URL", ""),
+        CREATIVE_STUDIO_FRONTEND_URL=os.environ.get("CREATIVE_STUDIO_FRONTEND_URL", ""),
+        CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY=os.environ.get(
+            "CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token"
+        ),
+        MODEL_TARGET_LOCATION=os.environ.get("MODEL_TARGET_LOCATION"),
     )
 
 

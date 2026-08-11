@@ -41,13 +41,13 @@ def get_job_orchestrator_service(
 
 
 @router.post(
-    "/users/{user_id}/canvases/{canvas_id}:stitch",
+    "/workspaces/{workspace_id}/canvases/{canvas_id}:stitch",
     response_model=Job,
     status_code=202,
     tags=["Video Stitching"],
 )
 def stitch_video(
-    user_id: str,
+    workspace_id: str,
     canvas_id: str,
     canvas_service: Annotated[CanvasService, Depends(get_canvas_service)],
     orchestrator: Annotated[
@@ -61,5 +61,7 @@ def stitch_video(
             status_code=400, detail="Canvas does not have a video timeline."
         )
 
-    job = orchestrator.submit_video_stitching_job(user_id=user_id, canvas_id=canvas_id)
+    job = orchestrator.submit_video_stitching_job(
+        user_id=workspace_id, canvas_id=canvas_id
+    )
     return job

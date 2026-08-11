@@ -42,27 +42,20 @@ async def extract_campaign_parameters(
     logger.info("Extracting campaign parameters via background tool...")
 
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-    user_id = tool_context.state.get("user_id", "default_user")
-
-    from utils.adk import get_session_id_from_context
-
-    session_id = get_session_id_from_context(tool_context)
-
-    # Call Gemini to get the JSON
-    uid = uuid.uuid4().hex[:8]
-    extraction_result = await mediagen_service.generate_text_with_gemini(
-        user_id=user_id,
-        file_name=f"campaign_parameters_{uid}.json",
-        model="gemini-2.5-flash",
-        prompt=parameters_instruction.INSTRUCTION
-        + f"\n\n**USER BRIEF:**\n{user_brief}",
-        reference_image_filenames=[],
+    workspace_id = str(
+        tool_context.state.get("workspace_id")
+        or tool_context.state.get("user_id", "default_user")
     )
 
-    # Get the blob content
-    asset_service = mediagent_kit.services.aio.get_asset_service()
-    blob = await asset_service.get_asset_blob(extraction_result.id)
-    raw_json = blob.content.decode().strip()
+    # Call Gemini to get the JSON. INSTRUCTION is shared with the parameters
+    # agent (which has the tool); here there is no tool, so append the
+    # text-output override or Gemini 3.x returns a MALFORMED_FUNCTION_CALL.
+    raw_json = await mediagen_service.generate_text(
+        workspace_id=workspace_id,
+        prompt=parameters_instruction.INSTRUCTION
+        + f"\n\n**USER BRIEF:**\n{user_brief}"
+        + parameters_instruction.TEXT_OUTPUT_OVERRIDE,
+    )
 
     # Clean JSON helper
     def clean_markdown_json(text: str) -> str:
@@ -105,18 +98,13 @@ async def extract_campaign_parameters(
 
     # 2. Repair Turn (Self-Correction)
     try:
-        uid = uuid.uuid4().hex[:8]
-        repair_result = await mediagen_service.generate_text_with_gemini(
-            user_id=user_id,
-            file_name=f"parameters_repair_{uid}.json",
-            model="gemini-2.5-flash",
+        repaired_raw = await mediagen_service.generate_text(
+            workspace_id=workspace_id,
             prompt=parameters_repair_instruction.REPAIR_PROMPT.format(
                 user_brief=user_brief, raw_json=clean_json, error=str(first_error)
             ),
-            reference_image_filenames=[],
         )
-        repair_blob = await asset_service.get_asset_blob(repair_result.id)
-        repaired_json = clean_markdown_json(repair_blob.content.decode())
+        repaired_json = clean_markdown_json(repaired_raw)
 
         params_data = json.loads(repaired_json)
         params = parameters_model.Parameters.model_validate(params_data)
@@ -136,7 +124,17 @@ async def extract_campaign_parameters(
         # 3. Final Safety: Intelligent Fallback
         from ...utils.storyboard import template_library
 
-        # 3.1. Best guess for template name
+        # 3.1. Best guess for template name.
+        #
+        # Default to "Custom" (AI Director / creative mode). We ONLY switch to
+        # a specific template if the user explicitly named one in the brief.
+        #
+        # We deliberately do NOT call suggest_template() here: it never returns
+        # "Custom" (its floor is a generic Problem/Solution template), so using
+        # it as a fallback silently forces every failed-extraction run into
+        # templated mode. Creative is the system's preferred default, so a
+        # parse failure must degrade to creative, not to an arbitrary template.
+        # (Root cause of the "creative brief routed to templated mode" bug.)
         detected_template = "Custom"
         all_templates = template_library.get_all_templates()
         brief_upper = user_brief.upper()
@@ -145,19 +143,12 @@ async def extract_campaign_parameters(
                 detected_template = t.template_name
                 break
 
-        # 3.2. If still Custom, try industry suggestion
-        if detected_template == "Custom":
-            suggested = template_library.suggest_template(
-                industry="General", vertical=user_brief[:50]
-            )
-            detected_template = suggested.template_name
-
         # 3.3 Dynamic Fallback Detection
         detected_orientation = "landscape"
         if "PORTRAIT" in user_brief.upper() or "VERTICAL" in user_brief.upper():
             detected_orientation = "portrait"
 
-        detected_duration = "30s"
+        detected_duration = "12s"
         import re
 
         duration_match = re.search(r"(\d+s)", user_brief)

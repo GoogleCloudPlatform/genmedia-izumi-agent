@@ -23,31 +23,38 @@ class AsyncServiceFactory:
     def __init__(self, sync_factory: sync_service_factory.ServiceFactory):
         self._sync_factory = sync_factory
 
-    @functools.cache
     def get_asset_service(self) -> services.AsyncAssetService:
         return services.AsyncAssetService(self._sync_factory.get_asset_service())
 
-    @functools.cache
     def get_canvas_service(self) -> services.AsyncCanvasService:
         return services.AsyncCanvasService(self._sync_factory.get_canvas_service())
 
-    @functools.cache
     def get_job_service(self) -> services.AsyncJobService:
         return services.AsyncJobService(self._sync_factory.get_job_service())
 
-    @functools.cache
     def get_media_generation_service(self) -> services.AsyncMediaGenerationService:
         return services.AsyncMediaGenerationService(
             self._sync_factory.get_media_generation_service()
         )
 
-    @functools.cache
     def get_video_stitching_service(self) -> services.AsyncVideoStitchingService:
         return services.AsyncVideoStitchingService(
             self._sync_factory.get_video_stitching_service()
         )
 
-    @functools.cache
+    def get_storyboard_service(self) -> services.AsyncStoryboardService:
+        return services.AsyncStoryboardService(
+            self._sync_factory.get_storyboard_service()
+        )
+
+    def get_video_timeline_service(self) -> services.AsyncVideoTimelineService:
+        return services.AsyncVideoTimelineService(
+            self._sync_factory.get_timeline_service()
+        )
+
+    def get_timeline_service(self) -> services.AsyncVideoTimelineService:
+        return self.get_video_timeline_service()
+
     def get_firestore_session_service(self) -> FirestoreSessionService:
         return FirestoreSessionService(
             db=self._sync_factory._get_db(),

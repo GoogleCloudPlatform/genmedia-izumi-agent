@@ -38,7 +38,7 @@ function AssetPreview({
   label?: string;
   onClick: (assetId: string) => void;
 }) {
-  const assetUrl = `${API_BASE_URL}/users/${asset.user_id}/assets/${asset.id}/view`;
+  const assetUrl = `${API_BASE_URL}/workspaces/${asset.user_id}/assets/${asset.id}/view`;
 
   return (
     <ButtonBase

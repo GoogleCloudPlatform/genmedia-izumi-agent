@@ -34,7 +34,7 @@ type ChatPart = ChatPartText | ChatPartInlineData;
 export const chatApi = {
   async getAllChatSessions(projectId: string) {
     console.log(`[API] Fetching all chat sessions for project ${projectId}`);
-    return request(`/users/${projectId}/sessions`);
+    return request(`/workspaces/${projectId}/sessions`);
   },
 
   async getChatSessions(projectId: string, appName: string) {

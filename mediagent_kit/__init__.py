@@ -49,10 +49,12 @@ def initialize_from_env() -> None:
         or os.getenv("GOOGLE_CLOUD_PROJECT")
         or os.getenv("PROJECT_ID")
     )
+    # Prefer GOOGLE_CLOUD_LOCATION (where the Gemini text models are served,
+    # e.g. "global") over IZUMI_LOCATION (the Agent Engine *deployment* region,
+    # e.g. "us-central1"). Using the deploy region for model calls 404s whenever a
+    # model such as gemini-3.5-flash is only served from "global".
     location = (
-        os.getenv("IZUMI_LOCATION")
-        or os.getenv("GOOGLE_CLOUD_LOCATION")
-        or "us-central1"
+        os.getenv("GOOGLE_CLOUD_LOCATION") or os.getenv("IZUMI_LOCATION") or "global"
     )
     bucket = os.getenv("ASSET_SERVICE_GCS_BUCKET")
     db_id = os.getenv("FIRESTORE_DATABASE_ID", "(default)")
@@ -74,6 +76,13 @@ def initialize_from_env() -> None:
                 google_cloud_location=location,
                 asset_service_gcs_bucket=bucket,
                 firestore_database_id=db_id,
+                use_creative_studio=os.getenv("USE_CREATIVE_STUDIO", "").lower()
+                in ("true", "1"),
+                cs_backend_url=os.getenv("CREATIVE_STUDIO_BACKEND_URL"),
+                cs_frontend_url=os.getenv("CREATIVE_STUDIO_FRONTEND_URL"),
+                cs_user_auth_token_key=os.getenv(
+                    "CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token"
+                ),
             )
         )
         print("[mediagent_kit] Auto-initialization successful.")
