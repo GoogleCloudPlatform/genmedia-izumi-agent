@@ -164,6 +164,9 @@ def main():
             "CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY": os.getenv(
                 "CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", ""
             ),
+            # Without this the deployed agent silently runs with no review
+            # checkpoints, however the flag is set locally.
+            "ENABLE_HITL_GATES": os.getenv("ENABLE_HITL_GATES", "False"),
             "USE_AGENT_ENGINE": "True",
             "APP_ENV": "prod",
             "GOOGLE_CLOUD_AGENT_ENGINE_ENABLE_TELEMETRY": "true",
