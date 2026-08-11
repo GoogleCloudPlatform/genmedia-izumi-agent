@@ -58,7 +58,7 @@ def test_list_sessions_success(client, mock_session_service):
     mock_response.sessions = [mock_session, mock_eval_session]
     mock_session_service.list_sessions.return_value = mock_response
 
-    response = client.get("/users/user_1/sessions")
+    response = client.get("/workspaces/user_1/sessions")
     assert response.status_code == 200
     data = response.json()
     # It should filter out the eval session

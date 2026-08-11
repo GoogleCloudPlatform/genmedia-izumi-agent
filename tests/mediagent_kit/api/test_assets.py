@@ -58,7 +58,7 @@ def test_list_assets_success(client, mock_asset_service):
     )
     mock_asset_service.list_assets.return_value = [asset]
 
-    response = client.get("/users/user_1/assets")
+    response = client.get("/workspaces/user_1/assets")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
@@ -83,7 +83,7 @@ def test_update_asset_success(client, mock_asset_service):
     mock_asset_service.update_asset.return_value = updated_mock_asset
 
     response = client.patch(
-        "/users/user_1/assets/asset_1", json={"file_name": "updated.png"}
+        "/workspaces/user_1/assets/asset_1", json={"file_name": "updated.png"}
     )
     assert response.status_code == 200
 
@@ -99,7 +99,7 @@ def test_download_asset_success(client, mock_asset_service):
     mock_blob.file_name = "test.png"
     mock_asset_service.get_asset_blob.return_value = mock_blob
 
-    response = client.get("/users/user_1/assets/asset_1/download")
+    response = client.get("/workspaces/user_1/assets/asset_1/download")
     assert response.status_code == 200
     assert response.content == b"fake content"
 
@@ -110,7 +110,9 @@ def test_view_asset_redirect(client, mock_asset_service):
     mock_asset.current_version = 1
     mock_asset_service.get_asset_by_id.return_value = mock_asset
 
-    response = client.get("/users/user_1/assets/asset_1/view", follow_redirects=False)
+    response = client.get(
+        "/workspaces/user_1/assets/asset_1/view", follow_redirects=False
+    )
     assert response.status_code == 307
     assert "version=1" in response.headers["location"]
 
@@ -128,7 +130,7 @@ def test_get_asset_success(client, mock_asset_service):
     )
     mock_asset_service.get_asset_by_id.return_value = asset
 
-    response = client.get("/users/user_1/assets/asset_1")
+    response = client.get("/workspaces/user_1/assets/asset_1")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "asset_1"
@@ -137,7 +139,7 @@ def test_get_asset_success(client, mock_asset_service):
 def test_get_asset_not_found(client, mock_asset_service):
     mock_asset_service.get_asset_by_id.return_value = None
 
-    response = client.get("/users/user_1/assets/asset_1")
+    response = client.get("/workspaces/user_1/assets/asset_1")
     assert response.status_code == 404
 
 
@@ -158,7 +160,7 @@ def test_create_asset_success(client, mock_async_asset_service):
     files = {"file": ("test.png", b"fake content", "image/png")}
     data = {"file_name": "test.png", "mime_type": "image/png"}
 
-    response = client.post("/users/user_1/assets", files=files, data=data)
+    response = client.post("/workspaces/user_1/assets", files=files, data=data)
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "asset_1"
@@ -169,6 +171,6 @@ def test_delete_asset_success(client, mock_asset_service):
     mock_asset.user_id = "user_1"
     mock_asset_service.get_asset_by_id.return_value = mock_asset
 
-    response = client.delete("/users/user_1/assets/asset_1")
+    response = client.delete("/workspaces/user_1/assets/asset_1")
     assert response.status_code == 204
     mock_asset_service.delete_asset.assert_called_once_with("asset_1")

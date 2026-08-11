@@ -222,7 +222,12 @@ async def test_generate_image_description_asyncio_defined(
 
     from utils.adk import generate_image_description
 
-    desc = await generate_image_description(b"test data", "image/png", "123")
+    # Keyword arguments on purpose: the positional order changed once already
+    # and the old call silently fed "123" in as the image bytes, which surfaced
+    # as a base64 validation error swallowed by the function's fallback.
+    desc = await generate_image_description(
+        mime_type="image/png", workspace_id="123", blob_data=b"test data"
+    )
     assert desc == "An image of a mountain."
     mock_client.models.generate_content.assert_called_once()
 

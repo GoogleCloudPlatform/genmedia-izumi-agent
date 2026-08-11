@@ -83,11 +83,13 @@ mock_storage_client.return_value.bucket.return_value = mock_bucket
 mock_bucket.blob.return_value = mock_blob
 mock_blob.upload_from_string.return_value = True
 mock_blob.download_as_bytes.return_value = b"fake media content"
-# Patch Firestore clients globally for tests to prevent hangs
-mock_firestore_patcher = patch("google.cloud.firestore.Client")
-mock_firestore_async_patcher = patch("google.cloud.firestore.AsyncClient")
-mock_firestore_client = mock_firestore_patcher.start()
-mock_firestore_async_client = mock_firestore_async_patcher.start()
+# Firestore is served by the emulator (FIRESTORE_EMULATOR_HOST above), so the
+# clients do not need patching to stay off the network. They are left real on
+# purpose: patching google.cloud.firestore.Client for the whole session makes
+# the symbol itself a Mock, which breaks MagicMock(spec=firestore.Client) and
+# hides the emulator from every test that wants it.
+mock_firestore_client = MagicMock()
+mock_firestore_async_client = MagicMock()
 mock_doc_ref = MagicMock()
 mock_doc_ref.id = "mock_job_id"
 mock_firestore_client.return_value.collection.return_value.add.return_value = (

@@ -64,7 +64,7 @@ def test_generate_music_success(client, mock_orchestrator):
     mock_orchestrator.submit_music_generation_job.return_value = mock_job
 
     response = client.post(
-        "/users/user_1/media:generate-music",
+        "/workspaces/user_1/media:generate-music",
         json={
             "prompt": "smooth jazz",
             "file_name": "jazz.mp3",
@@ -87,7 +87,7 @@ def test_generate_image_with_imagen_success(client, mock_orchestrator):
     mock_orchestrator.submit_image_generation_job.return_value = mock_job
 
     response = client.post(
-        "/users/user_1/media:generate-image-with-imagen",
+        "/workspaces/user_1/media:generate-image-with-imagen",
         json={
             "prompt": "a sunset",
             "aspect_ratio": ImagenAspectRatio.RATIO_16_9.value,
@@ -111,7 +111,7 @@ def test_generate_image_with_gemini_success(client, mock_orchestrator):
     mock_orchestrator.submit_gemini_image_generation_job.return_value = mock_job
 
     response = client.post(
-        "/users/user_1/media:generate-image-with-gemini",
+        "/workspaces/user_1/media:generate-image-with-gemini",
         json={
             "prompt": "a cat",
             "aspect_ratio": GeminiImageAspectRatio.RATIO_1_1.value,
@@ -135,7 +135,7 @@ def test_generate_video_success(client, mock_orchestrator):
     mock_orchestrator.submit_video_generation_job.return_value = mock_job
 
     response = client.post(
-        "/users/user_1/media:generate-video",
+        "/workspaces/user_1/media:generate-video",
         json={
             "prompt": "a dog running",
             "file_name": "dog.mp4",
@@ -150,7 +150,7 @@ def test_generate_video_success(client, mock_orchestrator):
 
 def test_generate_video_missing_first_frame(client, mock_orchestrator):
     response = client.post(
-        "/users/user_1/media:generate-video",
+        "/workspaces/user_1/media:generate-video",
         json={
             "prompt": "a dog running",
             "file_name": "dog.mp4",
@@ -178,7 +178,7 @@ def test_generate_speech_single_speaker_success(client, mock_orchestrator):
     )
 
     response = client.post(
-        "/users/user_1/media:generate-speech-single-speaker",
+        "/workspaces/user_1/media:generate-speech-single-speaker",
         json={
             "prompt": "speak this",
             "text": "Hello world",

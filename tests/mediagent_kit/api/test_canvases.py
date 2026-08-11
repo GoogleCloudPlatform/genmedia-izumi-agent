@@ -52,7 +52,7 @@ def test_list_canvases_success(client, mock_canvas_service):
     mock_canvas.video_timeline = None
     mock_canvas_service.list_canvases.return_value = [mock_canvas]
 
-    response = client.get("/users/user_1/canvases")
+    response = client.get("/workspaces/user_1/canvases")
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 1
@@ -69,7 +69,7 @@ def test_get_canvas_success(client, mock_canvas_service):
     mock_canvas.html = None
     mock_canvas_service.get_canvas.return_value = mock_canvas
 
-    response = client.get("/users/user_1/canvases/canvas_1")
+    response = client.get("/workspaces/user_1/canvases/canvas_1")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "canvas_1"
@@ -78,7 +78,7 @@ def test_get_canvas_success(client, mock_canvas_service):
 def test_get_canvas_not_found(client, mock_canvas_service):
     mock_canvas_service.get_canvas.return_value = None
 
-    response = client.get("/users/user_1/canvases/canvas_1")
+    response = client.get("/workspaces/user_1/canvases/canvas_1")
     assert response.status_code == 404
 
 
@@ -88,7 +88,7 @@ def test_get_canvas_wrong_user(client, mock_canvas_service):
     mock_canvas.user_id = "user_2"
     mock_canvas_service.get_canvas.return_value = mock_canvas
 
-    response = client.get("/users/user_1/canvases/canvas_1")
+    response = client.get("/workspaces/user_1/canvases/canvas_1")
     assert response.status_code == 404
 
 
@@ -97,7 +97,7 @@ def test_delete_canvas_success(client, mock_canvas_service):
     mock_canvas.user_id = "user_1"
     mock_canvas_service.get_canvas.return_value = mock_canvas
 
-    response = client.delete("/users/user_1/canvases/canvas_1")
+    response = client.delete("/workspaces/user_1/canvases/canvas_1")
     assert response.status_code == 204
     mock_canvas_service.delete_canvas.assert_called_once_with("canvas_1")
 
@@ -116,7 +116,7 @@ def test_update_canvas_success(client, mock_canvas_service):
     mock_canvas_service.update_canvas.return_value = updated_canvas
 
     response = client.patch(
-        "/users/user_1/canvases/canvas_1", json={"title": "Updated Title"}
+        "/workspaces/user_1/canvases/canvas_1", json={"title": "Updated Title"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -138,13 +138,13 @@ def test_view_canvas_success(client, mock_canvas_service, mock_asset_service):
     mock_asset.file_name = "test.png"
     mock_asset_service.list_assets.return_value = [mock_asset]
 
-    response = client.get("/users/user_1/canvases/canvas_1/view")
+    response = client.get("/workspaces/user_1/canvases/canvas_1/view")
     assert response.status_code == 200
-    assert "/users/user_1/assets/asset_1/view" in response.text
+    assert "/workspaces/user_1/assets/asset_1/view" in response.text
 
 
 def test_view_canvas_not_found(client, mock_canvas_service):
     mock_canvas_service.get_canvas.return_value = None
 
-    response = client.get("/users/user_1/canvases/canvas_1/view")
+    response = client.get("/workspaces/user_1/canvases/canvas_1/view")
     assert response.status_code == 404

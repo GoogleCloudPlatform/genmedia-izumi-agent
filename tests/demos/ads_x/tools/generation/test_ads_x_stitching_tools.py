@@ -206,6 +206,10 @@ async def test_stitch_final_video_creative_studio_link(
 ):
     mock_config = MagicMock()
     mock_config.use_creative_studio = True
+    # Set explicitly: the code does (cs_frontend_url or default).rstrip("/"),
+    # and a bare MagicMock is truthy, so leaving it unset puts a mock repr in
+    # the link instead of a URL.
+    mock_config.cs_frontend_url = "http://cs-test:4200"
     mock_get_config.return_value = mock_config
     mock_get_session_id.return_value = "session_camel_test"
     mock_get_asset_service.return_value = mock_asset_service
