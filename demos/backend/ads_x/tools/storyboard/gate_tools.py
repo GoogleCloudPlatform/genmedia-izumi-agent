@@ -31,7 +31,7 @@ Two things about this mechanism are easy to get wrong:
 """
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from google.adk.tools.tool_context import ToolContext
 
@@ -71,6 +71,31 @@ def split_art_direction(description: str) -> tuple[str, str]:
     return head.strip(), (marker + tail).strip()
 
 
+def _resumability_error(tool_context: ToolContext) -> Optional[str]:
+    """Explains why this run cannot suspend, if it cannot.
+
+    A review checkpoint is a long-running call, and a long-running call only
+    suspends a run that was built resumable. Without that, the call returns
+    like any other tool and the model reads the "awaiting review" payload as an
+    answer - so it invents a verdict and approves its own gate, which is worse
+    than having no checkpoint at all because it looks like one ran.
+
+    So refuse instead. A checkpoint that cannot pause should fail loudly.
+    """
+    invocation = getattr(tool_context, "_invocation_context", None)
+    if invocation is None:
+        return None  # not a real ToolContext (tests); nothing to check
+    if getattr(invocation, "is_resumable", False):
+        return None
+    return (
+        "This deployment cannot pause for review: the app was built without "
+        "ResumabilityConfig(is_resumable=True), so a long-running call returns "
+        "immediately instead of suspending. Refusing to ask for approval that "
+        "cannot be given. Deploy the ads_x App (not the bare root_agent) with "
+        "ENABLE_HITL_GATES=true."
+    )
+
+
 def _scene_digest(storyboard: Dict[str, Any]) -> list[Dict[str, Any]]:
     """Compact per-scene view for the approval UI."""
     digest = []
@@ -105,6 +130,10 @@ async def await_storyboard_approval(tool_context: ToolContext) -> ToolResult:
     "regenerate", and may carry free-text ``guidance`` describing the requested
     changes.
     """
+    blocked = _resumability_error(tool_context)
+    if blocked:
+        return tool_failure(blocked)
+
     storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
     if not isinstance(storyboard, dict) or not storyboard.get("scenes"):
         return tool_failure(
@@ -201,6 +230,10 @@ async def await_strategy_approval(tool_context: ToolContext) -> ToolResult:
     been written or rendered yet, so a correction here costs nothing, while the
     same correction after generation costs a full re-render.
     """
+    blocked = _resumability_error(tool_context)
+    if blocked:
+        return tool_failure(blocked)
+
     parameters = tool_context.state.get(common_utils.PARAMETERS_KEY)
     if not isinstance(parameters, dict) or not parameters:
         return tool_failure(
@@ -301,6 +334,10 @@ async def await_final_cut_approval(tool_context: ToolContext) -> ToolResult:
     The reviewer can ask for individual scenes to be re-rendered; the video is
     then restitched and comes back for another look.
     """
+    blocked = _resumability_error(tool_context)
+    if blocked:
+        return tool_failure(blocked)
+
     storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
     if not isinstance(storyboard, dict) or not storyboard.get("scenes"):
         return tool_failure("There is no storyboard, so there is nothing to review.")

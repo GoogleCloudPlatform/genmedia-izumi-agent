@@ -137,17 +137,26 @@ def main():
         sys.path.insert(0, tmp_bundle_dir)
         os.chdir(tmp_bundle_dir)
 
-        print("🔑 Importing root_agent from ads_x package...")
+        print("🔑 Importing the ads_x App...")
         try:
-            from ads_x.agent import root_agent
+            from ads_x.agent import app as ads_x_app
             from agent_engine_app import AgentEngineApp
         except ImportError as e:
-            print(f"❌ Error: Could not import root_agent from packaged bundle: {e}")
+            print(f"❌ Error: Could not import the ads_x app from packaged bundle: {e}")
             sys.exit(1)
 
-        # Wrap agent inside AdkApp with full tracing capabilities
+        # Deploy the App, not the bare agent. AdkApp builds its Runner as
+        # Runner(app=app, agent=(None if app else agent)), so passing the agent
+        # alone leaves resumability_config unset - and a review checkpoint
+        # cannot suspend a run that is not resumable. The tool would return its
+        # "awaiting review" payload as an ordinary result, the model would read
+        # it as answered, and the gate would approve itself.
         app_for_engine = AgentEngineApp(
-            agent=root_agent,
+            app=ads_x_app,
+        )
+        print(
+            "   review checkpoints: "
+            f"{'on' if ads_x_app.resumability_config.is_resumable else 'off'}"
         )
 
         # 3. Define remote environment variables to pass to Agent Platform runtime
