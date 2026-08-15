@@ -29,7 +29,44 @@ interface ChatPartInlineData {
   };
 }
 
-type ChatPart = ChatPartText | ChatPartInlineData;
+interface ChatPartFunctionResponse {
+  functionResponse: {
+    id: string;
+    name: string;
+    response: Record<string, unknown>;
+  };
+}
+
+type ChatPart = ChatPartText | ChatPartInlineData | ChatPartFunctionResponse;
+
+/** Posts one turn to the agent and streams the events back. */
+function runSse(
+  projectId: string,
+  appName: string,
+  sessionId: string,
+  parts: ChatPart[],
+  callbacks: SSECallbacks<ChatApiResponse>,
+) {
+  const requestBody = {
+    appName: appName,
+    userId: projectId,
+    sessionId: sessionId,
+    newMessage: {
+      role: 'user',
+      parts: parts,
+    },
+    streaming: true,
+    stateDelta: null,
+  };
+  return requestSSE<ChatApiResponse>(
+    `/run_sse`,
+    {
+      method: 'POST',
+      body: JSON.stringify(requestBody),
+    },
+    callbacks,
+  );
+}
 
 export const chatApi = {
   async getAllChatSessions(projectId: string) {
@@ -101,23 +138,39 @@ export const chatApi = {
       });
     }
 
-    const requestBody = {
-      appName: appName,
-      userId: projectId,
-      sessionId: sessionId,
-      newMessage: {
-        role: 'user',
-        parts: parts,
-      },
-      streaming: true,
-      stateDelta: null,
-    };
-    return requestSSE<ChatApiResponse>(
-      `/run_sse`,
-      {
-        method: 'POST',
-        body: JSON.stringify(requestBody),
-      },
+    return runSse(projectId, appName, sessionId, parts, callbacks);
+  },
+
+  /**
+   * Answers a suspended long-running tool call, resuming the run.
+   *
+   * The id must be the one carried by the originating function call, and no
+   * invocation id is sent: ADK matches the response to the call by id, and an
+   * invocation id is not part of the request schema.
+   */
+  async sendFunctionResponse(
+    projectId: string,
+    appName: string,
+    sessionId: string,
+    functionResponse: { id: string; name: string; response: object },
+    callbacks: SSECallbacks<ChatApiResponse>,
+  ) {
+    console.log(
+      `[API] Answering ${functionResponse.name} (${functionResponse.id}) in session ${sessionId}`,
+    );
+    return runSse(
+      projectId,
+      appName,
+      sessionId,
+      [
+        {
+          functionResponse: {
+            id: functionResponse.id,
+            name: functionResponse.name,
+            response: functionResponse.response as Record<string, unknown>,
+          },
+        },
+      ],
       callbacks,
     );
   },

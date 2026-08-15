@@ -19,7 +19,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import ActiveConversation from './ActiveConversation';
 import chatService from '../../../services/chatService';
-import type { ChatMessage } from '../../../data/types';
+import type { ChatMessage, PendingGate } from '../../../data/types';
 
 import { MemoryRouter } from 'react-router-dom';
 
@@ -110,6 +110,7 @@ describe('ActiveConversation', () => {
         expect.objectContaining({ text: 'Hi' }),
         [],
         expect.any(Function),
+        expect.any(Function),
       );
     });
 
@@ -165,6 +166,7 @@ describe('ActiveConversation', () => {
         expect.objectContaining({ text: 'Hi' }),
         [],
         expect.any(Function),
+        expect.any(Function),
       );
     });
   });
@@ -198,6 +200,7 @@ describe('ActiveConversation', () => {
         sessionId,
         expect.objectContaining({ text: 'Test message' }),
         [],
+        expect.any(Function),
         expect.any(Function),
       );
     });
@@ -389,5 +392,88 @@ describe('ActiveConversation', () => {
     // but we can't wait forever. Just verifying it renders is good for integration test).
 
     consoleErrorSpy.mockRestore();
+  });
+
+  describe('review checkpoints', () => {
+    const gate: PendingGate = {
+      id: 'call-1',
+      name: 'await_storyboard_approval',
+      payload: {
+        status: 'awaiting_human_review',
+        stage: 'storyboard',
+        message: 'Here is the storyboard.',
+        scenes: [{ scene_id: 'scene_001', topic: 'Hook' }],
+      },
+    };
+
+    const renderSuspended = async () => {
+      (chatService.getChatSessionMessages as vi.Mock).mockResolvedValue([]);
+      (chatService.getPendingGate as vi.Mock).mockReturnValue(gate);
+
+      render(
+        <MemoryRouter>
+          <ActiveConversation
+            projectId={projectId}
+            sessionId={sessionId}
+            appName={appName}
+            projectAssets={[]}
+          />
+        </MemoryRouter>,
+      );
+
+      await screen.findByTestId('gate-review-card');
+    };
+
+    it('shows the approval control when the run is suspended', async () => {
+      await renderSuspended();
+
+      expect(screen.getByText('Here is the storyboard.')).toBeInTheDocument();
+    });
+
+    it('blocks the chat box, since text does not resume a suspended run', async () => {
+      await renderSuspended();
+
+      expect(
+        screen.getByPlaceholderText('Answer the review above to continue...'),
+      ).toBeDisabled();
+    });
+
+    it('answers the checkpoint and hides the control', async () => {
+      (chatService.respondToGate as vi.Mock).mockResolvedValue({});
+      await renderSuspended();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+      await waitFor(() => {
+        expect(chatService.respondToGate).toHaveBeenCalledWith(
+          projectId,
+          appName,
+          sessionId,
+          gate,
+          'accept',
+          '',
+          expect.any(Function),
+          expect.any(Function),
+        );
+      });
+      expect(screen.queryByTestId('gate-review-card')).not.toBeInTheDocument();
+    });
+
+    it('keeps the control open when the answer fails to send', async () => {
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+      (chatService.respondToGate as vi.Mock).mockRejectedValue(
+        new Error('API Error'),
+      );
+      await renderSuspended();
+
+      await userEvent.click(screen.getByRole('button', { name: 'Accept' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('API Error');
+      expect(screen.getByTestId('gate-review-card')).toBeInTheDocument();
+
+      consoleErrorSpy.mockRestore();
+    });
   });
 });

@@ -38,7 +38,15 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import MarkdownRenderer from '../../shared/MarkdownRenderer';
-import type { ChatMessage, ProjectAsset, Canvas } from '../../../data/types';
+import ErrorBoundary from '../../shared/ErrorBoundary';
+import GateReviewCard from './GateReviewCard';
+import type {
+  ChatMessage,
+  ProjectAsset,
+  Canvas,
+  GateDecision,
+  PendingGate,
+} from '../../../data/types';
 import chatService from '../../../services/chatService';
 
 const bounce = keyframes`
@@ -85,6 +93,9 @@ export default function ActiveConversation({
   const initializedRef = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // The review checkpoint the run is suspended on, if any. While one is open
+  // the agent is waiting on a verdict and ignores ordinary chat messages.
+  const [pendingGate, setPendingGate] = useState<PendingGate | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -127,7 +138,12 @@ export default function ActiveConversation({
       setIsLoading(true);
       chatService
         .getChatSessionMessages(projectId, appName, sessionId)
-        .then((messages) => setCurrentChatMessages(messages))
+        .then((messages) => {
+          setCurrentChatMessages(messages);
+          setPendingGate(
+            chatService.getPendingGate(projectId, appName, sessionId) ?? null,
+          );
+        })
         .catch((err) => console.error('Failed to load messages', err))
         .finally(() => setIsLoading(false));
     }
@@ -142,6 +158,27 @@ export default function ActiveConversation({
   const handleRemoveFile = (index: number) => {
     setChatFiles((prev) => prev.filter((_, i) => i !== index));
   };
+
+  const onPartialUpdate = useCallback(
+    (partialMsg: ChatMessage, isFinal: boolean) => {
+      if (partialMsg.text || partialMsg.reviewedGate) {
+        setCurrentChatMessages((prev) => {
+          const existingIndex = prev.findIndex((m) => m.id === partialMsg.id);
+          if (existingIndex >= 0) {
+            const newMessages = [...prev];
+            newMessages[existingIndex] = partialMsg;
+            return newMessages;
+          } else {
+            return [...prev, partialMsg];
+          }
+        });
+      }
+      if (isFinal) {
+        onRefreshProject?.();
+      }
+    },
+    [onRefreshProject],
+  );
 
   const performSendMessage = useCallback(
     async (text: string, files: File[], userMessageForCache?: ChatMessage) => {
@@ -169,26 +206,6 @@ export default function ActiveConversation({
         // Optimistic update for the UI, chatService will also update its internal cache
         setCurrentChatMessages((prev) => [...prev, userMessage]);
 
-        const onPartialUpdate = (partialMsg: ChatMessage, isFinal: boolean) => {
-          if (partialMsg.text) {
-            setCurrentChatMessages((prev) => {
-              const existingIndex = prev.findIndex(
-                (m) => m.id === partialMsg.id,
-              );
-              if (existingIndex >= 0) {
-                const newMessages = [...prev];
-                newMessages[existingIndex] = partialMsg;
-                return newMessages;
-              } else {
-                return [...prev, partialMsg];
-              }
-            });
-          }
-          if (isFinal) {
-            onRefreshProject?.();
-          }
-        };
-
         await chatService.sendMessage(
           projectId,
           appName,
@@ -196,6 +213,7 @@ export default function ActiveConversation({
           userMessage, // Pass the constructed userMessage
           files,
           onPartialUpdate,
+          setPendingGate,
         );
       } catch (error: unknown) {
         console.error('Failed to send message', error);
@@ -210,7 +228,42 @@ export default function ActiveConversation({
         setIsThinking(false);
       }
     },
-    [appName, projectId, sessionId, onRefreshProject],
+    [appName, projectId, sessionId, onPartialUpdate],
+  );
+
+  const handleGateRespond = useCallback(
+    async (decision: GateDecision, guidance: string) => {
+      const gate = pendingGate;
+      if (!gate || !appName) return;
+
+      // Clear the card straight away: the checkpoint is answered as soon as the
+      // request goes out, and the resumed run may open a fresh one.
+      setPendingGate(null);
+      try {
+        setIsThinking(true);
+        await chatService.respondToGate(
+          projectId,
+          appName,
+          sessionId,
+          gate,
+          decision,
+          guidance,
+          onPartialUpdate,
+          setPendingGate,
+        );
+      } catch (err: unknown) {
+        console.error('Failed to answer the review checkpoint', err);
+        setError(
+          err instanceof Error
+            ? err.message
+            : 'Failed to answer the review checkpoint',
+        );
+        setPendingGate(gate); // still open; let the reviewer try again
+      } finally {
+        setIsThinking(false);
+      }
+    },
+    [appName, pendingGate, projectId, sessionId, onPartialUpdate],
   );
 
   const handleSendMessage = async () => {
@@ -344,7 +397,21 @@ export default function ActiveConversation({
                       message.sender === 'user' ? 'flex-end' : 'flex-start',
                   }}
                 >
-                  {message.sender === 'user' ? (
+                  {message.reviewedGate ? (
+                    <Box sx={{ width: '100%', pr: 2 }}>
+                      <ErrorBoundary fallback="This past review could not be displayed.">
+                        <GateReviewCard
+                          gate={message.reviewedGate}
+                          onRespond={() => {}}
+                          projectAssets={projectAssets}
+                          verdict={{
+                            decision: message.reviewedGate.decision,
+                            guidance: message.reviewedGate.guidance,
+                          }}
+                        />
+                      </ErrorBoundary>
+                    </Box>
+                  ) : message.sender === 'user' ? (
                     <Paper
                       elevation={0}
                       sx={{
@@ -502,6 +569,16 @@ export default function ActiveConversation({
         )}
       </Box>
       <Box sx={{ flexShrink: 0 }}>
+        {pendingGate && (
+          <ErrorBoundary fallback="This review could not be displayed. Reload the page to try again.">
+            <GateReviewCard
+              gate={pendingGate}
+              onRespond={handleGateRespond}
+              disabled={isThinking}
+              projectAssets={projectAssets}
+            />
+          </ErrorBoundary>
+        )}
         {chatFiles.length > 0 && (
           <Box
             sx={{
@@ -550,17 +627,26 @@ export default function ActiveConversation({
             <AttachFileIcon />
           </IconButton>
           <TextField
-            placeholder={`Message ${appName || 'Agent'}...`}
+            placeholder={
+              pendingGate
+                ? 'Answer the review above to continue...'
+                : `Message ${appName || 'Agent'}...`
+            }
             fullWidth
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey && !isThinking) {
+              if (
+                e.key === 'Enter' &&
+                !e.shiftKey &&
+                !isThinking &&
+                !pendingGate
+              ) {
                 e.preventDefault();
                 handleSendMessage();
               }
             }}
-            disabled={isThinking}
+            disabled={isThinking || !!pendingGate}
             multiline
             minRows={1}
             maxRows={4}
@@ -572,6 +658,7 @@ export default function ActiveConversation({
                     onClick={handleSendMessage}
                     disabled={
                       isThinking ||
+                      !!pendingGate ||
                       (newMessage.trim() === '' && chatFiles.length === 0)
                     }
                   >
