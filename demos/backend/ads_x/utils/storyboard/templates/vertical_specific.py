@@ -139,7 +139,7 @@ def get_pet_companion_fast_pace() -> AdTemplate:
         template_name="Pet Companion (Fast)",
         industry_type="Vertical-Specific",
         vertical_category="Pets",
-        target_duration_seconds=24,  # Structure: 2+2.5+3.5+3+3+3+3+4
+        target_duration_seconds=24,  # Structure: 3+3+3+3+3+3+3+3
         description="A high-energy 8-scene montage capturing the chaotic joy of pets, anchoring the energy to the product.",
         brand_personality=["Playful", "Energetic", "Happy", "Loyal"],
         music_keywords=[
@@ -149,10 +149,10 @@ def get_pet_companion_fast_pace() -> AdTemplate:
             "Hand Claps",
         ],
         scene_structure=[
-            # --- SCENE 1: THE NOSE (2s) ---
+            # --- SCENE 1: THE NOSE (3s) ---
             SceneDefinition(
                 scene_id="hook_nose",
-                duration_seconds=2,
+                duration_seconds=3,
                 purpose="Instant Hook. Sensory curiosity.",
                 asset_guidance="Extreme Close-Up (ECU) of the pet's nose sniffing the camera lens rapidly. The nose twitches and fog appears on the glass, creating an immediate, cute connection.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -164,10 +164,10 @@ def get_pet_companion_fast_pace() -> AdTemplate:
                     velocity_hint="Fast Twitch",
                 ),
             ),
-            # --- SCENE 2: THE ZOOMIES (2.5s) ---
+            # --- SCENE 2: THE ZOOMIES (3s) ---
             SceneDefinition(
                 scene_id="action_run",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="High Energy context. The 'Need'.",
                 asset_guidance="Low-angle action shot of the pet sprinting directly towards the camera. The movement is continuous, linear, and unstoppable (no turning, lunging, or stopping). The camera tracks backwards rapidly, matching the pet's speed. Focus on the aerodynamic force: ears pinned back, paws blurring, and fur rippling with speed.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -179,10 +179,10 @@ def get_pet_companion_fast_pace() -> AdTemplate:
                     velocity_hint="Linear High Speed",
                 ),
             ),
-            # --- SCENE 3: THE TRIGGER (3.5s) ---
+            # --- SCENE 3: THE TRIGGER (3s) ---
             SceneDefinition(
                 scene_id="product_quality",
-                duration_seconds=3.5,
+                duration_seconds=3,
                 purpose="The 'Why'. Visualizing the Motivation/Quality.",
                 asset_guidance="A sharp, sensory cutaway revealing the 'Trigger' that attracts the pet. If Food: A luscious macro shot of fresh source ingredients (raw meat, fish, vegetables, etc.) or the texture of the food itself. If Hard Goods (Toys/Gear/etc.): A close-up of the material quality/durability. If Service: The iconic shipping box. This shot isolates the 'Object of Desire'.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -254,10 +254,10 @@ def get_pet_companion_fast_pace() -> AdTemplate:
                     velocity_hint="Stillness",
                 ),
             ),
-            # --- SCENE 8: CTA (4s) ---
+            # --- SCENE 8: CTA (3s) ---
             SceneDefinition(
                 scene_id="cta",
-                duration_seconds=4,
+                duration_seconds=3,
                 purpose="Brand Anchor.",
                 asset_guidance="The brand logo popping onto screen with a playful background.",
                 on_screen_text_hint="[Playful Slogan] or 'Treat Them Best'",
@@ -386,15 +386,15 @@ def get_apparel_style_showcase_fast_pace() -> AdTemplate:
         template_name="Style Showcase (Fast)",
         industry_type="Vertical-Specific",
         vertical_category="Apparel",
-        target_duration_seconds=23,  # Structure: 2+3+2.5+3+3+2.5+3+4
+        target_duration_seconds=24,  # Structure: 3+3+3+3+3+3+3+3
         description="A clean, realistic fashion montage focusing on fit, fabric, and natural movement without exaggerated effects.",
         brand_personality=["Confident", "Authentic", "Premium"],
         music_keywords=["Modern Lounge", "Rhythmic Bass", "Fashion Week", "Clean"],
         scene_structure=[
-            # --- SCENE 1: THE ARRIVAL (2s) ---
+            # --- SCENE 1: THE ARRIVAL (3s) ---
             SceneDefinition(
                 scene_id="environment_flash",
-                duration_seconds=2,
+                duration_seconds=3,
                 purpose="Establish Mood + Subject Presence.",
                 asset_guidance="Wide shot. The model walks confidently into the frame from the background or side. CRITICAL: The model is GROUNDED with feet firmly touching the floor/pavement. They are walking, not jumping or running. The lighting establishes the atmospheric mood immediately.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -421,10 +421,10 @@ def get_apparel_style_showcase_fast_pace() -> AdTemplate:
                     velocity_hint="Gentle Movement",
                 ),
             ),
-            # --- SCENE 3: THE FABRIC (2.5s) ---
+            # --- SCENE 3: THE FABRIC (3s) ---
             SceneDefinition(
                 scene_id="fabric_detail",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="Sensory Quality. Materiality.",
                 asset_guidance="A static, razor-sharp Macro close-up of the Hero Product's texture (weave/grain/gloss). The camera is Locked-Off. A soft beam of light moves slowly across the surface (Raking Light), revealing the depth of the texture through subtle shadows rather than harsh glare.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -466,10 +466,10 @@ def get_apparel_style_showcase_fast_pace() -> AdTemplate:
                     velocity_hint="Controlled Motion",
                 ),
             ),
-            # --- SCENE 6: THE ACCENT (2.5s) ---
+            # --- SCENE 6: THE ACCENT (3s) ---
             SceneDefinition(
                 scene_id="detail_accent",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="Design Detail.",
                 asset_guidance="A static, razor-sharp close-up of a specific design detail (waistband, logo, or zipper). The camera DOES NOT MOVE. A subtle reflection or 'High-Gloss' highlight travels smoothly across the detail, emphasizing the material quality without flashing.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -496,10 +496,10 @@ def get_apparel_style_showcase_fast_pace() -> AdTemplate:
                     velocity_hint="Freeze Frame",
                 ),
             ),
-            # --- SCENE 8: CTA (4s) ---
+            # --- SCENE 8: CTA (3s) ---
             SceneDefinition(
                 scene_id="cta",
-                duration_seconds=4,
+                duration_seconds=3,
                 purpose="Brand Anchor.",
                 asset_guidance="The brand logo overlaid on a moving abstract background (blur of the fabric color).",
                 on_screen_text_hint="[Brand Slogan] or 'New Collection'",
@@ -863,7 +863,7 @@ def get_home_comfort_fast_pace() -> AdTemplate:
         template_name="Home Comfort (Fast)",
         industry_type="Vertical-Specific",
         vertical_category="Home",
-        target_duration_seconds=24,  # Structure: 3+3+2+3+3+3+3+4
+        target_duration_seconds=24,  # Structure: 3+3+3+3+3+3+3+3
         description="A rapid-fire 8-scene montage compressing the sensory experience of 'Home' into micro-moments.",
         brand_personality=["Inviting", "Stylish", "Peaceful", "Modern"],
         music_keywords=["Lo-Fi Beat", "Rhythmic Percussion", "Snap Transition", "Warm"],
@@ -898,10 +898,10 @@ def get_home_comfort_fast_pace() -> AdTemplate:
                     velocity_hint="Fast Reveal",
                 ),
             ),
-            # --- SCENE 3: THE TOUCH (2s) ---
+            # --- SCENE 3: THE TOUCH (3s) ---
             SceneDefinition(
                 scene_id="tactile_macro",
-                duration_seconds=2,
+                duration_seconds=3,
                 purpose="Sensory: Softness/Texture.",
                 asset_guidance="Extreme Macro. A hand interacts firmly with the material. If soft (fabric/foam), the hand pushes down to show compression. If hard (wood/metal), the hand glides smoothly to show finish quality.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -973,10 +973,10 @@ def get_home_comfort_fast_pace() -> AdTemplate:
                     velocity_hint="Slow Motion",
                 ),
             ),
-            # --- SCENE 8: CTA (4s) ---
+            # --- SCENE 8: CTA (3s) ---
             SceneDefinition(
                 scene_id="cta",
-                duration_seconds=4,
+                duration_seconds=3,
                 purpose="Brand Anchor.",
                 asset_guidance="Logo centered on a warm, textured home background.",
                 on_screen_text_hint="[Brand Slogan] / 'Upgrade Your Space' / 'Make Yourself at Home' / etc.",
@@ -1111,7 +1111,7 @@ def get_meal_prep_fast_pace() -> AdTemplate:
         template_name="Meal Prep Made Easy (Fast)",
         industry_type="Vertical-Specific",
         vertical_category="Food & Beverage",
-        target_duration_seconds=20,  # Structure: 2.5+2.5+3+3+3+3+4
+        target_duration_seconds=21,  # Structure: 3+3+3+3+3+3+3
         description="A high-octane 'Sizzle Reel' that compresses the cooking journey into 20 seconds of rhythmic visual beats.",
         brand_personality=["Delicious", "Fresh", "Convenient", "Energetic"],
         music_keywords=[
@@ -1121,10 +1121,10 @@ def get_meal_prep_fast_pace() -> AdTemplate:
             "Bright",
         ],
         scene_structure=[
-            # --- SCENE 1: THE POP (2.5s) ---
+            # --- SCENE 1: THE POP (3s) ---
             SceneDefinition(
                 scene_id="unboxing_burst",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="Instant Hook. Explosion of potential.",
                 asset_guidance="Top-Down (Bird's Eye) view. The box/packaging bursts open (Stop Motion style), and ingredients visually 'pop' into an organized arrangement.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -1136,10 +1136,10 @@ def get_meal_prep_fast_pace() -> AdTemplate:
                     velocity_hint="Immediate / Burst",
                 ),
             ),
-            # --- SCENE 2: THE WASH (2.5s) ---
+            # --- SCENE 2: THE WASH (3s) ---
             SceneDefinition(
                 scene_id="freshness_splash",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="Sensory Detail. Water = Freshness.",
                 asset_guidance="Extreme Macro shot of water splashing onto the hero ingredient. Focus on the collision of liquid and texture.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -1211,10 +1211,10 @@ def get_meal_prep_fast_pace() -> AdTemplate:
                     velocity_hint="Natural / Reactive",
                 ),
             ),
-            # --- SCENE 7: CTA (4s) ---
+            # --- SCENE 7: CTA (3s) ---
             SceneDefinition(
                 scene_id="cta",
-                duration_seconds=4,
+                duration_seconds=3,
                 purpose="Conversion.",
                 asset_guidance="Brand logo pulsating on top of a blurred, appetizing background texture.",
                 on_screen_text_hint="50% Off / Order Now / [Brand Slogan] / Shop at [Brand Website]/ etc.",

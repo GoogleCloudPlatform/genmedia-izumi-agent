@@ -179,7 +179,6 @@ async def generate_scene_video(
             video_asset = await mediagen_service.generate_video(
                 workspace_id=workspace_id,
                 prompt=final_video_prompt,
-                generation_model="veo-3.1-generate-001",
                 aspect_ratio=aspect_ratio,
                 duration_seconds=int(valid_duration),
                 file_name=filename,

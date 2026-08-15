@@ -85,7 +85,7 @@ If the user's brief contains a script, a numbered list of scenes, or specific na
 
 ### **FORMAT SELECTION**
 - **Orientation**: Default to `landscape`. Set to `portrait` if "vertical", "9:16", "TikTok", or "Reels" is mentioned.
-- **Duration**: Extract if mentioned (e.g., "15s"). Default to `12s`.
+- **Duration**: Use the duration the brief states. If the brief does not state one, you MUST output `12s`. Do not carry over a duration from an example, a template name, or a previous campaign, and do not choose one because it suits the idea better.
 
 ### **VIRTUAL CREATOR RULE**
 - Set `generate_virtual_creator = True` if the template is UGC ([{ugc_list_str}]) OR if requested in the brief using terms like "influencer", "real person", "virtual creator", "AI avatar", "spokesperson", or "character".

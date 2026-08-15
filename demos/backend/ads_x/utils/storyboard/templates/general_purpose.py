@@ -135,15 +135,15 @@ def get_general_purpose_problem_solution_fast_pace() -> AdTemplate:
     return AdTemplate(
         template_name="Problem/Solution (Fast)",
         industry_type="General Purpose",
-        target_duration_seconds=24,  # Structure: 2+3.5+3+3.5+3+2.5+2.5+4
+        target_duration_seconds=24,  # Structure: 3+3+3+3+3+3+3+3
         description="A high-velocity 8-scene arc that disrupts a static 'Problem' state with a dynamic 'Solution', emphasizing mechanism and payoff.",
         brand_personality=["Efficient", "Innovative", "Premium", "Clear"],
         music_keywords=["Modern Pop", "Rhythmic Bass", "Snap Transition", "Upbeat"],
         scene_structure=[
-            # --- SCENE 1: THE STASIS (2s) ---
+            # --- SCENE 1: THE STASIS (3s) ---
             SceneDefinition(
                 scene_id="problem_static",
-                duration_seconds=2,
+                duration_seconds=3,
                 purpose="Establish the Need. The 'Before' state.",
                 asset_guidance="A completely static, slightly dull shot of the 'Unresolved State'. The lighting is flat or dim. Nothing is moving. It visually represents the problem (e.g., clutter, dullness, or waiting) effectively.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -155,10 +155,10 @@ def get_general_purpose_problem_solution_fast_pace() -> AdTemplate:
                     velocity_hint="Zero Motion",
                 ),
             ),
-            # --- SCENE 2: THE ARRIVAL (3.5s) ---
+            # --- SCENE 2: THE ARRIVAL (3s) ---
             SceneDefinition(
                 scene_id="solution_entry",
-                duration_seconds=3.5,
+                duration_seconds=3,
                 purpose="The Catalyst. Disruption.",
                 asset_guidance="Visual Disruption. The Hero Product is ALREADY centered and dominant in the frame from the very first millisecond. The action is a violent 'Light Blast' or 'Crash Zoom' that hits the product, instantly shifting the atmosphere from the previous scene's dullness to high-energy brightness. The product itself stays planted; the energy comes from the camera and light.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -185,10 +185,10 @@ def get_general_purpose_problem_solution_fast_pace() -> AdTemplate:
                     velocity_hint="Fluid Motion",
                 ),
             ),
-            # --- SCENE 4: THE TECH FLEX (3.5s) ---
+            # --- SCENE 4: THE TECH FLEX (3s) ---
             SceneDefinition(
                 scene_id="tech_macro",
-                duration_seconds=3.5,
+                duration_seconds=3,
                 purpose="The Mechanism. Authority/Science.",
                 asset_guidance="Extreme Macro close-up of the specific internal mechanism or ingredient that makes the product work. Focus on the precision of the technology or the purity of the material (e.g., a laser beam, a digital chip, a water droplet, or a specific texture).",
                 on_screen_text_hint="Precision Tech",
@@ -216,10 +216,10 @@ def get_general_purpose_problem_solution_fast_pace() -> AdTemplate:
                     velocity_hint="Stillness",
                 ),
             ),
-            # --- SCENE 6: THE WIDE RESULT (2.5s) ---
+            # --- SCENE 6: THE WIDE RESULT (3s) ---
             SceneDefinition(
                 scene_id="result_wide",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="The Outcome. The 'After' state.",
                 asset_guidance="Wide shot of the fully resolved state. The chaos from Scene 1 is gone, replaced by order, brightness, and space (e.g., a sparkling room, a glowing face, or a completed project board). The environment feels airy and complete.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -231,10 +231,10 @@ def get_general_purpose_problem_solution_fast_pace() -> AdTemplate:
                     velocity_hint="Smooth Reveal",
                 ),
             ),
-            # --- SCENE 7: THE LIVING PROOF (2.5s) ---
+            # --- SCENE 7: THE LIVING PROOF (3s) ---
             SceneDefinition(
                 scene_id="human_payoff",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="Emotion + Lifestyle combined.",
                 asset_guidance="A focused Close-Up or Mid-Close-Up capturing a specific gesture of satisfaction. Instead of full-body movement, focus on a 'Micro-Action' that proves the result. Examples: A genuine smile breaking out, a slow exhale of relief, hands clapping dust off, a thumbs-up, or eyes closing to savor the moment. The movement is contained and intimate.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -246,10 +246,10 @@ def get_general_purpose_problem_solution_fast_pace() -> AdTemplate:
                     velocity_hint="Human Reaction",
                 ),
             ),
-            # --- SCENE 8: CTA (4s) ---
+            # --- SCENE 8: CTA (3s) ---
             SceneDefinition(
                 scene_id="cta",
-                duration_seconds=4,
+                duration_seconds=3,
                 purpose="Brand Anchor.",
                 asset_guidance="The product centered on a clean background with the logo. A perfect static layout.",
                 on_screen_text_hint="[Brand Slogan] or 'Upgrade Today'",
@@ -378,15 +378,15 @@ def get_feature_spotlight_fast_pace() -> AdTemplate:
     return AdTemplate(
         template_name="Feature Spotlight (Fast)",
         industry_type="General Purpose",
-        target_duration_seconds=23,  # Structure: 2.5+2.5+2.5+3+3+2.5+3+4
+        target_duration_seconds=24,  # Structure: 3+3+3+3+3+3+3+3
         description="A high-velocity, rhythmic tabletop montage focusing on materials, physics, and architectural presence.",
         brand_personality=["Premium", "Innovative", "Precision"],
         music_keywords=["Deep Bass", "Clockwork Percussion", "Glitch", "Industrial"],
         scene_structure=[
-            # --- SCENE 1: THE SILHOUETTE (2.5s) ---
+            # --- SCENE 1: THE SILHOUETTE (3s) ---
             SceneDefinition(
                 scene_id="tease_silhouette",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="The Mystery Hook. Form over Function.",
                 asset_guidance="The Hero Product is shrouded in darkness. A sharp, narrow beam of light (Rim Light) travels rapidly along the edge or profile, briefly illuminating the silhouette before vanishing. It teases the shape without revealing the details.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -398,10 +398,10 @@ def get_feature_spotlight_fast_pace() -> AdTemplate:
                     velocity_hint="Light Sweep",
                 ),
             ),
-            # --- SCENE 2: THE SURFACE (2.5s) ---
+            # --- SCENE 2: THE SURFACE (3s) ---
             SceneDefinition(
                 scene_id="texture_scan",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="Sensory Validation. The 'Touch' Test.",
                 asset_guidance="Extreme Macro shot traversing the product's primary surface. The camera or light scans across the material (e.g., brushed metal, grain leather, or mesh) to reveal the micro-texture quality.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -413,10 +413,10 @@ def get_feature_spotlight_fast_pace() -> AdTemplate:
                     velocity_hint="Fast Scan",
                 ),
             ),
-            # --- SCENE 3: THE COMPONENT (2.5s) ---
+            # --- SCENE 3: THE COMPONENT (3s) ---
             SceneDefinition(
                 scene_id="detail_component",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="Precision Engineering. The 'Jewel'.",
                 asset_guidance="A static, razor-sharp close-up of a specific engineering detail (e.g., a camera lens, a watch dial, a hinge, or a button). A 'Strobe Light' or rapid lighting shift highlights the machined edges or precise assembly.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -458,10 +458,10 @@ def get_feature_spotlight_fast_pace() -> AdTemplate:
                     velocity_hint="Vertical Reveal",
                 ),
             ),
-            # --- SCENE 6: THE MONOLITH (2.5s) ---
+            # --- SCENE 6: THE MONOLITH (3s) ---
             SceneDefinition(
                 scene_id="hero_angle",
-                duration_seconds=2.5,
+                duration_seconds=3,
                 purpose="The Hero. Authority.",
                 asset_guidance="Low-angle 'Hero Shot' looking up at the product. It dominates the frame. A Volumetric 'God Ray' or backlight shifts behind it, creating a halo effect.",
                 transition_from_previous=TransitionHints(type="cut"),
@@ -488,10 +488,10 @@ def get_feature_spotlight_fast_pace() -> AdTemplate:
                     velocity_hint="Gentle Interaction",
                 ),
             ),
-            # --- SCENE 8: CTA (4s) ---
+            # --- SCENE 8: CTA (3s) ---
             SceneDefinition(
                 scene_id="cta",
-                duration_seconds=4,
+                duration_seconds=3,
                 purpose="Brand Seal.",
                 asset_guidance="The logo embossed or floating on a surface matching the product's primary material. A perfect static layout.",
                 on_screen_text_hint="[Brand Slogan] or 'Engineered for [Use Case]'",

@@ -22,9 +22,7 @@ from typing import List, Dict
 PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
     "12s": {
         4: [
-            [2.5, 3.5, 3.5, 2.5],  # Balanced Pacing
-            [2.0, 3.0, 4.0, 3.0],  # Progressive Build
-            [3.0, 3.0, 3.0, 3.0],  # Stable Rhythm
+            [3.0, 3.0, 3.0, 3.0],  # Balanced Pacing
         ]
     },
     "15s": {
@@ -34,10 +32,6 @@ PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
         ],
         5: [
             [3.0, 3.0, 3.0, 3.0, 3.0],
-            [2.0, 3.5, 4.0, 3.5, 2.0],
-        ],
-        6: [
-            [2.5, 2.5, 2.5, 2.5, 2.5, 2.5],
         ],
     },
     "18s": {
@@ -47,7 +41,6 @@ PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
         ],
         6: [
             [3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-            [2.5, 3.5, 3.0, 3.5, 3.0, 2.5],
         ],
     },
     "24s": {
@@ -57,7 +50,6 @@ PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
         ],
         8: [
             [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-            [2.5, 3.5, 3.5, 2.5, 3.5, 3.5, 2.5, 2.5],
         ],
     },
     "30s": {
@@ -71,10 +63,7 @@ PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
     "10s": {
         3: [
             [3.0, 4.0, 3.0],
-        ],
-        4: [
-            [2.5, 2.5, 2.5, 2.5],
-            [2.0, 3.0, 3.0, 2.0],
+            [3.0, 3.5, 3.5],
         ],
     },
 }
@@ -170,7 +159,7 @@ def get_valid_scene_counts_for_duration(total_duration: float) -> List[int]:
 def get_random_blueprint_for_duration(total_duration: float) -> List[float]:
     """Resolves a target duration to a single, mathematically rigorous array of scene lengths for the LLM to follow natively."""
     if total_duration <= 0:
-        return [2.0, 3.0, 4.0, 3.0]  # Default fallback
+        return [3.0, 3.0, 3.0, 3.0]  # Default fallback
 
     available_presets = sorted([int(k.replace("s", "")) for k in PACING_PRESETS.keys()])
     effective_duration = float(available_presets[0])
