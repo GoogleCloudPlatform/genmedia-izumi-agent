@@ -81,7 +81,7 @@ from google.genai import types
 parameters_agent = llm_agent.LlmAgent(
     name="parameters_agent",
     description="Agent that parses the user brief into ad campaign parameters.",
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     instruction=f"{parameters_instruction.AGENT_INSTRUCTION}\n\n{parameters_instruction.INSTRUCTION}",
     tools=[FunctionTool(parameters_tools.extract_campaign_parameters)],
     disallow_transfer_to_parent=True,
@@ -93,7 +93,7 @@ parameters_agent = llm_agent.LlmAgent(
 user_assets_agent = llm_agent.LlmAgent(
     name="user_assets_agent",
     description="Agent that ingests the user-provided assets.",
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     instruction=user_assets_instruction.INSTRUCTION,
     tools=[FunctionTool(user_assets_tools.ingest_assets)],
     before_model_callback=instrument_agent("user_assets_agent"),
@@ -117,7 +117,7 @@ storyboard_agent_creative = llm_agent.LlmAgent(
 storyboard_agent_templated = llm_agent.LlmAgent(
     name="storyboard_agent_templated",
     description="Creates a storyboard following a strict template.",
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     instruction=storyboard_instruction.get_templated_instruction,
     tools=[
         FunctionTool(production_tools.recommend_production_recipe),
@@ -131,7 +131,7 @@ storyboard_agent_templated = llm_agent.LlmAgent(
 strategy_agent = llm_agent.LlmAgent(
     name="strategy_agent",
     description="Synchronizes campaign strategy and secures the state.",
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     instruction=strategy_instruction.INSTRUCTION,
     tools=[
         FunctionTool(strategy_tools.map_strategy_to_metadata),
@@ -153,7 +153,7 @@ strategy_agent = llm_agent.LlmAgent(
 storyboard_router = llm_agent.LlmAgent(
     name="storyboard_router",
     description="Routes the campaign to the correct specialized storyboard generator and persists the output.",
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     instruction=storyboard_instruction.get_router_instruction,
     tools=[
         AgentTool(agent=storyboard_agent_creative),
@@ -166,7 +166,7 @@ storyboard_router = llm_agent.LlmAgent(
 generation_agent = llm_agent.LlmAgent(
     name="generation_agent",
     description="Agent that generates all media and stitches them together.",
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     instruction=generation_instruction.INSTRUCTION,
     tools=[
         FunctionTool(generation_tools.generate_all_media),
@@ -216,7 +216,7 @@ costs a full re-render. Never assume an approval that was not given.
 strategy_gate_agent = llm_agent.LlmAgent(
     name="strategy_gate_agent",
     description="Pauses the pipeline for human review of the campaign strategy.",
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     instruction=STRATEGY_GATE_INSTRUCTION,
     tools=[
         LongRunningFunctionTool(func=gate_tools.await_strategy_approval),
@@ -305,7 +305,7 @@ between. Media follows an "accept" and nothing else.
 storyboard_gate_agent = llm_agent.LlmAgent(
     name="storyboard_gate_agent",
     description="Pauses the pipeline for human review of the storyboard.",
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     instruction=GATE_INSTRUCTION,
     tools=[
         LongRunningFunctionTool(func=gate_tools.await_storyboard_approval),
@@ -374,7 +374,7 @@ that alone.
 final_cut_gate_agent = llm_agent.LlmAgent(
     name="final_cut_gate_agent",
     description="Pauses for human review of the finished video.",
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     instruction=FINAL_CUT_GATE_INSTRUCTION,
     tools=[
         LongRunningFunctionTool(func=gate_tools.await_final_cut_approval),
@@ -426,7 +426,7 @@ full_pipeline_agent = sequential_agent.SequentialAgent(
 # ResumableLlmAgent, not LlmAgent: a transferring root can only be resumed once
 # in stock ADK, which would cap a run at a single review. See resumable_agent.
 root_agent = ResumableLlmAgent(
-    model="gemini-3.5-flash",
+    model="gemini-3.7-flash",
     name="ads_x_agent",
     instruction=root_instruction.get_instruction,
     tools=get_cs_tools(),

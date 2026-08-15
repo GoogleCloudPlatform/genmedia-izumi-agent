@@ -555,3 +555,165 @@ def test_speech_names_a_quota_project(
     assert mock_tts_client_class.call_args.kwargs["client_options"] == {
         "quota_project_id": "test-project"
     }
+
+
+# ---------------------------------------------------------------------------
+# Gemini Omni Flash video
+#
+# Omni speaks the interactions API, renders any duration from 3 to 10 seconds,
+# and scores every clip whether asked to or not. Veo does none of those things,
+# so the two share an entry point and nothing else.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def omni_config(mock_config):
+    mock_config.models = dict(
+        mock_config.models, video={"default": "gemini-omni-flash-preview"}
+    )
+    return mock_config
+
+
+def _omni_response(status="completed"):
+    import base64
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "status": status,
+        "steps": [
+            {"type": "thought", "summary": [{"type": "text", "text": "thinking"}]},
+            {
+                "type": "model_output",
+                "content": [
+                    {
+                        "type": "video",
+                        "mime_type": "video/mp4",
+                        "data": base64.b64encode(b"fake_mp4_with_audio").decode(
+                            "utf-8"
+                        ),
+                    }
+                ],
+            },
+        ],
+    }
+    return response
+
+
+@patch("mediagent_kit.services.media_generation_service.strip_audio_from_video_blob")
+@patch("mediagent_kit.services.media_generation_service.requests.post")
+@patch("mediagent_kit.services.media_generation_service.google.auth.default")
+def test_omni_video_uses_the_interactions_endpoint(
+    mock_auth_default, mock_requests_post, mock_strip, mock_asset_service, omni_config
+):
+    from mediagent_kit.services.media_generation_service import MediaGenerationService
+
+    mock_creds = MagicMock()
+    mock_creds.token = "fake_token"
+    mock_auth_default.return_value = (mock_creds, "test-project")
+    mock_requests_post.return_value = _omni_response()
+    mock_strip.return_value = b"silent_mp4"
+    mock_asset_service.save_asset.return_value = "saved_video_asset"
+
+    service = MediaGenerationService(
+        asset_service=mock_asset_service, config=omni_config
+    )
+    result = service.generate_video_with_veo(
+        user_id="user_1", file_name="scene.mp4", prompt="A bottle on a counter"
+    )
+
+    assert result == "saved_video_asset"
+    url = mock_requests_post.call_args.args[0]
+    assert url == (
+        "https://aiplatform.googleapis.com/v1beta1/projects/test-project"
+        "/locations/global/interactions"
+    )
+    body = mock_requests_post.call_args.kwargs["json"]
+    assert body["model"] == "gemini-omni-flash-preview"
+    assert body["generation_config"]["video_config"]["task"] == "text_to_video"
+
+
+@patch("mediagent_kit.services.media_generation_service.strip_audio_from_video_blob")
+@patch("mediagent_kit.services.media_generation_service.requests.post")
+@patch("mediagent_kit.services.media_generation_service.google.auth.default")
+def test_omni_renders_the_duration_asked_for(
+    mock_auth_default, mock_requests_post, mock_strip, mock_asset_service, omni_config
+):
+    """Veo would round 3s up to 4s and trim the tail; Omni just renders 3s."""
+    from mediagent_kit.services.media_generation_service import MediaGenerationService
+
+    mock_creds = MagicMock()
+    mock_creds.token = "fake_token"
+    mock_auth_default.return_value = (mock_creds, "test-project")
+    mock_requests_post.return_value = _omni_response()
+    mock_strip.return_value = b"silent_mp4"
+    mock_asset_service.save_asset.return_value = "saved_video_asset"
+
+    service = MediaGenerationService(
+        asset_service=mock_asset_service, config=omni_config
+    )
+    service.generate_video_with_veo(
+        user_id="user_1",
+        file_name="scene.mp4",
+        prompt="A bottle",
+        duration_seconds=3,
+    )
+
+    body = mock_requests_post.call_args.kwargs["json"]
+    assert body["response_format"][0]["duration"] == "3s"
+
+
+@patch("mediagent_kit.services.media_generation_service.strip_audio_from_video_blob")
+@patch("mediagent_kit.services.media_generation_service.requests.post")
+@patch("mediagent_kit.services.media_generation_service.google.auth.default")
+def test_omni_audio_is_stripped_because_it_cannot_be_declined(
+    mock_auth_default, mock_requests_post, mock_strip, mock_asset_service, omni_config
+):
+    """Omni has no parameter to suppress audio, and the pipeline lays its own
+    voiceover and music over the finished cut."""
+    from mediagent_kit.services.media_generation_service import MediaGenerationService
+
+    mock_creds = MagicMock()
+    mock_creds.token = "fake_token"
+    mock_auth_default.return_value = (mock_creds, "test-project")
+    mock_requests_post.return_value = _omni_response()
+    mock_strip.return_value = b"silent_mp4"
+    mock_asset_service.save_asset.return_value = "saved_video_asset"
+
+    service = MediaGenerationService(
+        asset_service=mock_asset_service, config=omni_config
+    )
+    service.generate_video_with_veo(
+        user_id="user_1", file_name="scene.mp4", prompt="A bottle"
+    )
+
+    mock_strip.assert_called_once_with(b"fake_mp4_with_audio", "mp4")
+    assert mock_asset_service.save_asset.call_args.kwargs["blob"] == b"silent_mp4"
+
+
+@patch("mediagent_kit.services.media_generation_service.requests.post")
+@patch("mediagent_kit.services.media_generation_service.google.auth.default")
+def test_veo_never_touches_the_interactions_endpoint(
+    mock_auth_default, mock_requests_post, mock_asset_service, mock_config
+):
+    """The Veo path must be exactly what it was."""
+    from mediagent_kit.services.media_generation_service import MediaGenerationService
+
+    mock_config.models = dict(
+        mock_config.models, video={"default": "veo-3.1-generate-001"}
+    )
+    mock_creds = MagicMock()
+    mock_creds.token = "fake_token"
+    mock_auth_default.return_value = (mock_creds, "test-project")
+
+    service = MediaGenerationService(
+        asset_service=mock_asset_service, config=mock_config
+    )
+    with patch.object(service, "_get_genai_client", side_effect=RuntimeError("veo")):
+        with pytest.raises(RuntimeError, match="veo"):
+            service.generate_video_with_veo(
+                user_id="user_1", file_name="scene.mp4", prompt="A bottle"
+            )
+
+    # It went down the Veo path (the genai client), not the REST interactions one.
+    mock_requests_post.assert_not_called()

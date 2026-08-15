@@ -37,13 +37,13 @@ class MediagentKitConfig:
         # Hardcoded defaults as fallback
         self.models = {
             "text": {
-                "default": "gemini-3.5-flash",
-                "repair": "gemini-3.5-flash",
-                "enrichment": "gemini-3.5-flash",
+                "default": "gemini-3.7-flash",
+                "repair": "gemini-3.7-flash",
+                "enrichment": "gemini-3.7-flash",
             },
             "image_imagen": {"default": "imagen-4.0-generate-001"},
             "image_gemini": {"default": "gemini-3.1-flash-image"},
-            "video": {"default": "veo-3.1-generate-001"},
+            "video": {"default": "gemini-omni-flash-preview"},
             "music": {"default": "lyria-3-clip-preview"},
             "tts": {"default": "gemini-3.1-flash-tts-preview"},
         }

@@ -39,6 +39,16 @@ from . import voiceover_tools
 
 logger = logging.getLogger(__name__)
 
+
+def _configured_video_model() -> str | None:
+    """The video model in force, so duration can be fitted to what it renders."""
+    try:
+        config = mediagent_kit.services.aio.get_config()
+        return (config.models.get("video", {}) or {}).get("default")
+    except Exception:  # pragma: no cover - config is optional at import time
+        return None
+
+
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
 tool_failure = common_utils.tool_failure
@@ -91,7 +101,8 @@ async def generate_scene_video(
         return []
 
     valid_duration = generation_helpers.clamp_duration(
-        video_prompt_data.get("duration_seconds", 6)
+        video_prompt_data.get("duration_seconds", 6),
+        model=_configured_video_model(),
     )
 
     # Enrichment Logic

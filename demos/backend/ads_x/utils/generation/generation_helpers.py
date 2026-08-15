@@ -219,8 +219,18 @@ def build_global_context_string(storyboard: dict, scene: dict) -> str:
     return context_string
 
 
-def clamp_duration(seconds: int | float) -> int:
-    """Clamps duration to the next HIGHER Veo-supported value to avoid static frames."""
+def clamp_duration(seconds: int | float, model: str | None = None) -> int:
+    """Fits a scene's duration to what the video model can actually render.
+
+    Veo offers 4, 6 and 8 seconds only, so anything else rounds up - a three
+    second beat is rendered as four and the extra second trimmed later.
+    Rounding up rather than down avoids a static tail frame.
+
+    Omni renders any whole number of seconds from 3 to 10, so the requested
+    duration is kept and no trimming is needed.
+    """
+    if model and model.startswith("gemini-omni"):
+        return max(3, min(10, round(seconds)))
     if seconds <= 4:
         return 4
     elif seconds <= 6:

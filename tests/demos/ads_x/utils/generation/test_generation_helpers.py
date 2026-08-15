@@ -153,3 +153,19 @@ def test_clamp_duration():
     assert clamp_duration(5) == 6
     assert clamp_duration(7) == 8
     assert clamp_duration(10) == 8
+
+
+def test_clamp_duration_keeps_what_omni_can_render():
+    """Omni renders any whole second from 3 to 10, so nothing is rounded up."""
+    assert clamp_duration(3, model="gemini-omni-flash-preview") == 3
+    assert clamp_duration(5, model="gemini-omni-flash-preview") == 5
+    assert clamp_duration(7, model="gemini-omni-flash-preview") == 7
+    # Outside Omni's range it still has to be fitted.
+    assert clamp_duration(2, model="gemini-omni-flash-preview") == 3
+    assert clamp_duration(12, model="gemini-omni-flash-preview") == 10
+
+
+def test_clamp_duration_is_unchanged_for_veo():
+    assert clamp_duration(3, model="veo-3.1-generate-001") == 4
+    assert clamp_duration(5, model="veo-3.1-generate-001") == 6
+    assert clamp_duration(7, model="veo-3.1-generate-001") == 8
