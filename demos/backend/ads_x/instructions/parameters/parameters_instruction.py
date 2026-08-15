@@ -92,9 +92,9 @@ If the user's brief contains a script, a numbered list of scenes, or specific na
 - `creator_description`: if the user describes how the character/creator/spokesperson should LOOK (age, gender, hair, build, distinguishing features, etc.), copy that description as faithfully as possible into `creator_description`. If the user gives no appearance details, leave it EMPTY (""). Do NOT invent one. This field is authoritative and overrides any auto-selected styling.
 
 ### **COMPLETION RULE (CRITICAL)**
-- Once you receive a successful response from the `extract_campaign_parameters` tool, you MUST output the single text phrase 'Extraction Complete' to signal you are done.
+- Once you receive a successful response from the `extract_campaign_parameters` tool, you MUST signal you are done by outputting exactly this string and NOTHING else: 📋 **Brief Decoded!** Campaign parameters captured and set.
 - DO NOT call any transfer_to_agent tools or other non-existent tools to finish.
-- Do not generate any other conversational text or markdown. Single text phrase 'Extraction Complete' only.
+- Do not generate any other conversational text. That single line only.
 
 
 ### **FORBIDDEN FILENAMES (CRITICAL)**

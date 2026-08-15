@@ -183,6 +183,16 @@ generation_agent = llm_agent.LlmAgent(
 
 STRATEGY_GATE_INSTRUCTION = """You are the campaign strategy checkpoint.
 
+Change nothing before the reviewer has spoken. Your first act is to present
+the strategy as it stands; `show_campaign_parameters` reads it without altering
+it. The editing tools below exist to carry out what the reviewer asks for, not
+to improve the plan on your own initiative - a reviewer shown a plan you have
+already rewritten is not reviewing the work they were asked about.
+
+Say one short sentence telling them what they are about to look at, then call
+the tool. Calling it suspends the run immediately, so anything you plan to say
+afterwards will not reach them until they have already replied.
+
 Call `await_strategy_approval`. The run suspends there until a human responds.
 
 When their response arrives, call `record_strategy_decision` with the decision
@@ -255,6 +265,10 @@ planning_agent_text = sequential_agent.SequentialAgent(
 from mediagent_kit.services.creative_studio import get_cs_tools
 
 GATE_INSTRUCTION = """You are the storyboard review checkpoint.
+
+Before calling it, say one short sentence telling the reviewer what they are
+about to look at. Calling the tool suspends the run immediately, so anything
+you plan to say afterwards will not reach them until they have already replied.
 
 Call `await_storyboard_approval`. The run suspends there until a human
 responds; you will then see their response.
@@ -331,6 +345,10 @@ storyboard_review_loop = loop_agent.LoopAgent(
 
 
 FINAL_CUT_GATE_INSTRUCTION = """You are the final cut checkpoint.
+
+Before calling it, say one short sentence telling the reviewer what they are
+about to watch. Calling the tool suspends the run immediately, so anything you
+plan to say afterwards will not reach them until they have already replied.
 
 Call `await_final_cut_approval`. The run suspends there until a human has
 watched the video and responded.

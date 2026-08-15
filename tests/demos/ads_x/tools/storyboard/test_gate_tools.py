@@ -378,3 +378,186 @@ async def test_all_three_gates_hold_independent_verdicts():
     assert gate_tools.strategy_is_approved(ctx.state)
     assert gate_tools.storyboard_is_approved(ctx.state)
     assert not gate_tools.final_cut_is_approved(ctx.state)
+
+
+# --------------------------------------------------------------------------
+# Every checkpoint must say what it is asking for
+#
+# Reported from integration: the run stopped with nothing on screen explaining
+# why. The agent's prose all arrives *after* the verdict, because calling the
+# tool suspends the run immediately - so the payload itself has to carry
+# something a reviewer can read.
+# --------------------------------------------------------------------------
+
+
+def _rctx(state=None):
+    return SimpleNamespace(
+        state=dict(state or {}),
+        actions=SimpleNamespace(escalate=None),
+        _invocation_context=SimpleNamespace(is_resumable=True),
+    )
+
+
+async def test_strategy_gate_explains_itself():
+    payload = (
+        await gate_tools.await_strategy_approval(
+            _rctx(
+                {
+                    "parameters": {
+                        "campaign_name": "Aurora",
+                        "target_audience": "urban professionals",
+                        "target_duration": "15s",
+                        "generate_virtual_creator": False,
+                    },
+                    "master_production_recipe": {"look_name": "Organic Wellness"},
+                }
+            )
+        )
+    )["result"]
+
+    assert payload["message"], "a reviewer needs to be told what to look at"
+    # It should describe this campaign, not be boilerplate.
+    assert "urban professionals" in payload["message"]
+    assert "Organic Wellness" in payload["message"]
+    assert "product-only" in payload["message"]
+
+
+async def test_storyboard_gate_explains_itself():
+    payload = (
+        await gate_tools.await_storyboard_approval(_rctx({"storyboard": _storyboard()}))
+    )["result"]
+
+    assert payload["message"]
+    assert "2 scenes" in payload["message"], "say how much there is to review"
+    assert payload["stage"] == "storyboard"
+
+
+async def test_final_cut_gate_explains_itself():
+    payload = (await gate_tools.await_final_cut_approval(_rctx(_finished_campaign())))[
+        "result"
+    ]
+
+    assert payload["message"]
+    assert "ready" in payload["message"].lower()
+
+
+async def test_every_gate_payload_carries_a_message():
+    gates = (
+        (gate_tools.await_strategy_approval, {"parameters": {"campaign_name": "A"}}),
+        (gate_tools.await_storyboard_approval, {"storyboard": _storyboard()}),
+        (gate_tools.await_final_cut_approval, _finished_campaign()),
+    )
+    for gate, state in gates:
+        payload = (await gate(_rctx(state)))["result"]
+        assert payload.get("message"), f"{gate.__name__} gives the reviewer nothing"
+        assert payload.get("stage"), f"{gate.__name__} does not identify its stage"
+
+
+# --------------------------------------------------------------------------
+# Payload detail
+#
+# Each checkpoint carries what the reviewer needs to judge that stage, and
+# nothing from a later one. A change requested at an earlier checkpoint
+# rewrites what the next one presents, so anticipating it would show the
+# reviewer a plan that is about to stop being true.
+# --------------------------------------------------------------------------
+
+
+def _recipe_state(virtual_creator=False):
+    return {
+        "parameters": {
+            "campaign_name": "Aurora",
+            "generate_virtual_creator": virtual_creator,
+        },
+        "master_production_recipe": {
+            "look_name": "Organic Wellness",
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "sonic_landscape": ["warm strings", "soft piano"],
+            "cinematography": {"optics": "85mm f/1.8", "motion_texture": "filmic"},
+            "illumination": {"vibe": "golden hour", "key_lighting": "soft key"},
+            "environment": {"setting": "a sunlit kitchen"},
+            "character": {"actor_vibe": "a chef", "attire": "linen apron"},
+        },
+    }
+
+
+async def test_strategy_gate_shows_the_direction_every_scene_inherits():
+    payload = (await gate_tools.await_strategy_approval(_ctx(_recipe_state())))[
+        "result"
+    ]
+
+    direction = payload["direction"]
+    assert direction["lighting"] == "golden hour"
+    assert direction["key_light"] == "soft key"
+    assert direction["optics"] == "85mm f/1.8"
+    assert direction["texture"] == "filmic"
+    assert direction["setting"] == "a sunlit kitchen"
+    # Lists are flattened; a reviewer reads a line, not a JSON array.
+    assert direction["music"] == "warm strings, soft piano"
+
+
+async def test_strategy_gate_hides_casting_for_a_product_only_ad():
+    """Cast and wardrobe are only bound to scenes when someone is on screen."""
+    payload = (await gate_tools.await_strategy_approval(_ctx(_recipe_state())))[
+        "result"
+    ]
+
+    assert "cast" not in payload["direction"]
+    assert "wardrobe" not in payload["direction"]
+
+
+async def test_strategy_gate_shows_casting_when_a_person_features():
+    state = _recipe_state(virtual_creator=True)
+    state["virtual_creator_metadata"] = {"demographics": "a chef in her forties"}
+    payload = (await gate_tools.await_strategy_approval(_ctx(state)))["result"]
+
+    assert payload["direction"]["cast"] == "a chef in her forties"
+    assert payload["direction"]["wardrobe"] == "linen apron"
+
+
+async def test_strategy_gate_carries_nothing_from_the_storyboard():
+    """The storyboard does not exist yet, and a change asked for here would
+    rewrite it anyway."""
+    state = _recipe_state()
+    state["storyboard"] = _storyboard()
+    payload = (await gate_tools.await_strategy_approval(_ctx(state)))["result"]
+
+    assert "scenes" not in payload
+    assert "clips" not in payload
+    assert "storyboard" not in payload
+
+
+async def test_storyboard_gate_shows_the_shot_behind_each_scene():
+    storyboard = _storyboard()
+    storyboard["background_music_prompt"] = "warm acoustic bed"
+    storyboard["scenes"][0]["video_prompt"]["cinematography"] = {
+        "camera": "slow dolly in",
+        "lens": ["50mm", "shallow depth of field"],
+        "mood": "",
+    }
+    storyboard["scenes"][0]["first_frame_prompt"] = {
+        "description": "a bottle on a lit counter"
+    }
+    payload = (
+        await gate_tools.await_storyboard_approval(_ctx({"storyboard": storyboard}))
+    )["result"]
+
+    scene = payload["scenes"][0]
+    assert scene["shot"] == {
+        "camera": "slow dolly in",
+        "lens": "50mm, shallow depth of field",
+    }
+    assert scene["opening_frame"] == "a bottle on a lit counter"
+    assert payload["music"] == "warm acoustic bed"
+
+
+async def test_final_cut_clips_carry_the_scene_detail_and_the_render():
+    storyboard = _storyboard()
+    storyboard["scenes"][0]["voiceover_prompt"] = {"text": "Pour something better."}
+    ctx = _ctx({"storyboard": storyboard, "final_video_asset_id": "final-1"})
+    payload = (await gate_tools.await_final_cut_approval(ctx))["result"]
+
+    clip = payload["clips"][0]
+    assert clip["asset_id"] == "vid-1"
+    assert clip["voiceover"] == "Pour something better."
+    assert clip["action"] == "a hero shot"

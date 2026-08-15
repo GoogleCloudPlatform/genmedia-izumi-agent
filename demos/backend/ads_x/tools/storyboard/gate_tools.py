@@ -96,27 +96,97 @@ def _resumability_error(tool_context: ToolContext) -> Optional[str]:
     )
 
 
+def _flatten(value: Any) -> str:
+    """Renders a recipe value, which may be a list, as a single line."""
+    if isinstance(value, (list, tuple)):
+        return ", ".join(str(v) for v in value if v)
+    return str(value) if value else ""
+
+
 def _scene_digest(storyboard: Dict[str, Any]) -> list[Dict[str, Any]]:
-    """Compact per-scene view for the approval UI."""
+    """Compact per-scene view for the approval UI.
+
+    Carries what a reviewer needs to judge a scene before it is rendered: the
+    action, the line to be spoken, how long it runs, and the shot it will be
+    filmed as. The campaign summary canvas shows the same material, but only
+    once the video already exists - which is too late to change it.
+    """
     digest = []
     for scene in storyboard.get("scenes") or []:
         if not isinstance(scene, dict):
             continue
         video = scene.get("video_prompt") or {}
         voiceover = scene.get("voiceover_prompt") or {}
+        first_frame = scene.get("first_frame_prompt") or {}
         action, art_direction = split_art_direction(video.get("description") or "")
+        opening_frame, _ = split_art_direction(first_frame.get("description") or "")
+
+        cinematography = video.get("cinematography")
+        shot = {}
+        if isinstance(cinematography, dict):
+            shot = {k: _flatten(v) for k, v in cinematography.items() if v}
+        elif cinematography:
+            shot = {"style": _flatten(cinematography)}
+
         digest.append(
             {
                 "scene_id": scene.get("scene_id"),
                 "topic": scene.get("topic"),
                 "action": action,
                 "art_direction": art_direction,
+                "opening_frame": opening_frame,
+                "shot": shot,
                 "voiceover": voiceover.get("text"),
                 "duration_seconds": video.get("duration_seconds"),
                 "rendered": bool(video.get("asset_id")),
             }
         )
     return digest
+
+
+def _direction_digest(state: Any) -> Dict[str, Any]:
+    """The production recipe as the reviewer needs to see it.
+
+    This is the campaign-wide art direction every scene will inherit - the
+    lighting, the optics, the wardrobe, the music. It is settled before a
+    single scene is written, which makes the strategy checkpoint the one place
+    where changing it is free.
+    """
+    recipe = state.get("master_production_recipe") or {}
+    if not isinstance(recipe, dict):
+        return {}
+
+    parameters = state.get(common_utils.PARAMETERS_KEY) or {}
+    if not hasattr(parameters, "get"):
+        parameters = {}
+    cinematography = recipe.get("cinematography") or {}
+    illumination = recipe.get("illumination") or {}
+    environment = recipe.get("environment") or {}
+    character = recipe.get("character") or {}
+
+    direction = {
+        "style_mode": _flatten(recipe.get("style_mode")),
+        "lighting": _flatten(illumination.get("vibe") or environment.get("temporal")),
+        "key_light": _flatten(illumination.get("key_lighting")),
+        "optics": _flatten(cinematography.get("optics")),
+        "texture": _flatten(cinematography.get("motion_texture")),
+        "setting": _flatten(environment.get("setting")),
+        "music": _flatten(recipe.get("sonic_landscape")),
+    }
+
+    # Cast and wardrobe are only bound to scenes for a campaign with someone on
+    # screen. Showing them for a product-only ad would advertise direction that
+    # is never rendered.
+    if parameters.get("generate_virtual_creator"):
+        creator = state.get(common_utils.VIRTUAL_CREATOR_KEY) or {}
+        if not hasattr(creator, "get"):
+            creator = {}
+        direction["cast"] = _flatten(
+            creator.get("demographics") or character.get("actor_vibe")
+        )
+        direction["wardrobe"] = _flatten(character.get("attire"))
+
+    return {k: v for k, v in direction.items() if v}
 
 
 async def await_storyboard_approval(tool_context: ToolContext) -> ToolResult:
@@ -150,11 +220,24 @@ async def await_storyboard_approval(tool_context: ToolContext) -> ToolResult:
 
     # The payload the frontend renders. The real answer arrives later, as the
     # client's function response; this is only the pending placeholder.
+    digest = _scene_digest(storyboard)
+    total = sum(c.get("duration_seconds") or 0 for c in digest)
+    message = (
+        f"Here is the storyboard: {len(digest)} scenes, about {total:g} seconds "
+        f"in total. Nothing has been rendered yet, so this is the last point "
+        f"where changes are free. Accept to start generating, or tell me what "
+        f"to change - you can name a scene to adjust, reorder them, or ask for "
+        f"a different storyboard entirely."
+    )
+
     return tool_success(
         {
             "status": "awaiting_human_review",
+            "stage": "storyboard",
+            "message": message,
             "campaign_title": storyboard.get("campaign_title"),
-            "scenes": _scene_digest(storyboard),
+            "music": storyboard.get("background_music_prompt"),
+            "scenes": digest,
             "expected_response": {
                 "decision": list(VALID_DECISIONS),
                 "guidance": "optional free text describing requested changes",
@@ -245,10 +328,23 @@ async def await_strategy_approval(tool_context: ToolContext) -> ToolResult:
     recipe = tool_context.state.get("master_production_recipe") or {}
     assets = tool_context.state.get(common_utils.USER_ASSETS_KEY) or {}
 
+    look_name = (recipe or {}).get("look_name") or "an automatically chosen Look"
+    duration = parameters.get("target_duration") or "the requested length"
+    message = (
+        f"Before I write a single scene, please check I have understood the "
+        f"brief. This is a {duration} "
+        f"{'ad featuring a person' if parameters.get('generate_virtual_creator') else 'product-only ad'} "
+        f"for {parameters.get('target_audience') or 'the stated audience'}, "
+        f'shot in the "{look_name}" style. Accept to continue, or tell me '
+        f"what to change - corrections are free at this point, and expensive "
+        f"once the video is rendered."
+    )
+
     return tool_success(
         {
             "status": "awaiting_human_review",
             "stage": "strategy",
+            "message": message,
             "campaign": {
                 "name": parameters.get("campaign_name"),
                 "audience": parameters.get("target_audience"),
@@ -263,6 +359,11 @@ async def await_strategy_approval(tool_context: ToolContext) -> ToolResult:
                 "name": recipe.get("look_name"),
                 "aesthetic": recipe.get("brand_archetype"),
             },
+            # The art direction every scene will inherit. No scene exists yet,
+            # so nothing here anticipates the storyboard checkpoint - and it
+            # must not, since a change asked for here rewrites what that
+            # checkpoint goes on to show.
+            "direction": _direction_digest(tool_context.state),
             "features_a_person": bool(parameters.get("generate_virtual_creator")),
             "creator_description": parameters.get("creator_description") or None,
             "uploaded_assets": sorted(assets) if isinstance(assets, dict) else [],
@@ -351,26 +452,27 @@ async def await_final_cut_approval(tool_context: ToolContext) -> ToolResult:
 
     tool_context.state[FINAL_DECISION_KEY] = None
 
+    # The same per-scene view as the storyboard checkpoint, plus the rendered
+    # asset, so a reviewer watching the cut can match what they see back to
+    # what was asked for and name the scene that missed.
     clips = []
-    for scene in storyboard.get("scenes") or []:
+    for scene, digest in zip(storyboard.get("scenes") or [], _scene_digest(storyboard)):
         if not isinstance(scene, dict):
             continue
         video = scene.get("video_prompt") or {}
-        action, _ = split_art_direction(video.get("description") or "")
-        clips.append(
-            {
-                "scene_id": scene.get("scene_id"),
-                "topic": scene.get("topic"),
-                "action": action,
-                "duration_seconds": video.get("duration_seconds"),
-                "asset_id": video.get("asset_id"),
-            }
-        )
+        clips.append({**digest, "asset_id": video.get("asset_id")})
+
+    message = (
+        f"Your video is ready - {len(clips)} clips, stitched. Please watch it. "
+        f"Accept to finish, or name the clips that need another take and I will "
+        f"re-render just those and rebuild the cut."
+    )
 
     return tool_success(
         {
             "status": "awaiting_human_review",
             "stage": "final_cut",
+            "message": message,
             "final_video": {"asset_id": final_id, "asset_ref": final_ref},
             "clips": clips,
             "expected_response": {

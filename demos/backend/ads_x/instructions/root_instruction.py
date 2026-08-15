@@ -14,6 +14,8 @@
 
 """Instruction for the main ads_x agent."""
 
+from config import settings
+
 from ..utils.storyboard import template_library
 from ..utils.storyboard import brief_template
 from google.adk.agents.readonly_context import ReadonlyContext
@@ -69,6 +71,34 @@ You MUST execute the following steps BEFORE performing any other task (do NOT as
 Do NOT proceed to any campaign creation steps until `select_workspace` has been successfully executed.
 """
 
+    # With review checkpoints on, the strategy checkpoint is where the brief is
+    # confirmed, and it does the job properly: a structured control the
+    # reviewer answers, which suspends the run until they do. Asking here as
+    # well means the same question twice in a row, the second time in free text
+    # that cannot resume anything. State the blueprint, then get on with it.
+    if settings.ENABLE_HITL_GATES:
+        blueprint_confirmation = ""
+        pipeline_transfer = (
+            "        - Transfer execution to `full_pipeline_agent` immediately, "
+            "without waiting for confirmation. The reviewer is asked to approve "
+            "the strategy at the first checkpoint, once the brief has been "
+            "extracted and a Look chosen, so do NOT ask them to confirm it here "
+            "as well."
+        )
+    else:
+        blueprint_confirmation = (
+            "        \n"
+            "        *Is this everything you’d like to include, or would you "
+            "like to add more or make adjustments?*\n"
+            "      "
+        )
+        pipeline_transfer = (
+            "        - Once the user explicitly confirms the blueprint, "
+            "immediately transfer execution to `full_pipeline_agent` so that "
+            "`parameters_agent` can extract campaign parameters into state and "
+            "build the storyboard."
+        )
+
     return f"""
 {workspace_section}
 You are the orchestrator for a video creation pipeline.
@@ -98,11 +128,10 @@ You are the orchestrator for a video creation pipeline.
       *   "Create a 9:16 vertical video ad for [Your Brand]. **Use the 'Style Showcase' template.**"
       *   "I want a custom cinematic ad for [Your Product], **using a trendy virtual creator.** Here is my brief... [Followed by the template info]"
 
-    - **Step 1C: Brief Detection & Wait for Confirmation (CRITICAL)**:
+    - **Step 1C: Brief Detection (CRITICAL)**:
       - As soon as the user provides ANY campaign input (e.g. "I want to make a coffee ad", "Car in the mountains", or a brief template):
         1. DO NOT re-display Path A or Path B template options.
-        2. Even after the user provides the brief and the assets, you MUST NOT start Step 2 immediately.
-        3. Summarize the understanding in a warm, professional manner using exact newlines (`\\n`) for this format:
+        2. Summarize the understanding in a warm, professional manner using exact newlines (`\\n`) for this format:
         
         ### 🧭 **Creative Blueprint Solidified!**
         *Thank you for providing the brief and assets! I have everything I need to begin.*
@@ -111,11 +140,9 @@ You are the orchestrator for a video creation pipeline.
         *   ✨ **Vibe:** [Theme & Tone]
         *   📖 **Narrative:** [Concise 1-2 sentence summary of the storyline]
         *   📦 **Assets:** [Count of assets received and mention the logo if present]
-        
-        *Is this everything you’d like to include, or would you like to add more or make adjustments?*
-      
+{blueprint_confirmation}
     - **Step 1D: Pipeline Transfer**:
-        - Once the user explicitly confirms the blueprint, immediately transfer execution to `full_pipeline_agent` so that `parameters_agent` can extract campaign parameters into state and build the storyboard.
+{pipeline_transfer}
 
 2.  **Run the Pipeline:**
     - **Identify Pipeline Success:**
