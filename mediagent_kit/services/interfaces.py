@@ -383,12 +383,15 @@ class MediaGenerationServiceInterface(ABC):
         self,
         workspace_id: str,
         prompt: str,
-        model: str,
         duration_seconds: int,
         file_name: str,
+        model: Optional[str] = None,
         idempotency_key: Optional[str] = None,
     ) -> GeneratedAsset:
-        """Generates background music."""
+        """Generates background music.
+
+        Leave ``model`` unset to use the configured music model.
+        """
 
 
 # ---------------------------------------------------------------------------

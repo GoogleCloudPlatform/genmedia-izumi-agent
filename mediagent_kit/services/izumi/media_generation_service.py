@@ -258,9 +258,9 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
         self,
         workspace_id: str,
         prompt: str,
-        model: str,
         duration_seconds: int,
         file_name: str,
+        model: Optional[str] = None,
         idempotency_key: Optional[str] = None,
     ) -> GeneratedAsset:
         """Generates background music via native Lyria.

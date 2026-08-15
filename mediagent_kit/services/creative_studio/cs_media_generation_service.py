@@ -464,9 +464,9 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         self,
         workspace_id: str,
         prompt: str,
-        model: str,
         duration_seconds: int,
         file_name: str,
+        model: Optional[str] = None,
         idempotency_key: Optional[str] = None,
     ) -> GeneratedAsset:
         """Generates music via CS POST /api/audios/generate and polls for completion."""

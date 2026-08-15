@@ -59,7 +59,6 @@ async def generate_background_music(
         music_asset = await mediagen_service.generate_music(
             workspace_id=workspace_id,
             prompt=music_prompt,
-            model="lyria-002",
             duration_seconds=30,
             file_name=filename,
         )

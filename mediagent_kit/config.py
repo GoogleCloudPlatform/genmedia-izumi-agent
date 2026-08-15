@@ -44,7 +44,7 @@ class MediagentKitConfig:
             "image_imagen": {"default": "imagen-4.0-generate-001"},
             "image_gemini": {"default": "gemini-3.1-flash-image"},
             "video": {"default": "veo-3.1-generate-001"},
-            "music": {"default": "lyria-002"},
+            "music": {"default": "lyria-3-clip-preview"},
             "tts": {"default": "gemini-3.1-flash-tts-preview"},
         }
 

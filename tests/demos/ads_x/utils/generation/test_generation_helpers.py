@@ -32,6 +32,26 @@ async def test_generate_background_music_success(
 
 @pytest.mark.asyncio
 @patch("mediagent_kit.services.aio.get_media_generation_service")
+@patch("mediagent_kit.services.aio.get_asset_service")
+async def test_background_music_does_not_pin_a_model(
+    mock_get_asset_service,
+    mock_get_media_gen_service,
+):
+    """The model pinned here overrode the configured one, so the music model
+    could not be changed from config."""
+    mock_mediagen = AsyncMock()
+    mock_get_media_gen_service.return_value = mock_mediagen
+    mock_asset = MagicMock(spec=Asset)
+    mock_asset.id = "music_123"
+    mock_mediagen.generate_music.return_value = mock_asset
+
+    await generate_background_music("user1", {"description": "Upbeat jazz"})
+
+    assert "model" not in mock_mediagen.generate_music.call_args.kwargs
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
 async def test_generate_background_music_failure(
     mock_get_media_gen_service,
 ):
