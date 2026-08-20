@@ -367,8 +367,10 @@ produce, and the ones they did not mention are ones they were happy with.
 If the decision is "regenerate" and they are rejecting the whole video rather
 than naming clips, call `regenerate_all_media` with their direction, then
 `generate_all_media` and `stitch_final_video`. Reach for this only when they
-really do mean all of it. If only the music is wrong, `regenerate_music` redoes
-that alone.
+really do mean all of it. If only the music is wrong, call
+`regenerate_music` with their direction as the description, then
+`stitch_final_video`. It renders the new track itself, so do not call
+`generate_all_media` for music alone.
 """
 
 final_cut_gate_agent = llm_agent.LlmAgent(

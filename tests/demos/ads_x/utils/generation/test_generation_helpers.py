@@ -169,3 +169,56 @@ def test_clamp_duration_is_unchanged_for_veo():
     assert clamp_duration(3, model="veo-3.1-generate-001") == 4
     assert clamp_duration(5, model="veo-3.1-generate-001") == 6
     assert clamp_duration(7, model="veo-3.1-generate-001") == 8
+
+
+# ---------------------------------------------------------------------------
+# Instrumental beds
+#
+# Lyria 3 renders vocals when a prompt invites them, and vocals compete with
+# the voiceover they play beneath. Constraining the presets is insufficient:
+# the storyboard agent copies the sonic landscape into the music brief and may
+# rephrase it, so the constraint is applied where every prompt passes.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+@patch("mediagent_kit.services.aio.get_asset_service")
+async def test_music_is_asked_for_without_vocals(
+    mock_get_asset_service, mock_get_media_gen_service
+):
+    mock_mediagen = AsyncMock()
+    mock_get_media_gen_service.return_value = mock_mediagen
+    mock_asset = MagicMock(spec=Asset)
+    mock_asset.id = "music_1"
+    mock_mediagen.generate_music.return_value = mock_asset
+
+    brief = {"description": "Nostalgic Folk: acoustic guitar, warm"}
+    await generate_background_music("user1", brief)
+
+    sent = mock_mediagen.generate_music.call_args.kwargs["prompt"]
+    assert "no vocals" in sent
+    assert "no singing" in sent
+    # The stored brief is shown to the reviewer at the storyboard checkpoint
+    # and is therefore left unchanged.
+    assert brief["description"] == "Nostalgic Folk: acoustic guitar, warm"
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+@patch("mediagent_kit.services.aio.get_asset_service")
+async def test_the_constraint_is_not_repeated_on_a_re_render(
+    mock_get_asset_service, mock_get_media_gen_service
+):
+    mock_mediagen = AsyncMock()
+    mock_get_media_gen_service.return_value = mock_mediagen
+    mock_asset = MagicMock(spec=Asset)
+    mock_asset.id = "music_1"
+    mock_mediagen.generate_music.return_value = mock_asset
+
+    from demos.backend.ads_x.utils.generation.generation_helpers import (
+        _as_instrumental,
+    )
+
+    once = _as_instrumental("acoustic guitar")
+    assert _as_instrumental(once) == once

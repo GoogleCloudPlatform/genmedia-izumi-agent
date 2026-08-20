@@ -28,6 +28,29 @@ logger = logging.getLogger(__name__)
 MAX_VOICEOVER_ATTEMPTS = 3
 
 
+# Applied here because every music prompt passes through this function.
+# Constraining the presets alone is insufficient: the storyboard agent copies
+# the sonic landscape into the music brief and may rephrase it.
+_INSTRUMENTAL = (
+    "Instrumental only: no vocals, no singing, no spoken word, no lyrics. "
+    "This is a background bed beneath a separate voiceover."
+)
+
+
+def _as_instrumental(description: str) -> str:
+    """Adds the no-vocals constraint to a music brief.
+
+    Lyria 3 renders vocals when a prompt invites them. Background music plays
+    beneath a separate voiceover, so vocals compete with the narration. The
+    stored brief is left unchanged, as it is shown to the reviewer at the
+    storyboard checkpoint.
+    """
+    brief = (description or "").strip()
+    if "instrumental only" in brief.lower():
+        return brief
+    return f"{brief} {_INSTRUMENTAL}".strip()
+
+
 async def generate_background_music(
     workspace_id: str,
     background_music_prompt: dict[str, Any],
@@ -52,7 +75,7 @@ async def generate_background_music(
 
     logger.info(f"Generating background music for workspace {workspace_id}")
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-    music_prompt = background_music_prompt["description"]
+    music_prompt = _as_instrumental(background_music_prompt["description"])
     filename = f"background_music_{uid}.mp3" if uid else "background_music.mp3"
 
     try:

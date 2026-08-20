@@ -26,11 +26,13 @@ regeneration.
 """
 
 import logging
+import uuid
 from typing import Any, Dict, Optional
 
 from google.adk.tools.tool_context import ToolContext
 
 from ...utils.common import common_utils
+from ...utils.generation import generation_helpers
 from ...utils.storyboard import storyboard_merge
 
 logger = logging.getLogger(__name__)
@@ -121,15 +123,35 @@ async def regenerate_music(
 
     # Music generation skips any track that already has a reference, so the
     # reference has to go before it will render again.
-    had_track = prompt.pop("asset_ref", None) is not None
+    prompt.pop("asset_ref", None)
     prompt.pop("asset_id", None)
+
+    # Render here rather than only releasing the reference, matching
+    # regenerate_scene. A released track leaves the storyboard declaring music
+    # that no longer exists, and the next stitch produces a silent cut.
+    workspace_id = str(
+        tool_context.state.get("workspace_id") or tool_context.state.get("user_id", "")
+    )
+    logger.info(
+        "Re-rendering background music %s: %s",
+        "with a new brief" if description.strip() else "for a different take",
+        prompt.get("description", "")[:120],
+    )
+    asset = await generation_helpers.generate_background_music(
+        workspace_id, prompt, uuid.uuid4().hex[:4]
+    )
     tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
 
-    what = "with the new brief" if description.strip() else "for a different take"
-    return tool_success(
-        f"Music will be re-rendered {what}"
-        f"{' (previous track released)' if had_track else ''}."
-    )
+    if asset is None:
+        logger.error("Background music re-render produced no track.")
+        return tool_failure(
+            "The music could not be re-rendered, so the campaign now has no "
+            "background track. Try again, or adjust the description."
+        )
+
+    what = "a new brief" if description.strip() else "a different take"
+    logger.info("Background music re-rendered (asset %s).", asset.id)
+    return tool_success(f"Background music re-rendered with {what}.")
 
 
 async def regenerate_all_media(

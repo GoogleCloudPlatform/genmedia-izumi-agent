@@ -6,8 +6,25 @@ being rejected would not be one.
 """
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+
+import pytest
 
 from demos.backend.ads_x.tools.storyboard import regenerate_tools
+
+
+@pytest.fixture(autouse=True)
+def rendered_music():
+    """Stubs the renderer, which regenerate_music now invokes directly.
+
+    Without it these tests call the live music API.
+    """
+    with patch.object(
+        regenerate_tools.generation_helpers,
+        "generate_background_music",
+        new=AsyncMock(return_value=SimpleNamespace(id="music-2")),
+    ) as rendered:
+        yield rendered
 
 
 def _scene(n, rendered=True):
@@ -74,18 +91,34 @@ async def test_regenerating_needs_a_storyboard():
 # --------------------------------------------------------------------------
 
 
-async def test_music_reference_is_released_so_it_renders_again():
+async def test_music_is_rendered_not_merely_released(rendered_music):
+    """Releasing the reference alone leaves the storyboard declaring music
+    that does not exist, and the next stitch produces a silent cut."""
     ctx = _ctx()
     result = await regenerate_tools.regenerate_music(ctx)
 
     assert result["status"] == "succeeded"
+    rendered_music.assert_awaited_once()
     prompt = ctx.state["storyboard"]["background_music_prompt"]
-    assert "asset_ref" not in prompt
+    # The stale reference is gone before rendering, so the renderer does not
+    # skip the track as already present.
+    assert rendered_music.await_args.args[1] is prompt
     # The brief is untouched when no new one is given.
     assert prompt["description"] == "calm ambient"
 
 
-async def test_music_brief_can_be_replaced():
+async def test_a_failed_music_render_is_reported(rendered_music):
+    """A failed render must not be reported as a successful one."""
+    rendered_music.return_value = None
+    ctx = _ctx()
+
+    result = await regenerate_tools.regenerate_music(ctx)
+
+    assert result["status"] == "failed"
+    assert "no background track" in result["error_message"]
+
+
+async def test_music_brief_can_be_replaced(rendered_music):
     ctx = _ctx()
     await regenerate_tools.regenerate_music(ctx, "driving percussion")
 
