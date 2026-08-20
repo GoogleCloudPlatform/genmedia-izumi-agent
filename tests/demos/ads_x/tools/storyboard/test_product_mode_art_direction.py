@@ -59,7 +59,9 @@ def test_product_mode_substitutes_optics_and_aesthetic():
 
 
 def test_looks_without_overrides_are_unchanged():
-    look = _look("Vibrant CPG Pop")
+    # Nostalgic Warm Film defines no substitutes, because none of its styling
+    # assumes a subject. Its general values are expected to pass through.
+    look = _look("Nostalgic Warm Film")
     assert "product_mode" not in look["recipe"], "fixture assumption"
     block = _build_art_direction_block(look["recipe"], include_character=False)
     assert look["recipe"]["cinematography"]["optics"] in block

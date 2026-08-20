@@ -157,6 +157,14 @@ async def enrich_prompt_with_llm(
             "soften, or omit them. Express them in natural cinematic language and do "
             "NOT print the literal bracket tag."
         ),
+        (
+            "BRAND MARK FIDELITY: a supplied logo or wordmark is reproduced "
+            "exactly as provided, in its own colours and proportions. The art "
+            "direction governs the scene around it - the surface it rests on, "
+            "the light falling across it, the depth of field - never the mark "
+            "itself. Do NOT recolour, tint, plate, or re-finish it to match "
+            "the palette, and do NOT describe it in the palette's materials."
+        ),
     ]
 
     if context:

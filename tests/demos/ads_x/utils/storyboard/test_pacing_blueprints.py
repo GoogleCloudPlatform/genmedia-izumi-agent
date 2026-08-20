@@ -141,3 +141,17 @@ def test_generated_blueprints_are_renderable():
             assert min(get_random_blueprint_for_duration(float(target))) >= (
                 MIN_SCENE_SECONDS
             )
+
+
+def test_no_look_asks_the_music_model_to_sing():
+    """Lyria 3 renders vocals when asked for them, and vocals compete with the
+    voiceover the bed plays beneath."""
+    from demos.backend.ads_x.utils.storyboard.production_presets import (
+        PRODUCTION_LOOKS,
+    )
+
+    for look in PRODUCTION_LOOKS:
+        sonic = (look.get("recipe") or {}).get("sonic_landscape") or ""
+        assert "vocal" not in sonic.lower(), (
+            f"Look '{look.get('name')}' asks for vocals in its music bed: " f"{sonic}"
+        )

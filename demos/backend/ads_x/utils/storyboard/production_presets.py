@@ -12,9 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-A comprehensive Media Excellence Encyclopedia for the Storyboard Agent.
-Provides high-end professional technical ingredients for high-budget commercial advertising.
+"""Art direction presets for the storyboard agent.
+
+This module holds two structures with distinct roles.
+
+PRODUCTION_ENCYCLOPEDIA catalogues the available options, keyed by style mode
+and then by axis (brand aesthetics, character, product macro, environment,
+cinematography, illumination, sonic landscape, fidelity guards). It is never
+sent to a model in full. It provides the set of valid values offered when a
+reviewer edits a Look through `set_look`, and its FIDELITY_GUARDS entries are
+copied into every recipe.
+
+PRODUCTION_LOOKS defines curated combinations drawn from those axes. Each
+Look's `recipe` selects one value per axis so that a campaign renders with a
+consistent visual identity rather than an arbitrary mix of lens, lighting and
+wardrobe. `tones` and `keywords` are used for matching only; `description` is
+the text shown to the selector model.
+
+A Look is applied as follows:
+
+    recommend_production_recipe selects one Look per campaign
+      -> its recipe is stored in state as `master_production_recipe`
+      -> _build_art_direction_block appends the recipe's anchors to each
+         scene's first-frame and video description
+      -> enrichment renders those anchors as prose for Imagen and Veo
+
+`sonic_landscape` is excluded from the art-direction block and supplies the
+background music brief instead.
+
+`product_mode` provides substitute styling for campaigns without a person on
+screen. Omitting the character block alone is insufficient, because the
+general styling may also assume a subject (butterfly lighting, catchlights,
+sweat), which directs the renderer towards a face that is not in frame.
 """
 
 from typing import Dict, Any
@@ -283,13 +312,6 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
 }
 
 
-def get_production_encyclopedia_json() -> str:
-    """Returns a JSON string of the production encyclopedia for LLM injection."""
-    import json
-
-    return json.dumps(PRODUCTION_ENCYCLOPEDIA, indent=2)
-
-
 # --- CURATED "LOOKS" ---
 # A Look is a single, internally-coherent art-direction bundle: every field is
 # chosen to reinforce the others. This is the opposite of sampling each field
@@ -398,6 +420,9 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Butterfly Lighting: even, flattering, high-clarity",
                 "highlights": "Metallic specular highlights (sparkling micro-points)",
             },
+            "product_mode": {
+                "key_lighting": "Even Overhead Key: shadow-less, high-clarity across the surface",
+            },
             "sonic_landscape": "Industrial Minimalist: rhythmic metallic pings, deep sub-bass pulses, clean silence",
         },
     },
@@ -445,7 +470,7 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Motivated Candle-light: flickering warm tones, soft shadows, intimate feel",
                 "highlights": "Volumetric dust-motes in a window beam",
             },
-            "sonic_landscape": "Nostalgic Folk: acoustic guitar, natural environment sounds, warm vocals",
+            "sonic_landscape": "Nostalgic Folk: instrumental acoustic guitar, natural environment sounds, warm and unhurried",
         },
     },
     {
@@ -492,6 +517,9 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Butterfly Lighting: bright, even, poppy",
                 "highlights": "Soft-box pearlescent sheen on surfaces",
             },
+            "product_mode": {
+                "key_lighting": "Even Overhead Key: bright, punchy, shadow-less",
+            },
             "sonic_landscape": "Upbeat Pop-Electronic: bright synths, punchy claps, playful bassline, high-energy hooks",
         },
     },
@@ -537,6 +565,10 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "chromatic_scheme": "High-contrast steel with cyan/magenta rim",
                 "key_lighting": "Neon Cyber-Noir: dual-tone rim lighting (magenta/cyan), high-gloss",
                 "highlights": "Metallic specular highlights and edge-glow rim",
+            },
+            "product_mode": {
+                "brand_archetype": "High contrast, grit, condensation sheen, aggressive motion blur, anamorphic flares.",
+                "motion_texture": "Master Prime 100mm Macro: razor-sharp texture on material grain and edges",
             },
             "sonic_landscape": "Aggressive Trap-Hybrid: heavy 808s, distorted textures, fast-paced hi-hats",
         },
@@ -686,6 +718,10 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Soft ring key with even wraparound",
                 "highlights": "Glitter or shimmering product details catching the light",
             },
+            "product_mode": {
+                "brand_archetype": "Clean aesthetics, trending color palettes, high-energy editing cues, crisp product staging.",
+                "vibe": "Soft Ring Light: even wraparound illumination, clean highlights on the product",
+            },
             "sonic_landscape": "Trending Audio Bed: high-energy, familiar beats",
         },
     },
@@ -775,6 +811,9 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "chromatic_scheme": "Neon-lit urban palette with warm sodium glow",
                 "key_lighting": "Available city light with neon accents",
                 "highlights": "Neon reflections and incidental street shadows",
+            },
+            "product_mode": {
+                "brand_archetype": "Raw handheld movement, urban sidewalk sounds, casual street-level product framing.",
             },
             "sonic_landscape": "Synth-Pop: energetic, colorful, youthful",
         },

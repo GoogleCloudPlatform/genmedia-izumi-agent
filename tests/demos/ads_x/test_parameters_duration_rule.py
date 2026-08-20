@@ -14,11 +14,10 @@
 
 """Guards the duration rule against example leakage.
 
-The rule used to read: Extract if mentioned (e.g., "15s"). Default to `12s`.
-A brief naming no duration then came back as 15s, because the only concrete
-value in the rule was the example and the model copied it. It happened on
-roughly one run in three, which made it look like a model quirk rather than a
-prompt defect. Keep concrete durations out of the rule except the default.
+An example duration stated alongside the default is liable to be copied into
+a brief that names none, producing a campaign length the user did not ask
+for. The rule should therefore contain no concrete duration other than the
+default itself.
 """
 
 import re

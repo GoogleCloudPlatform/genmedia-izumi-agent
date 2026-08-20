@@ -138,9 +138,12 @@ async def _select_look(
         "Guidance:\n"
         "- Match the brand's POSITIONING, not just the product category. A snack "
         "or CPG product is NOT automatically a playful/pop Look.\n"
-        "- If the theme or tone signals premium, luxury, gourmet, artisan, "
-        "refined, elegant, or sophisticated positioning, PREFER a premium/refined "
-        "Look even when the tone also reads energetic.\n"
+        # Limited to positioning specific to heritage luxury. Broader terms
+        # such as "elegant" and "sophisticated" describe modern and minimal
+        # brands equally well and bias selection towards ornate Looks.
+        "- If the theme or tone signals luxury, heritage, gourmet or artisan "
+        "positioning, PREFER a premium/refined Look even when the tone also "
+        "reads energetic.\n"
         "- Reserve bold/playful/pop Looks for briefs that are genuinely youthful, "
         "playful, or budget/mass-market in positioning.\n\n"
         "Respond with ONLY the exact name of the best-fit Look, nothing else."

@@ -120,3 +120,42 @@ async def test_shorten_script_failure_fallback(
     result = await shorten_script("Long text", 10.0, workspace_id="workspace_1")
 
     assert result == "Long text"
+
+
+# ---------------------------------------------------------------------------
+# Brand mark fidelity
+#
+# The enrichment prompt requires every art-direction anchor to be woven into
+# the description, including "Aesthetic". Applied without qualification, that
+# directs the renderer to restyle a supplied brand mark in the Look's palette.
+# The palette applies to the scene around the mark, not to the mark itself.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+@patch("mediagent_kit.services.aio.get_asset_service")
+async def test_the_logo_is_exempt_from_the_palette(
+    mock_get_asset_service,
+    mock_get_media_gen_service,
+):
+    mock_mediagen = AsyncMock()
+    mock_get_media_gen_service.return_value = mock_mediagen
+    mock_get_asset_service.return_value = AsyncMock()
+    mock_mediagen.generate_text.return_value = "Enriched prompt text"
+
+    await enrich_prompt_with_llm(
+        "workspace-1",
+        "The brand logo on a clean surface. [ART DIRECTION (NON-NEGOTIABLE) -> "
+        "Aesthetic: Deep mahogany, brushed gold, velvet textures]",
+        {},
+        scene_index=0,
+        prompt_type="image",
+    )
+
+    sent = mock_mediagen.generate_text.call_args.kwargs["prompt"]
+    assert "BRAND MARK FIDELITY" in sent
+    # The rule must place the mark out of scope for the palette, not merely
+    # sit alongside the instruction that applies it.
+    assert "never the mark" in sent
+    assert "recolour" in sent
