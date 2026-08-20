@@ -31,6 +31,13 @@ from ...utils.storyboard import template_library
 
 logger = logging.getLogger(__name__)
 
+# Background music is mixed below the narration. Generated music is mastered
+# at full scale and shares the midrange with speech, so equal gain masks the
+# voiceover. Approximately -14 dB, a conventional level for a bed under
+# dialogue.
+BACKGROUND_MUSIC_VOLUME: float = 0.2
+
+
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
 tool_failure = common_utils.tool_failure
@@ -346,9 +353,19 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                             )
 
     # 3. Build Audio Track (Background Music)
-    music_ref = _resolve_asset_ref(
-        storyboard.get("background_music_prompt", {}), workspace_id
-    )
+    music_prompt = storyboard.get("background_music_prompt") or {}
+    music_ref = _resolve_asset_ref(music_prompt, workspace_id)
+    if music_prompt.get("description") and not music_ref:
+        # The storyboard declares music the campaign no longer has, which
+        # occurs when a track is released for re-rendering and the cut is
+        # stitched before it is rebuilt. Reported at error level because the
+        # result is a silent soundtrack rather than a failed render.
+        logger.error(
+            "Storyboard declares background music but no rendered track was "
+            "found, so the cut will have none. Re-render the music before "
+            "stitching. Prompt: %s",
+            str(music_prompt.get("description"))[:160],
+        )
     if music_ref:
         # NOTE: Unified AssetServiceInterface adaptation.
         # This would break legacy version due to function signature and method name mismatch.
@@ -362,6 +379,7 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                         start_at=types.AudioPlacement(video_clip_index=0),
                         trim=types.Trim(duration_seconds=total_duration_seconds),
                         fade_out_duration_seconds=1,
+                        volume=BACKGROUND_MUSIC_VOLUME,
                     )
                 )
 
