@@ -19,14 +19,14 @@ function call the frontend can render as an approval control. The run resumes
 only when the client answers that call, so the expensive generation stage never
 starts on a storyboard nobody approved.
 
-Two things about this mechanism are easy to get wrong:
+The mechanism has two prerequisites:
 
-1. The app must be built with ``ResumabilityConfig(is_resumable=True)``. Without
-   it the framework does not pause at all: the tool returns, the pipeline runs
-   straight into generation, and nothing reports an error. See
+1. The app must be built with ``ResumabilityConfig(is_resumable=True)``.
+   Without it the framework does not suspend: the tool returns, the pipeline
+   continues into generation, and no error is raised. See
    tests/demos/ads_x/test_gate_resumability.py.
-2. A gate is useless unless a client answers it. An unanswered gate hangs the
-   run forever, so gates are opt-in via ``ENABLE_HITL_GATES`` and must stay off
+2. A client must answer the call. An unanswered gate suspends the run
+   indefinitely, so gates are opt-in via ``ENABLE_HITL_GATES`` and remain off
    for any frontend that cannot render the approval control.
 """
 

@@ -9,18 +9,25 @@
 
 The `ads_x` is Izumi's flagship, production-grade video orchestrator providing granular, enterprise-level pacing and structural constraints.
 
-The defining characteristic of this agent is its capacity to run in two distinct operational profiles tailored for different marketing needs: **Template Mode** and **AI Director Mode**.
+## 🎬 AI Director Mode
 
-## 🔄 Dual Operating Modes
+The agent architects the campaign itself. From a brief it decides what story the
+product needs, how many scenes it takes and what each one has to accomplish,
+then anchors every shot to a single coherent visual identity.
 
-### 1. AI Director Mode (Bespoke Generation)
-In AI Director Mode, the template guardrails are removed. The agent dynamically decides how many scenes the brief requires, how long they should run, and the pacing of the background music. 
-- It retains the high-quality orchestration pipelines of the template engine, but operates with the freedom to invent custom structural formats.
+Two mechanisms keep that freedom from becoming inconsistency:
 
-### 2. Template Mode (Rigid Framework)
-In Template Mode, the AI must conform to an overarching JSON pacing document. The user supplies the core template (e.g., "The 15s UGC Feature", "The 8s Explainer"), and the AI simply populates that heavily constrained skeleton with generated media.
-- Total video duration is strictly enforced.
-- Scene cuts, audio transitions, and frame layouts are explicitly blocked out before generation begins.
+- **Pacing blueprints** resolve the requested duration to an exact scene count
+  and an exact length per scene, computed before the model writes anything. Each
+  scene runs a whole number of seconds between three and six, which is what the
+  video model renders natively, so a scene reaches the final cut at exactly the
+  length it was planned at.
+- **Looks** supply the art direction. One Look is chosen per campaign and bound
+  to every scene, so lens, lighting, colour, wardrobe and music come from the
+  same coherent recipe rather than being sampled independently per shot.
+
+The two are orthogonal: a blueprint governs structure and timing, a Look governs
+how the result looks and sounds.
 - Gemini operates purely as an art director, fleshing out visuals and copy to fit the predetermined time boxes.
 
 ## 🛠️ The Orchestration Workflow
@@ -32,48 +39,47 @@ In Template Mode, the AI must conform to an overarching JSON pacing document. Th
    - Uses `summary_canvas_tool.py` to draft the script and frame-by-frame intent.
    - Enriches the prompt using the `enrichment_utils.py` to guarantee "Invisible Camera" semantics and high-fidelity physics descriptions for Vertex AI targets.
 5. **Generative Processing**: Kicks off asynchronous calls to:
-   - **Gemini (Imagen 3)** for scene-setting first frames.
-   - **Veo** for fluid, prompt-aligned action derived from those frames.
-   - **Google Cloud TTS** and **Lyria** for auditory assembly.
+   - **Gemini** (`gemini-3.1-flash-image`) for scene-setting first frames.
+   - **Gemini Omni** for fluid, prompt-aligned action derived from those frames.
+   - **Gemini TTS** and **Lyria** for auditory assembly.
 6. **Timeline Stitching**: Renders the complete, composite MP4 payload to the user dashboard.
 
 ## 🚀 Purpose
-The Template architecture is designed to yield consistently polished, broadcast-ready creative by preventing AI hallucinatory meandering, forcing all output to bend to established cinematic paradigms.
+The architecture is designed to yield consistently polished, broadcast-ready creative: the blueprint prevents structural meandering, and the Look holds every scene to one established cinematic paradigm.
 
 ---
 
 ## 🌟 Join the Open-Source Creative Community!
 
-We believe the future of programmatic video advertising is **open and collaborative**. We strongly encourage marketing developers and cinematic engineers across GitHub to design, test, and submit their own high-converting JSON template architectures to our open-source library!
+We believe the future of programmatic video advertising is **open and collaborative**. The Look library is the most approachable place to contribute: each Look is a single declarative recipe, and a new one extends the agent's reach to a vertical it does not yet serve well.
 
-To help you get started, we are sharing our flagship collection of **broadcast-proven marketing structures** that are already integrated and ready for your immediate production use:
+The library ships eleven Looks for produced commercial work and four for social-native creator content:
 
-### ⚡ Fast-Paced Frameworks (High Energy, Quick Cuts)
-*Perfect for social media feeds, disruptive hooks, and high-velocity engagement.*
+### 🎬 Commercial
+*Produced, broadcast-oriented treatments.*
 
-*   **Problem/Solution (24s)** – Disrupt a 'Problem' state with a dynamic 'Solution'.
-*   **Feature Spotlight (23s)** – Rhythmic tabletop montage: materials, physics, & presence.
-*   **Pet Companion (24s)** – Chaotic joy of pets, anchoring energy to the product.
-*   **Style Showcase (23s)** – Clean fashion montage focusing on fit, fabric, & movement.
-*   **Beauty Routine (25s)** – High-velocity texture & product reveal montage.
-*   **Home Comfort (24s)** – Rapid-fire sensory home moments.
-*   **Meal Prep Made Easy (20s)** – High-octane cooking sizzle reel.
+*   **Luxury Heritage** – Deep mahogany and brushed gold, moody chiaroscuro, portrait optics.
+*   **Clean Tech Minimalism** – Monochromatic whites and greys, frosted glass, 70mm clarity.
+*   **Nostalgic Warm Film** – Amber tones, film grain, golden-hour flares.
+*   **Vibrant CPG Pop** – Saturated colour, punchy motion, playful energy.
+*   **High-Octane Sports** – Hard light, aggressive movement, kinetic texture.
+*   **Organic Wellness** – Earthy linens, diffused daylight, botanical macro.
+*   **Home & Interior** – Oak, linen and wool under soft window light, unhurried dolly moves.
+*   **Culinary Appetite** – Steam, gloss and sizzle under hard raking light, macro cross-sections.
+*   **Pet Companion** – Golden domestic light, camera at paw height, unposed motion.
+*   **Fashion Editorial** – Seamless backdrops, hard sculpted light, garment drape in motion.
+*   **Outdoor Adventure** – Wide vistas, hard sun, dust and flare, gear in real use.
 
-### 🎬 Standard Pacing (Cinematic, Detailed Narrative)
-*Designed for premium storytelling, immersive product demonstrations, and emotional arcs.*
+### 📱 Social Native
+*Handheld, creator-style treatments.*
 
-*   **Problem/Solution Highlight (32s)** – Full Arc: Problem → Reveal → Flow → Payoff.
-*   **Feature Spotlight (32s)** – High-end 'Tabletop' commercial: materials & physics.
-*   **Pet Companion (32s)** – Emotional Arc: Curiosity → Action → Love.
-*   **Style Showcase (32s)** – Rhythmic interplay of attitude & fabric details.
-*   **Beauty Routine (32s)** – Sensory ritual, texture, and resulting 'Glow'.
-*   **Home Comfort (32s)** – Sensory journey: Airy Morning → Cozy Evening.
-*   **Meal Prep Made Easy (32s)** – Organized ingredients to restaurant quality.
-*   **UGC First Impression (32s)** – Unboxing & genuine discovery (Creator style).
-*   **UGC Honest Opinion (32s)** – Trust-focused lifestyle review (Creator style).
+*   **Authentic Creator** – Unpolished, relatable, shot as if by the reviewer.
+*   **Polished Creator** – Trendy and aspirational, but still handheld.
+*   **Kitchen Culinary Native** – Homemade cooking shot over the shoulder.
+*   **Street Vlog Energy** – Raw urban movement, run-and-gun framing.
 
 ### 🤝 How to Contribute Your Own:
-Have a brilliant structural idea for a **15-second teaser** or a **6-second unskippable bumper**? Simply format your scene timing in standard JSON, open a Pull Request, and help us expand the world's first open-source generative media orchestrator!
+A Look is one entry in `production_presets.py` carrying a recipe across eight axes — brand archetype, character, environment, cinematography, illumination, product mode and sonic landscape. Pick a vertical the library serves poorly, keep the tones distinct from the Looks already there, and open a Pull Request.
 
 ---
 
