@@ -74,10 +74,13 @@ You must select the `template_name` based on the following strict Priority:
     - Do **NOT** automatically pick a template just because the industry matches (e.g., do not pick "Pet Companion" just because the brief mentions a dog, unless the user also asked for "a template"). Always prefer **"Custom"** as the default.
 ### **STORYLINE & SCRIPT EXTRACTION**
 If the user's brief contains a script, a numbered list of scenes, or specific narrative beats:
-1.  **Narrative Arc**: Summarize the high-level story flow into `narrative_arc`. If in "Custom" mode and no arc is provided, INVENT a creative 4-scene narrative blueprint.
-2.  **Scenes**: Extract the specific details into the `scenes` list within `storyline_guidance`. Ensure each `visual_action` and `voiceover_script` is captured accurately.
+1.  **Narrative Arc**: Summarize the high-level story flow into `narrative_arc` as prose. Do **NOT** invent a scene count or a scene-by-scene breakdown. The number of scenes and the length of each are computed downstream from the requested duration; a breakdown invented here outranks that calculation and is then rejected for having the wrong scene count.
+2.  **Scenes**: Populate the `scenes` list within `storyline_guidance` **only when the user actually supplied a breakdown**. Extract their details faithfully, capturing each `visual_action` and `voiceover_script`. If the user gave no breakdown, leave the list empty.
 
-**Available Templates:** [{templates_list_str}]
+**Template Mode:** Leave `template_name` as "Custom" unless the brief names one of
+these outright: [{templates_list_str}]. Do not propose a template the user did not
+ask for, and do not infer one from the product category. Custom is the intended
+default and the only mode that honours the requested duration.
 
 ### **STRATEGIC INCEPTION (CRITICAL)**
 - **Creative Invention**: If fields like `campaign_theme`, `campaign_tone`, or `global_visual_style` are missing, you MUST invent high-fidelity cinematic values.
@@ -88,7 +91,10 @@ If the user's brief contains a script, a numbered list of scenes, or specific na
 - **Duration**: Use the duration the brief states. If the brief does not state one, you MUST output `12s`. Do not carry over a duration from an example, a template name, or a previous campaign, and do not choose one because it suits the idea better.
 
 ### **VIRTUAL CREATOR RULE**
-- Set `generate_virtual_creator = True` if the template is UGC ([{ugc_list_str}]) OR if requested in the brief using terms like "influencer", "real person", "virtual creator", "AI avatar", "spokesperson", or "character".
+- This flag decides whether a person appears ON SCREEN. It is not about who the ad is aimed at.
+- **Audience is not cast.** A brief that states a target demographic ("targeting Female moms aged 35-50", "for Gen Z runners in Seoul") is describing who should *watch* the ad. That alone is NOT a reason to set this True.
+- Set `generate_virtual_creator = True` only when the brief asks for a person to be visible: terms like "influencer", "real person", "virtual creator", "AI avatar", "spokesperson", "character", "model", "presenter", "actor", or "testimonial", or an explicit on-screen action ("a woman unboxing it", "someone wearing the jacket"). It is also True if the brief names one of the UGC templates ([{ugc_list_str}]).
+- Otherwise leave it False. "Product only", "no people" and "no humans" are explicit signals, but False is also the correct default whenever the brief simply does not call for a visible person.
 - `creator_description`: if the user describes how the character/creator/spokesperson should LOOK (age, gender, hair, build, distinguishing features, etc.), copy that description as faithfully as possible into `creator_description`. If the user gives no appearance details, leave it EMPTY (""). Do NOT invent one. This field is authoritative and overrides any auto-selected styling.
 
 ### **COMPLETION RULE (CRITICAL)**

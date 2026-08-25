@@ -16,32 +16,14 @@
 
 from config import settings
 
-from ..utils.storyboard import template_library
 from ..utils.storyboard import brief_template
 from google.adk.agents.readonly_context import ReadonlyContext
 
-# Manually curated list for optimal display
-templates_list_str = """
-### ⚡ **Fast Paced** (High Energy, Quick Cuts)
-*   **Problem/Solution (Fast)** `24s` – *Disrupt a 'Problem' state with a dynamic 'Solution'.*
-*   **Feature Spotlight (Fast)** `23s` – *Rhythmic tabletop montage: materials, physics, & presence.*
-*   **Pet Companion (Fast)** `24s` – *Chaotic joy of pets, anchoring energy to the product.*
-*   **Style Showcase (Fast)** `23s` – *Clean fashion montage focusing on fit, fabric, & movement.*
-*   **Beauty Routine (Fast)** `25s` – *High-velocity texture & product reveal montage.*
-*   **Home Comfort (Fast)** `24s` – *Rapid-fire sensory home moments.*
-*   **Meal Prep Made Easy (Fast)** `20s` – *High-octane cooking sizzle reel.*
-
-### 🎬 **Standard Pacing** (Cinematic, Detailed)
-*   **Problem/Solution Highlight** `32s` – *Full Arc: Problem → Reveal → Flow → Payoff.*
-*   **Feature Spotlight** `32s` – *High-end 'Tabletop' commercial: materials & physics.*
-*   **Pet Companion** `32s` – *Emotional Arc: Curiosity → Action → Love.*
-*   **Style Showcase** `32s` – *Rhythmic interplay of attitude & fabric details.*
-*   **Beauty Routine** `32s` – *Sensory ritual, texture, and resulting 'Glow'.*
-*   **Home Comfort** `32s` – *Sensory journey: Airy Morning → Cozy Evening.*
-*   **Meal Prep Made Easy** `32s` – *Organized ingredients to restaurant quality.*
-*   **UGC First Impression** `32s` – *Unboxing & genuine discovery (Creator style).*
-*   **UGC Honest Opinion** `32s` – *Trust-focused lifestyle review (Creator style).*
-"""
+# The greeting offers the AI Director alone. Templated mode fixes its own scene
+# structure and total runtime and so cannot honour a requested duration, and
+# its templates run 20-32s against the durations the pacing blueprints target.
+# It remains reachable for a caller that wants a fixed structure:
+# extract_campaign_parameters routes there when a brief names a template.
 
 
 def get_instruction(ctx: ReadonlyContext) -> str:
@@ -110,27 +92,23 @@ You are the orchestrator for a video creation pipeline.
       - If Creative Studio is enabled and `workspace_id` is missing in the state below, execute workspace selection first.
 
     - **Step 1B: Initial Greeting (Generic Input)**:
-      - ONLY if the user sends a simple greeting (e.g. "Hi", "Hello") with NO campaign details, present Path A and Path B:
+      - ONLY if the user sends a simple greeting (e.g. "Hi", "Hello") with NO campaign details, invite a brief:
 
-      ### **Path A: Bespoke Creative (AI Director)**
-      *For a completely original cinematic ad, provide a brief. The user can use this template OR simply type a freeform sentence (e.g., "Make an ad about a car in the mountains"):*
+      ### **Bespoke Creative (AI Director)**
+      *For an original cinematic ad, provide a brief. The user can use this template OR simply type a freeform sentence (e.g., "Make an ad about a car in the mountains"):*
 {brief_template.TEMPLATE}
       *(CRITICAL: If the user provides a freeform sentence, DO NOT force them to fill out the template. The AI Director is smart enough to invent the missing parameters. Accept their input and proceed!)*
 
-      ### **Path B: Use a Professional Template**
-      *Offer these high-performing structures for guaranteed quality:*
-{templates_list_str}
-
-      ✨ **NEW: Virtual Creators!**
-      *You can now request a "Virtual Creator" in any custom brief to automatically cast and generate a human presenter (e.g., "Include a fitness virtual creator").*
+      ✨ **Virtual Creators**
+      *A "Virtual Creator" can be requested in any brief to automatically cast and generate a human presenter (e.g., "Include a fitness virtual creator").*
 
       💡 **Examples of how to start:**
-      *   "Create a 9:16 vertical video ad for [Your Brand]. **Use the 'Style Showcase' template.**"
+      *   "Create a 9:16 vertical video ad for [Your Brand], 24 seconds, focused on fabric and fit."
       *   "I want a custom cinematic ad for [Your Product], **using a trendy virtual creator.** Here is my brief... [Followed by the template info]"
 
     - **Step 1C: Brief Detection (CRITICAL)**:
       - As soon as the user provides ANY campaign input (e.g. "I want to make a coffee ad", "Car in the mountains", or a brief template):
-        1. DO NOT re-display Path A or Path B template options.
+        1. DO NOT re-display the brief template or the greeting options.
         2. Summarize the understanding in a warm, professional manner using exact newlines (`\\n`) for this format:
         
         ### 🧭 **Creative Blueprint Solidified!**
