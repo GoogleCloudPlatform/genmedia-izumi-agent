@@ -18,6 +18,13 @@ from typing import List, Dict
 
 # Standard Pacing Presets (durations in seconds)
 # These ensure a modern, punchy feel for social ads.
+#
+# Every scene length is a whole number of seconds between 3 and 5, which is
+# what the video model renders natively. A scene is therefore generated at
+# exactly its planned length and reaches the cut without trimming; a fractional
+# length would be rendered at the nearest whole second and cut back. The
+# upper bound is five seconds: a single generated clip degrades as it runs
+# longer, so a beat that needs more screen time is split across two scenes.
 
 PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
     "12s": {
@@ -27,7 +34,7 @@ PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
     },
     "15s": {
         4: [
-            [3.5, 4.0, 4.0, 3.5],
+            [4.0, 4.0, 4.0, 3.0],
             [3.0, 4.0, 4.0, 4.0],
         ],
         5: [
@@ -35,19 +42,38 @@ PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
         ],
     },
     "18s": {
-        5: [
-            [3.5, 3.5, 4.0, 3.5, 3.5],
-            [3.0, 4.0, 4.0, 4.0, 3.0],
+        4: [
+            [4.0, 5.0, 5.0, 4.0],  # Bookended: hero pair held in the middle
+            [3.0, 5.0, 5.0, 5.0],  # Quick hook, then three even holds
         ],
+        5: [
+            [4.0, 3.0, 4.0, 3.0, 4.0],  # Alternating long/short
+            [3.0, 4.0, 4.0, 4.0, 3.0],
+            [3.0, 3.0, 4.0, 5.0, 3.0],  # Accelerating build, snap close
+            [4.0, 4.0, 3.0, 3.0, 4.0],  # Slow open, quick core, resolve
+        ],
+        # Six scenes in 18s leaves no room to vary: every scene must be 3.0s
+        # once nothing may fall below the renderable minimum.
         6: [
             [3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
         ],
     },
     "24s": {
+        5: [
+            [4.0, 5.0, 5.0, 5.0, 5.0],  # Quick open, then even holds
+            [5.0, 4.0, 5.0, 5.0, 5.0],  # Dip in the second beat
+        ],
         6: [
             [4.0, 4.0, 4.0, 4.0, 4.0, 4.0],
-            [3.5, 4.5, 4.0, 4.5, 4.0, 3.5],
+            [3.0, 5.0, 4.0, 5.0, 4.0, 3.0],  # Syncopated, twin accents
+            [3.0, 4.0, 5.0, 5.0, 4.0, 3.0],  # Rising build, tapered close
+            [5.0, 4.0, 3.0, 3.0, 4.0, 5.0],  # Bookended, quick core
         ],
+        7: [
+            [3.0, 3.0, 4.0, 4.0, 4.0, 3.0, 3.0],  # Centre-weighted
+            [4.0, 3.0, 3.0, 3.0, 3.0, 4.0, 4.0],  # Quick core, longest last
+        ],
+        # Eight scenes in 24s is likewise fixed at the 3.0s floor.
         8: [
             [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
         ],
@@ -56,14 +82,19 @@ PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
         6: [
             [5.0, 5.0, 5.0, 5.0, 5.0, 5.0],
         ],
+        7: [
+            [4.0, 4.0, 5.0, 5.0, 4.0, 4.0, 4.0],  # Centre-weighted
+            [3.0, 4.0, 5.0, 5.0, 5.0, 4.0, 4.0],  # Rise to a mid hero
+        ],
         8: [
-            [3.5, 4.0, 4.0, 4.0, 4.0, 4.0, 3.5, 3.0],
+            [4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 3.0, 3.0],
+            [3.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 3.0],  # Arc: open, swell, close
         ],
     },
     "10s": {
         3: [
             [3.0, 4.0, 3.0],
-            [3.0, 3.5, 3.5],
+            [4.0, 3.0, 3.0],
         ],
     },
 }
