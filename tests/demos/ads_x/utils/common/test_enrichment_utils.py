@@ -159,3 +159,38 @@ async def test_the_logo_is_exempt_from_the_palette(
     # sit alongside the instruction that applies it.
     assert "never the mark" in sent
     assert "recolour" in sent
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+@patch("mediagent_kit.services.aio.get_asset_service")
+async def test_the_product_surface_is_out_of_scope_for_enrichment(
+    mock_get_asset_service,
+    mock_get_media_gen_service,
+):
+    """The reference image is the authority on how the product looks.
+
+    Enrichment adds cinematic language, and applied to a product's own surface
+    that language invents detail the reference does not show: a plain brushed
+    tin acquires filigree once the prompt calls it 'finely detailed'.
+    """
+    mock_mediagen = AsyncMock()
+    mock_get_media_gen_service.return_value = mock_mediagen
+    mock_get_asset_service.return_value = AsyncMock()
+    mock_mediagen.generate_text.return_value = "Enriched prompt text"
+
+    await enrich_prompt_with_llm(
+        "workspace-1",
+        "The product on a clean surface. [ART DIRECTION (NON-NEGOTIABLE) -> "
+        "Aesthetic: Deep mahogany, brushed gold, velvet textures]",
+        {},
+        scene_index=0,
+        prompt_type="image",
+    )
+
+    sent = mock_mediagen.generate_text.call_args.kwargs["prompt"]
+    assert "PRODUCT FIDELITY" in sent
+    # The scene may be embellished; the product's own surface may not.
+    assert "never the product itself" in sent
+    for banned in ("engraving", "embossing", "ornate", "finely detailed"):
+        assert banned in sent, f"{banned} is not named as out of bounds"

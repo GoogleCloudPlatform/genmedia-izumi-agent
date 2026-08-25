@@ -165,6 +165,18 @@ async def enrich_prompt_with_llm(
             "itself. Do NOT recolour, tint, plate, or re-finish it to match "
             "the palette, and do NOT describe it in the palette's materials."
         ),
+        (
+            "PRODUCT FIDELITY: a supplied product image is the authority on how "
+            "that product looks. Refer to it plainly - by name, or as 'the "
+            "supplied product' - and let the reference carry its appearance. Do "
+            "NOT restate or elaborate its form, proportions, surface finish, "
+            "engraving, embossing, pattern, texture or markings, and do NOT "
+            "enrich them with adjectives such as ornate, intricate, filigreed, "
+            "finely detailed or hand-tooled. Decoration the reference does not "
+            "show must not appear. The art direction governs the scene around "
+            "the product - the surface it rests on, the light, the lens, the "
+            "depth of field - never the product itself."
+        ),
     ]
 
     if context:
