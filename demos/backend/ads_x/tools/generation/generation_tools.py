@@ -49,6 +49,23 @@ def _configured_video_model() -> str | None:
         return None
 
 
+def _cast_creator_filename(
+    tool_context: ToolContext, user_assets: dict[str, Any]
+) -> Optional[str]:
+    """The filename of the cast virtual creator, or None if none was cast.
+
+    Casting records the name it saved the headshot under, and that name is the
+    only one the asset store resolves. It is therefore preferred over any name
+    rebuilt from the database id; the scan of ``user_assets`` covers sessions
+    cast before the name was recorded.
+    """
+    metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY) or {}
+    recorded = metadata.get("file_name")
+    if recorded:
+        return str(recorded)
+    return next((k for k in user_assets if k.startswith("virtual_creator_")), None)
+
+
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
 tool_failure = common_utils.tool_failure
@@ -405,17 +422,7 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
 
     # --- ASSET BINDING (Hardened & Sanitized) ---
     user_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
-    creator_metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY, {})
-    creator_id_val = (
-        creator_metadata.get("asset_ref", {}).get("id") if creator_metadata else None
-    )
-    creator_id = (
-        f"virtual_creator_{creator_id_val}.png"
-        if creator_id_val
-        else next(
-            (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
-        )
-    )
+    creator_id = _cast_creator_filename(tool_context, user_assets)
     primary_product = next(
         (
             k
@@ -702,17 +709,7 @@ async def generate_single_scene(
 
     # Simple Binding refresh
     user_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
-    creator_metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY, {})
-    creator_id_val = (
-        creator_metadata.get("asset_ref", {}).get("id") if creator_metadata else None
-    )
-    creator_id = (
-        f"virtual_creator_{creator_id_val}.png"
-        if creator_id_val
-        else next(
-            (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
-        )
-    )
+    creator_id = _cast_creator_filename(tool_context, user_assets)
     primary_product = next(
         (
             k

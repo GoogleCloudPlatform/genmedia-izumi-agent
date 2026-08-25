@@ -107,8 +107,17 @@ def test_ingest_assets_generate_virtual_creator(
         assert metadata["asset_ref"]["id"] == "creator_img_id"
         assert metadata["asset_ref"]["asset_type"] == "generated"
 
+        # The creator is registered under the name the image was saved under. A
+        # key derived from the database id instead would name a file the asset
+        # store cannot resolve, and every scene referencing the creator would
+        # fail to find its reference image.
+        creator_filename = mock_media_gen_service.generate_image.call_args.kwargs[
+            "file_name"
+        ]
+        assert creator_filename.startswith("virtual_creator_")
+        assert metadata["file_name"] == creator_filename
+
         assert "asset_refs" in mock_tool_context.state
-        creator_filename = "virtual_creator_creator_img_id.png"
         assert creator_filename in mock_tool_context.state["asset_refs"]
         assert (
             mock_tool_context.state["asset_refs"][creator_filename]["id"]
