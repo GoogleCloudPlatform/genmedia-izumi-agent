@@ -222,3 +222,80 @@ async def test_the_constraint_is_not_repeated_on_a_re_render(
 
     once = _as_instrumental("acoustic guitar")
     assert _as_instrumental(once) == once
+
+
+def test_simplified_brief_keeps_the_style_and_drops_the_imagery():
+    from demos.backend.ads_x.utils.generation.generation_helpers import (
+        _simplified_music_brief,
+    )
+
+    simplified = _simplified_music_brief(
+        "Industrial Minimalist: rhythmic metallic pings, deep sub-bass pulses, "
+        "clean silence, transitioning into high-energy driving synth beats."
+    )
+    assert simplified.startswith("Industrial Minimalist instrumental background")
+    assert "metallic pings" not in simplified
+    assert "no vocals" in simplified
+
+    # A connective introduces the imagery, so the phrase ends before it.
+    assert _simplified_music_brief(
+        "Aspirational athletic minimalist track featuring rhythmic breath-like swells"
+    ).startswith("Aspirational athletic minimalist track instrumental")
+
+    # Nothing usable left to try.
+    assert _simplified_music_brief("") == ""
+    assert _simplified_music_brief(",,,") == ""
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+@patch("mediagent_kit.services.aio.get_asset_service")
+async def test_a_refused_music_brief_is_retried_in_plainer_words(
+    mock_get_asset_service, mock_get_media_gen_service
+):
+    """Lyria 3 refuses some elaborate briefs on policy grounds. The refusal is
+    a property of the wording, so the retry has to reword rather than repeat."""
+    from mediagent_kit.utils.retry import ContentBlockedError
+
+    mock_mediagen = AsyncMock()
+    mock_get_media_gen_service.return_value = mock_mediagen
+    mock_asset = MagicMock(spec=Asset)
+    mock_asset.id = "music_1"
+    mock_mediagen.generate_music.side_effect = [
+        ContentBlockedError("refused"),
+        mock_asset,
+    ]
+
+    brief = {
+        "description": (
+            "Industrial Minimalist: rhythmic metallic pings, deep sub-bass "
+            "pulses, transitioning into high-energy driving synth beats."
+        )
+    }
+    result = await generate_background_music("user1", brief)
+
+    assert result == mock_asset
+    assert brief["asset_id"] == "music_1"
+    assert mock_mediagen.generate_music.call_count == 2
+    retried = mock_mediagen.generate_music.call_args_list[1].kwargs["prompt"]
+    assert retried.startswith("Industrial Minimalist instrumental background")
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+@patch("mediagent_kit.services.aio.get_asset_service")
+async def test_a_brief_refused_twice_leaves_the_campaign_without_music(
+    mock_get_asset_service, mock_get_media_gen_service
+):
+    from mediagent_kit.utils.retry import ContentBlockedError
+
+    mock_mediagen = AsyncMock()
+    mock_get_media_gen_service.return_value = mock_mediagen
+    mock_mediagen.generate_music.side_effect = ContentBlockedError("refused")
+
+    brief = {"description": "Industrial Minimalist: metallic pings"}
+    result = await generate_background_music("user1", brief)
+
+    assert result is None
+    assert brief["asset_id"] is None
+    assert mock_mediagen.generate_music.call_count == 2

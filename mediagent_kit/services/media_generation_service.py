@@ -36,7 +36,11 @@ from mediagent_kit.utils.media_tools import (
     strip_audio_from_video_blob,
     trim_last_frames_from_video_blob,
 )
-from mediagent_kit.utils.retry import ImmediateRetriableAPIError, retry_on_error
+from mediagent_kit.utils.retry import (
+    ContentBlockedError,
+    ImmediateRetriableAPIError,
+    retry_on_error,
+)
 
 """This module provides a service for generating media using various Google Cloud APIs."""
 
@@ -211,6 +215,11 @@ class MediaGenerationService:
             )
             raise ImmediateRetriableAPIError(
                 "Lyria 3 recitation error detected, triggering retry."
+            )
+        if response.status_code == 400 and "content_blocked" in response.text:
+            raise ContentBlockedError(
+                "Lyria 3 refused the prompt on policy grounds. "
+                f"model={model}, prompt={prompt}"
             )
         if response.status_code != 200:
             logger.error(
