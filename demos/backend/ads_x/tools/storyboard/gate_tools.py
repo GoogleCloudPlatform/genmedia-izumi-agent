@@ -36,6 +36,7 @@ from typing import Any, Dict, Optional
 from google.adk.tools.tool_context import ToolContext
 
 from ...utils.common import common_utils
+from ...utils.storyboard import storyboard_persistence
 
 logger = logging.getLogger(__name__)
 
@@ -213,6 +214,15 @@ async def await_storyboard_approval(tool_context: ToolContext) -> ToolResult:
     # Clear any previous verdict so a re-gate cannot read a stale approval.
     tool_context.state[STORYBOARD_DECISION_KEY] = None
 
+    # A reviewer answering this checkpoint is looking at the storyboard in a
+    # client, and Creative Studio renders its own copy rather than the
+    # session's. Push it across before suspending: once the run is suspended
+    # nothing else will, and the reviewer would be asked to approve a
+    # storyboard their client cannot show them.
+    storyboard_id = await storyboard_persistence.save_to_creative_studio(
+        tool_context, storyboard
+    )
+
     logger.info(
         "Storyboard gate: awaiting review of %d scene(s).",
         len(storyboard.get("scenes") or []),
@@ -235,6 +245,10 @@ async def await_storyboard_approval(tool_context: ToolContext) -> ToolResult:
             "status": "awaiting_human_review",
             "stage": "storyboard",
             "message": message,
+            # How a client fetches the full storyboard. Null when the save did
+            # not land, which tells the client to fall back to the digest
+            # below rather than request a record that is not there.
+            "storyboard_id": storyboard_id,
             "campaign_title": storyboard.get("campaign_title"),
             "music": storyboard.get("background_music_prompt"),
             "scenes": digest,

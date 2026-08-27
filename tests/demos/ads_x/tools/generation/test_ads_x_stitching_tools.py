@@ -252,6 +252,10 @@ async def test_stitch_final_video_creative_studio_link(
 
 @pytest.mark.asyncio
 @patch("mediagent_kit.services.aio.get_config")
+# Stamping the session onto the storyboard happens in the persistence helper,
+# while the stitch resolves the session again for its own deep links, so both
+# copies of the lookup are pinned here.
+@patch("ads_x.utils.storyboard.storyboard_persistence.get_session_id_from_context")
 @patch("ads_x.tools.generation.stitching_tools.get_session_id_from_context")
 @patch("mediagent_kit.services.aio.get_asset_service")
 @patch("mediagent_kit.services.aio.get_video_stitching_service")
@@ -267,6 +271,7 @@ async def test_stitch_final_video_custom_object_storyboard(
     mock_get_stitching_service,
     mock_get_asset_service,
     mock_get_session_id,
+    mock_persisted_session_id,
     mock_get_config,
     mock_tool_context,
     mock_asset_service,
@@ -277,6 +282,7 @@ async def test_stitch_final_video_custom_object_storyboard(
     mock_config.use_creative_studio = False
     mock_get_config.return_value = mock_config
     mock_get_session_id.return_value = "session_obj_guarantee"
+    mock_persisted_session_id.return_value = "session_obj_guarantee"
     mock_get_asset_service.return_value = mock_asset_service
     mock_get_stitching_service.return_value = mock_stitching_service
 

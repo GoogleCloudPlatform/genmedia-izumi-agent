@@ -1,7 +1,7 @@
 """Tests for the storyboard review gate."""
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -76,6 +76,55 @@ async def test_gate_clears_any_previous_verdict():
 async def test_gate_refuses_when_there_is_nothing_to_review(state):
     result = await gate_tools.await_storyboard_approval(_ctx(state))
     assert result["status"] == "failed"
+
+
+# --------------------------------------------------------------------------
+# Reaching the reviewer's client
+#
+# The storyboard lives in session state, and Creative Studio renders its own
+# copy. Suspending without pushing it across asks a reviewer to approve
+# something their client has no way to show them.
+# --------------------------------------------------------------------------
+
+
+def _save_patch(returns: str | None = "17"):
+    """Stands in for the push the gate makes before it suspends."""
+    return patch.object(
+        gate_tools.storyboard_persistence,
+        "save_to_creative_studio",
+        AsyncMock(return_value=returns),
+    )
+
+
+async def test_the_gate_saves_the_storyboard_before_it_suspends():
+    ctx = _ctx({"storyboard": _storyboard()})
+
+    with _save_patch() as saved:
+        payload = (await gate_tools.await_storyboard_approval(ctx))["result"]
+
+    saved.assert_awaited_once()
+    assert payload["storyboard_id"] == "17", "the client is told what to fetch"
+
+
+async def test_the_review_still_goes_ahead_when_the_save_fails():
+    # An unreachable backend costs the reviewer the rendered view, not their
+    # say: the digest in the payload is enough to answer the gate from.
+    ctx = _ctx({"storyboard": _storyboard()})
+
+    with _save_patch(returns=None):
+        payload = (await gate_tools.await_storyboard_approval(ctx))["result"]
+
+    assert payload["storyboard_id"] is None
+    assert payload["status"] == "awaiting_human_review"
+    assert len(payload["scenes"]) == 2
+
+
+async def test_nothing_is_saved_when_there_is_no_storyboard_to_review():
+    with _save_patch() as saved:
+        result = await gate_tools.await_storyboard_approval(_ctx())
+
+    assert result["status"] == "failed"
+    saved.assert_not_awaited()
 
 
 # --------------------------------------------------------------------------

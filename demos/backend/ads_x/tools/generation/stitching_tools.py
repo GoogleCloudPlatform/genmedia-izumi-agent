@@ -27,6 +27,7 @@ from utils.adk import get_session_id_from_context
 from utils.adk import resolve_workspace_id
 
 from ...utils.common import common_utils
+from ...utils.storyboard import storyboard_persistence
 from ...utils.storyboard import template_library
 
 logger = logging.getLogger(__name__)
@@ -72,43 +73,12 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
     if ws_error:
         return tool_failure(ws_error)
 
-    current_sb_id = storyboard.get("storyboard_id") or storyboard.get("id")
-
-    if isinstance(storyboard, dict):
-        storyboard["session_id"] = session_id
-        storyboard["workspace_id"] = workspace_id
-    else:
-        try:
-            setattr(storyboard, "session_id", session_id)
-            setattr(storyboard, "workspace_id", workspace_id)
-        except Exception as attr_err:
-            logger.warning(
-                f"Could not directly set session_id/workspace_id on storyboard object: {attr_err}"
-            )
-
-    # Explicitly save latest storyboard to Creative Studio before timeline render
-    try:
-        storyboard_service = mediagent_kit.services.aio.get_storyboard_service()
-        saved_sb = await storyboard_service.save_storyboard(storyboard)
-
-        if hasattr(saved_sb, "storyboard_id") and saved_sb.storyboard_id:
-            current_sb_id = str(saved_sb.storyboard_id)
-        elif isinstance(saved_sb, dict) and (
-            sb_id := saved_sb.get("storyboard_id") or saved_sb.get("id")
-        ):
-            current_sb_id = str(sb_id)
-
-        if current_sb_id:
-            tool_context.state["current_storyboard_id"] = current_sb_id
-            # Save correct integer ID back into the session storyboard object for later updates
-            if isinstance(storyboard, dict):
-                storyboard["storyboard_id"] = current_sb_id
-                tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
-            elif hasattr(storyboard, "storyboard_id"):
-                setattr(storyboard, "storyboard_id", current_sb_id)
-                tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
-    except Exception as sb_err:
-        logger.warning(f"Explicit pre-stitch storyboard save bypassed/failed: {sb_err}")
+    # Save before the timeline is rendered, so the timeline has a storyboard
+    # record to point back at. The review checkpoint has usually saved it
+    # already; this revises that record with what generation has since added.
+    current_sb_id = await storyboard_persistence.save_to_creative_studio(
+        tool_context, storyboard
+    )
 
     from mediagent_kit.services.types.common import AssetRef
 
