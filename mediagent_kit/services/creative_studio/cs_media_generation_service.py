@@ -38,7 +38,7 @@ from mediagent_kit.services.types.common import (
     GeneratedAsset,
     GenerationMetadata,
 )
-from mediagent_kit.utils.auth import get_google_id_token
+from mediagent_kit.utils.auth import bearer, get_google_id_token
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,11 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         from mediagent_kit.utils.context import get_request_context
 
         ctx = get_request_context() or {}
-        ws_id = explicit or ctx.get("workspace_id") or self._workspace_id
+        ws_id = (
+            explicit
+            if explicit is not None
+            else (ctx.get("workspace_id") or self._workspace_id)
+        )
         if not ws_id or not str(ws_id).isdigit():
             raise ValidationError(
                 f"Invalid workspace_id: '{ws_id}'. Workspace ID must be a non-empty numeric string."
@@ -85,7 +89,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
 
     def _get_headers(self, user_auth_token: str, url: str) -> dict[str, str]:
         headers = {
-            "X-User-Authorization": f"Bearer {user_auth_token}",
+            "X-User-Authorization": bearer(user_auth_token),
             "Content-Type": "application/json",
         }
         id_token_str = get_google_id_token(url)
@@ -326,10 +330,13 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         url = f"{backend_url}/api/videos/generate-videos"
         headers = self._get_headers(token, url)
 
+        video_model = generation_model or self._config.models.get("video", {}).get(
+            "default"
+        )
         payload: dict[str, Any] = {
             "workspaceId": int(ws_id),
             "prompt": prompt,
-            "generationModel": generation_model,
+            "generationModel": video_model,
             "aspectRatio": aspect_ratio,
             "durationSeconds": duration_seconds,
             "fileName": file_name,
@@ -369,7 +376,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
                 raise BackendError("No item ID returned from CS video generation")
 
             final_item = await self._wait_for_media_completion(
-                client, item_id, headers, timeout=600, poll_interval=3.0
+                client, item_id, headers, timeout=900, poll_interval=3.0
             )
 
             status = final_item.get("status", "completed")
@@ -391,7 +398,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
                 error_message=error_msg,
                 generation_metadata=GenerationMetadata(
                     source="creative_studio",
-                    model=generation_model,
+                    model=video_model,
                     prompt=prompt,
                     raw=final_item,
                 ),
@@ -414,7 +421,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         url = f"{backend_url}/api/audios/generate"
         headers = self._get_headers(token, url)
 
-        model = self._config.models.get("tts", {}).get("default", "gemini-2.5-pro-tts")
+        model = self._config.models.get("tts", {}).get("default")
         payload = {
             "workspaceId": int(ws_id),
             "prompt": text,
@@ -477,7 +484,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         url = f"{backend_url}/api/audios/generate"
         headers = self._get_headers(token, url)
 
-        music_model = model or "lyria-002"
+        music_model = model or self._config.models.get("music", {}).get("default")
         if music_model == "lyria":
             music_model = "lyria-002"
         payload = {

@@ -39,7 +39,7 @@ from mediagent_kit.services.types.common import (
     GenerationMetadata,
     UploadedAsset,
 )
-from mediagent_kit.utils.auth import get_google_id_token
+from mediagent_kit.utils.auth import bearer, get_google_id_token
 from mediagent_kit.utils.context import get_request_context
 
 logger = logging.getLogger(__name__)
@@ -60,7 +60,11 @@ class CSAssetService(AssetServiceInterface):
 
     def _get_workspace_id(self, override: str | None = None) -> str:
         ctx = get_request_context() or {}
-        ws_id = override or ctx.get("workspace_id") or self._workspace_id
+        ws_id = (
+            override
+            if override is not None
+            else (ctx.get("workspace_id") or self._workspace_id)
+        )
         if not ws_id or not str(ws_id).isdigit():
             raise ValidationError(
                 f"Invalid workspace_id: '{ws_id}'. Workspace ID must be a non-empty numeric string."
@@ -85,7 +89,7 @@ class CSAssetService(AssetServiceInterface):
         content_type: str | None = "application/json",
     ) -> dict[str, str]:
         headers = {
-            "X-User-Authorization": f"Bearer {token}",
+            "X-User-Authorization": bearer(token),
         }
         if content_type:
             headers["Content-Type"] = content_type
