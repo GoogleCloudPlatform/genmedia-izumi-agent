@@ -14,6 +14,7 @@
 
 import asyncio
 import logging
+import os
 import uuid
 
 from google.adk.agents.readonly_context import ReadonlyContext
@@ -23,6 +24,7 @@ from google.adk.tools import ToolContext
 from google.genai import types as genai_types
 
 import mediagent_kit
+from mediagent_kit.utils.context import set_request_context
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +197,34 @@ async def generate_image_description(
         return "User provided visual reference asset."
 
 
+def sync_request_context(callback_context: Context) -> None:
+    """Republishes the caller's credentials from session state into contextvars.
+
+    Creative Studio services read the user's token from a contextvar rather
+    than from an argument, which keeps it out of every domain signature. A
+    contextvar belongs to the request that set it, so publishing once at the
+    start of a run is enough only for a run that finishes in one request.
+
+    A run with review gates does not. It suspends, and the reviewer answers
+    minutes later on a new request with a fresh context, where the token is
+    gone but the work resumes anyway - straight into generation, which is
+    what needs the token most. Session state is what does survive that
+    boundary, so the credentials are republished from there on every entry
+    into the pipeline.
+
+    Returns None so it can serve as a `before_agent_callback`, where a return
+    value would replace the agent's output rather than let it run.
+    """
+    state = getattr(callback_context, "state", None)
+    if not state:
+        return
+    token_key = os.getenv("CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token")
+    set_request_context(
+        user_auth_token=state.get(token_key),
+        workspace_id=state.get("workspace_id"),
+    )
+
+
 async def blob_interceptor_callback(callback_context: Context, llm_request: LlmRequest):
     """Intercepts user messages to process blobs, session artifacts, and Creative Studio asset references."""
     state = None
@@ -210,13 +240,7 @@ async def blob_interceptor_callback(callback_context: Context, llm_request: LlmR
             if key not in state:
                 state[key] = {}
 
-        import os
-        from mediagent_kit.utils.context import set_request_context
-
-        token_key = os.getenv("CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token")
-        workspace_id = state.get("workspace_id")
-        auth_token = state.get(token_key)
-        set_request_context(user_auth_token=auth_token, workspace_id=workspace_id)
+        sync_request_context(callback_context)
 
     if not hasattr(llm_request, "contents") or not llm_request.contents:
         return None

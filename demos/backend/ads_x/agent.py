@@ -26,6 +26,7 @@ from google.adk.tools.long_running_tool import LongRunningFunctionTool
 
 from config import settings
 from utils.adk import blob_interceptor_callback
+from utils.adk import sync_request_context
 from .instructions import root_instruction
 from .instructions.parameters import parameters_instruction
 from .instructions.user_assets import user_assets_instruction
@@ -423,6 +424,11 @@ full_pipeline_agent = sequential_agent.SequentialAgent(
     name="full_pipeline_agent",
     description="Sequential agent for the Ads-X pipeline.",
     sub_agents=_build_pipeline_stages(),
+    # Runs before any stage, on the first request and on every resume after a
+    # review gate. That is the only hook the resumed request passes through
+    # ahead of generation, so it is where the caller's credentials are put
+    # back within reach of the Creative Studio services.
+    before_agent_callback=sync_request_context,
 )
 
 # ResumableLlmAgent, not LlmAgent: a transferring root can only be resumed once
