@@ -42,7 +42,7 @@ from google.adk.sessions.in_memory_session_service import InMemorySessionService
 from google.genai import types
 
 from mediagent_kit.utils.context import get_request_context, request_context_var
-from utils.adk import sync_request_context
+from utils.adk import resolve_user_auth_token, sync_request_context
 
 APP_NAME = "request_context_resume_test"
 USER_ID = "test-user"
@@ -50,18 +50,8 @@ GATE_CALL_ID = "gate-call-001"
 GATE_TOOL_NAME = "await_storyboard_approval"
 
 
-@pytest.fixture(autouse=True)
-def _isolate_request_context():
-    """Keeps these tests from leaking credentials into the rest of the suite.
-
-    The request context is a process-global contextvar, and publishing into it
-    is the whole point of the code under test.
-    """
-    token = request_context_var.set(None)
-    try:
-        yield
-    finally:
-        request_context_var.reset(token)
+# Isolation from the rest of the suite comes from the autouse
+# reset_request_context fixture in tests/conftest.py.
 
 
 # --------------------------------------------------------------------------
@@ -116,6 +106,61 @@ def test_it_returns_nothing_so_it_can_gate_an_agent():
     # A before_agent_callback that returns content replaces the agent's own
     # output; this one must let every stage run.
     assert sync_request_context(_ctx({"workspace_id": "42"})) is None
+
+
+# --------------------------------------------------------------------------
+# resolve_user_auth_token
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "stored",
+    ["jwt-abc", "Bearer jwt-abc", "bearer jwt-abc", "  Bearer jwt-abc  "],
+)
+def test_the_scheme_is_stripped_from_a_stored_token(stored):
+    """The scheme belongs to the header, not to the credential.
+
+    How the token reaches session state varies by frontend, and one that
+    stored it with the scheme attached produced "Bearer Bearer <jwt>" once the
+    header was built around it.
+    """
+    assert resolve_user_auth_token({"user_auth_token": stored}) == "jwt-abc"
+
+
+def test_the_configured_key_is_preferred_over_the_default():
+    state = {"cs_auth_1234": "jwt-configured", "user_auth_token": "jwt-default"}
+
+    with patch.dict(
+        "os.environ", {"CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY": "cs_auth_1234"}
+    ):
+        assert resolve_user_auth_token(state) == "jwt-configured"
+
+
+def test_the_default_key_still_answers_when_the_configured_one_is_absent():
+    with patch.dict(
+        "os.environ", {"CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY": "cs_auth_1234"}
+    ):
+        assert resolve_user_auth_token({"user_auth_token": "jwt-default"}) == (
+            "jwt-default"
+        )
+
+
+@pytest.mark.parametrize(
+    "state",
+    [{}, None, {"user_auth_token": ""}, {"user_auth_token": "   "}],
+)
+def test_no_usable_token_reports_none(state):
+    assert resolve_user_auth_token(state) is None
+
+
+def test_a_non_string_token_is_not_passed_on():
+    # State is arbitrary session data; a key collision must not put an object
+    # where a credential is expected.
+    assert resolve_user_auth_token({"user_auth_token": {"nested": "value"}}) is None
+
+
+def test_only_a_bare_scheme_counts_as_no_token():
+    assert resolve_user_auth_token({"user_auth_token": "Bearer "}) is None
 
 
 # --------------------------------------------------------------------------

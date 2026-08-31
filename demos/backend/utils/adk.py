@@ -15,6 +15,7 @@
 import asyncio
 import logging
 import os
+from typing import Any
 import uuid
 
 from google.adk.agents.readonly_context import ReadonlyContext
@@ -197,6 +198,28 @@ async def generate_image_description(
         return "User provided visual reference asset."
 
 
+def resolve_user_auth_token(state: Any) -> str | None:
+    """Reads the caller's token out of session state.
+
+    Creative Studio names the state key that carries it, and the name is
+    deployment-specific, so the configured key is tried before the default.
+    The value may arrive with its scheme attached, depending on how the
+    frontend put it there; the scheme belongs to the header rather than the
+    credential, so it is stripped here and added back at the point of use.
+    """
+    if not state:
+        return None
+    token_key = os.getenv("CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token")
+    token = state.get(token_key) or state.get("user_auth_token")
+    if not isinstance(token, str) or not token.strip():
+        return None
+    token = token.strip()
+    scheme, _, rest = token.partition(" ")
+    if scheme.lower() == "bearer":
+        token = rest.strip()
+    return token or None
+
+
 def sync_request_context(callback_context: Context) -> None:
     """Republishes the caller's credentials from session state into contextvars.
 
@@ -218,9 +241,8 @@ def sync_request_context(callback_context: Context) -> None:
     state = getattr(callback_context, "state", None)
     if not state:
         return
-    token_key = os.getenv("CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token")
     set_request_context(
-        user_auth_token=state.get(token_key),
+        user_auth_token=resolve_user_auth_token(state),
         workspace_id=state.get("workspace_id"),
     )
 
