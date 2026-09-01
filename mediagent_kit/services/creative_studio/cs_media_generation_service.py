@@ -164,6 +164,37 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         # responses; callers treat that as a generation failure).
         return getattr(response, "text", "") or ""
 
+    async def _reference_parts(self, reference_assets: list[AssetRef]) -> list[Any]:
+        """Loads referenced images so the model can see what it is asked about.
+
+        A reference the caller supplied and the model never received is worse
+        than none: the prompt speaks of an attached image, and the model
+        answers about one it has had to imagine. A reference that cannot be
+        loaded is therefore dropped loudly rather than in silence.
+        """
+        import mediagent_kit
+
+        asset_service = mediagent_kit.services.aio.get_asset_service()
+        parts: list[Any] = []
+        for ref in reference_assets:
+            try:
+                data = await asset_service.download_asset_bytes(ref)
+            except (
+                Exception
+            ) as e:  # noqa: BLE001 - one reference must not fail the call
+                logger.warning(
+                    "CSMediaGenerationService: reference asset %s could not be "
+                    "loaded and will not be shown to the model: %s",
+                    getattr(ref, "id", ref),
+                    e,
+                )
+                continue
+            if data:
+                parts.append(
+                    genai.types.Part.from_bytes(data=data, mime_type="image/png")
+                )
+        return parts
+
     async def generate_text(
         self,
         workspace_id: str,
@@ -188,6 +219,14 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
             location=self._config.model_target_location or "global",
         )
 
+        # Images the caller attached are sent alongside the prompt. Accepting
+        # them and generating from the text alone answers a different question
+        # than the one that was asked.
+        contents: Any = prompt
+        if reference_assets:
+            if parts := await self._reference_parts(reference_assets):
+                contents = [*parts, prompt]
+
         max_attempts = 3
         last_error: Optional[Exception] = None
         for attempt in range(max_attempts):
@@ -195,7 +234,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
                 response = await asyncio.to_thread(
                     client.models.generate_content,
                     model=model,
-                    contents=prompt,
+                    contents=contents,
                 )
                 text = self._extract_response_text(response)
                 if text.strip():

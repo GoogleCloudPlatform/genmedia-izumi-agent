@@ -14,12 +14,16 @@
 
 """Tests for the request Creative Studio actually accepts.
 
-Three ways a well-formed call was still rejected by the backend: a credential
-carrying its scheme twice, a workspace quietly swapped for another one, and a
-null model where the DTO requires a string. None of them fail locally - they
-fail as a 401 or a 422 from a service that is not exercised by unit tests - so
-they are pinned here at the point where the request is assembled.
+Four ways a well-formed call went wrong at the Creative Studio boundary: a
+credential carrying its scheme twice, a workspace quietly swapped for another
+one, a null model where the DTO requires a string, and reference images the
+caller attached that were never sent. None of them fail locally - they fail as
+a 401, a 422, or an answer about a picture the model never saw - so they are
+pinned here at the point where the request is assembled.
 """
+
+from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -31,6 +35,7 @@ from mediagent_kit.services import (
     CSTimelineService,
 )
 from mediagent_kit.services.errors import ValidationError
+from mediagent_kit.services.types.common import AssetRef
 from mediagent_kit.utils.auth import bearer
 
 # --------------------------------------------------------------------------
@@ -186,3 +191,79 @@ def test_an_explicit_video_model_is_left_alone(monkeypatch):
     )
 
     assert model == "veo-3.1-generate-001"
+
+
+# --------------------------------------------------------------------------
+# Reference images
+#
+# generate_text accepts reference_assets and the native path forwards them to
+# Gemini. Creative Studio took them and generated from the prompt alone, so a
+# call that asked about a picture was answered without one.
+# --------------------------------------------------------------------------
+
+
+def _text_service(monkeypatch, blobs, captured):
+    """A CS media service whose Gemini call records what it was sent."""
+    module = CSMediaGenerationService.__module__
+    service = CSMediaGenerationService(workspace_id="42", user_auth_token="t")
+    service._config = MediagentKitConfig()
+
+    class _Models:
+        def generate_content(self, model=None, contents=None):
+            captured["contents"] = contents
+            return SimpleNamespace(
+                candidates=[
+                    SimpleNamespace(
+                        content=SimpleNamespace(parts=[SimpleNamespace(text="ok")])
+                    )
+                ],
+                text="ok",
+            )
+
+    monkeypatch.setattr(
+        f"{module}.genai.Client", lambda **kw: SimpleNamespace(models=_Models())
+    )
+
+    assets = AsyncMock()
+    assets.download_asset_bytes.side_effect = blobs
+    monkeypatch.setattr("mediagent_kit.services.aio.get_asset_service", lambda: assets)
+    return service
+
+
+async def test_a_reference_image_reaches_the_model(monkeypatch):
+    captured = {}
+    service = _text_service(monkeypatch, [b"\x89PNG-bytes"], captured)
+
+    await service.generate_text(
+        workspace_id="42",
+        prompt="What is in this frame?",
+        reference_assets=[AssetRef(id="1", asset_type="generated", workspace_id="42")],
+    )
+
+    contents = captured["contents"]
+    assert isinstance(contents, list), "the prompt alone answers a different question"
+    assert len(contents) == 2
+    assert contents[-1] == "What is in this frame?"
+
+
+async def test_a_call_without_references_is_unchanged(monkeypatch):
+    captured = {}
+    service = _text_service(monkeypatch, [], captured)
+
+    await service.generate_text(workspace_id="42", prompt="Just text.")
+
+    assert captured["contents"] == "Just text."
+
+
+async def test_an_unloadable_reference_does_not_fail_the_call(monkeypatch):
+    captured = {}
+    service = _text_service(monkeypatch, RuntimeError("gone"), captured)
+
+    result = await service.generate_text(
+        workspace_id="42",
+        prompt="What is in this frame?",
+        reference_assets=[AssetRef(id="1", asset_type="generated", workspace_id="42")],
+    )
+
+    assert result == "ok"
+    assert captured["contents"] == "What is in this frame?"
