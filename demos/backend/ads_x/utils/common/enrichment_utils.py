@@ -19,6 +19,8 @@ import uuid
 from typing import Any, Dict, Tuple
 
 import mediagent_kit.services.aio
+
+from . import common_utils
 from ...instructions.generation import generation_prompts
 
 logger = logging.getLogger(__name__)
@@ -40,7 +42,7 @@ async def enrich_prompt_with_llm(
     # SANITIZATION: Strip internal logic tags from description before building prompt
     for tag in ["[PRODUCT REQUIRED]", "[CHARACTER REQUIRED]", "[PERSON REQUIRED]"]:
         description = description.replace(tag, "").replace(tag.lower(), "")
-    description = description.strip()
+    description = common_utils.tidy_spacing(description)
 
     cinematography = prompt_data.get("cinematography", {})
     audio = prompt_data.get("audio", {})
@@ -124,7 +126,14 @@ async def enrich_prompt_with_llm(
             )
         else:
             prompt_packet.append(
-                "### [VISUAL CONTINUITY REFERENCE]\nUse the attached image as the literal starting frame. Do NOT deviate from its established look."
+                "### [WHAT THE SHOT ALREADY CONTAINS]\n"
+                "The action below has already been checked against this shot's "
+                "rendered first frame, so it is a true account of what is "
+                "there at the start. You are not shown that frame; the action "
+                "is your only sight of it. Read every object it names as "
+                "present, and every object it does not name as absent.\n"
+                "Movement is unconstrained. Invent freely in time within the "
+                "world the action establishes."
             )
 
     # 5. AUDIO & PERFORMANCE CONTEXT
@@ -165,19 +174,64 @@ async def enrich_prompt_with_llm(
             "itself. Do NOT recolour, tint, plate, or re-finish it to match "
             "the palette, and do NOT describe it in the palette's materials."
         ),
-        (
-            "PRODUCT FIDELITY: a supplied product image is the authority on how "
-            "that product looks. Refer to it plainly - by name, or as 'the "
-            "supplied product' - and let the reference carry its appearance. Do "
-            "NOT restate or elaborate its form, proportions, surface finish, "
-            "engraving, embossing, pattern, texture or markings, and do NOT "
-            "enrich them with adjectives such as ornate, intricate, filigreed, "
-            "finely detailed or hand-tooled. Decoration the reference does not "
-            "show must not appear. The art direction governs the scene around "
-            "the product - the surface it rests on, the light, the lens, the "
-            "depth of field - never the product itself."
-        ),
     ]
+
+    # A video call is handed a frame that has already settled what is in the
+    # shot, so it is asked for time rather than composition.
+    if prompt_type == "video":
+        mission_commands.append(
+            "WHAT EXISTS IS SETTLED BY THE FRAME. Invent freely in time: "
+            "movement, shifting light, a rack of focus, rising steam, drifting "
+            "dust, a travelling reflection, the way the camera breathes. Those "
+            "are the frame's own contents behaving over the seconds that "
+            "follow, and richer is better. What you must not do is add matter: "
+            "no object or substance the frame does not already hold, and no "
+            "person or hand entering a shot they were never in. If it would "
+            "have to be painted into the picture before the clip could start, "
+            "it does not belong in the action."
+        )
+
+    # Composition rules for a still frame. A video call is anchored by the
+    # first frame it is handed, so sending these there would spend the
+    # model's attention on decisions the image has already made.
+    if prompt_type == "image":
+        mission_commands += [
+            (
+                "BRAND MARK PLACEMENT: a supplied logo occupies its own space in the "
+                "frame - an overlay, a card, a plate, a wall, or clear ground beside "
+                "the product. Do NOT print, emboss, engrave, etch, stitch or "
+                "otherwise apply it to the product. A supplied logo is a separate "
+                "brand asset and the marking it carries is frequently not the "
+                "marking the product carries, so applying it invents branding the "
+                "product reference does not show. The product wears only what its "
+                "own reference image shows: count the marks in that image and "
+                "reproduce exactly those. If it carries an icon and no words, NO "
+                "words appear on the product anywhere in the frame. If it carries "
+                "no mark at all, the product surface stays bare."
+            ),
+            (
+                "PRODUCT FIDELITY: a supplied product image is the authority on how "
+                "that product looks. Refer to it plainly - by name, or as 'the "
+                "supplied product' - and let the reference carry its appearance. Do "
+                "NOT restate or elaborate its form, proportions, surface finish, "
+                "engraving, embossing, pattern, texture or markings, and do NOT "
+                "enrich them with adjectives such as ornate, intricate, filigreed, "
+                "finely detailed or hand-tooled. Decoration the reference does not "
+                "show must not appear. The art direction governs the scene around "
+                "the product - the surface it rests on, the light, the lens, the "
+                "depth of field - never the product itself."
+            ),
+            (
+                "THE FRAME IS A SCENE, NOT A CUTOUT. A reference image supplies the "
+                "product's appearance, never the shot. The described environment is "
+                "built around the product: its surfaces, depth, light sources and "
+                "background all appear. NEVER place the product on a plain white, "
+                "grey or empty studio sweep, and NEVER reproduce the framing or "
+                "backdrop of the reference photograph. A frame that could be "
+                "mistaken for the supplied product shot is wrong, and cutting from "
+                "it into a dressed scene reads as a jump cut."
+            ),
+        ]
 
     if context:
         mission_commands.append(
@@ -202,7 +256,7 @@ async def enrich_prompt_with_llm(
             workspace_id=workspace_id,
             prompt=final_prompt,
         )
-        return enriched_text.strip(), None
+        return common_utils.tidy_spacing(enriched_text), None
 
     except Exception as e:
         logger.warning(f"Prompt enrichment failed ({e}). Falling back to raw formula.")
