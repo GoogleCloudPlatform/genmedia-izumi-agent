@@ -25,17 +25,21 @@ from typing import List, Dict
 # length would be rendered at the nearest whole second and cut back. The
 # upper bound is five seconds: a single generated clip degrades as it runs
 # longer, so a beat that needs more screen time is split across two scenes.
+#
+# Every pattern closes on a three-second beat. The last scene resolves the
+# brand rather than carrying action, and it is the shot most exposed to a
+# generated logo drifting, so it is held to the shortest renderable length.
 
 PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
     "12s": {
         4: [
-            [3.0, 3.0, 3.0, 3.0],  # Balanced Pacing
-        ]
+            [3.0, 3.0, 3.0, 3.0],
+        ],
     },
     "15s": {
         4: [
             [4.0, 4.0, 4.0, 3.0],
-            [3.0, 4.0, 4.0, 4.0],
+            [5.0, 4.0, 3.0, 3.0],
         ],
         5: [
             [3.0, 3.0, 3.0, 3.0, 3.0],
@@ -43,52 +47,44 @@ PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
     },
     "18s": {
         4: [
-            [4.0, 5.0, 5.0, 4.0],  # Bookended: hero pair held in the middle
-            [3.0, 5.0, 5.0, 5.0],  # Quick hook, then three even holds
+            [5.0, 5.0, 5.0, 3.0],
         ],
         5: [
-            [4.0, 3.0, 4.0, 3.0, 4.0],  # Alternating long/short
-            [3.0, 4.0, 4.0, 4.0, 3.0],
-            [3.0, 3.0, 4.0, 5.0, 3.0],  # Accelerating build, snap close
-            [4.0, 4.0, 3.0, 3.0, 4.0],  # Slow open, quick core, resolve
+            [4.0, 4.0, 4.0, 3.0, 3.0],
+            [3.0, 4.0, 5.0, 3.0, 3.0],
+            [5.0, 4.0, 3.0, 3.0, 3.0],
+            [3.0, 3.0, 4.0, 5.0, 3.0],
         ],
-        # Six scenes in 18s leaves no room to vary: every scene must be 3.0s
-        # once nothing may fall below the renderable minimum.
         6: [
             [3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
         ],
     },
     "24s": {
-        5: [
-            [4.0, 5.0, 5.0, 5.0, 5.0],  # Quick open, then even holds
-            [5.0, 4.0, 5.0, 5.0, 5.0],  # Dip in the second beat
-        ],
         6: [
-            [4.0, 4.0, 4.0, 4.0, 4.0, 4.0],
-            [3.0, 5.0, 4.0, 5.0, 4.0, 3.0],  # Syncopated, twin accents
-            [3.0, 4.0, 5.0, 5.0, 4.0, 3.0],  # Rising build, tapered close
-            [5.0, 4.0, 3.0, 3.0, 4.0, 5.0],  # Bookended, quick core
+            [5.0, 4.0, 4.0, 4.0, 4.0, 3.0],
+            [4.0, 4.0, 5.0, 4.0, 4.0, 3.0],
+            [5.0, 5.0, 4.0, 4.0, 3.0, 3.0],
+            [3.0, 5.0, 5.0, 4.0, 4.0, 3.0],
         ],
         7: [
-            [3.0, 3.0, 4.0, 4.0, 4.0, 3.0, 3.0],  # Centre-weighted
-            [4.0, 3.0, 3.0, 3.0, 3.0, 4.0, 4.0],  # Quick core, longest last
+            [3.0, 3.0, 4.0, 4.0, 4.0, 3.0, 3.0],
+            [4.0, 3.0, 3.0, 4.0, 4.0, 3.0, 3.0],
+            [3.0, 4.0, 5.0, 3.0, 3.0, 3.0, 3.0],
         ],
-        # Eight scenes in 24s is likewise fixed at the 3.0s floor.
         8: [
             [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
         ],
     },
     "30s": {
-        6: [
-            [5.0, 5.0, 5.0, 5.0, 5.0, 5.0],
-        ],
         7: [
-            [4.0, 4.0, 5.0, 5.0, 4.0, 4.0, 4.0],  # Centre-weighted
-            [3.0, 4.0, 5.0, 5.0, 5.0, 4.0, 4.0],  # Rise to a mid hero
+            [5.0, 5.0, 5.0, 4.0, 4.0, 4.0, 3.0],
+            [4.0, 5.0, 5.0, 5.0, 4.0, 4.0, 3.0],
+            [5.0, 4.0, 4.0, 5.0, 5.0, 4.0, 3.0],
         ],
         8: [
             [4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 3.0, 3.0],
-            [3.0, 3.0, 4.0, 5.0, 5.0, 4.0, 3.0, 3.0],  # Arc: open, swell, close
+            [3.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 3.0],
+            [5.0, 4.0, 4.0, 4.0, 4.0, 3.0, 3.0, 3.0],
         ],
     },
     "10s": {

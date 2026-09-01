@@ -38,6 +38,12 @@ logger = logging.getLogger(__name__)
 # dialogue.
 BACKGROUND_MUSIC_VOLUME: float = 0.2
 
+# Ceiling on the rate a voiceover is compressed to fit its scene. Matches the
+# tolerance voiceover generation accepts a take at, so a longer take is capped
+# here instead of played at whatever ratio the arithmetic yields. Speech is
+# audibly hurried above this.
+MAX_VOICEOVER_SPEEDUP: float = 1.20
+
 
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
@@ -270,7 +276,9 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                     speed = 1.0
                     vo_duration = _get_asset_duration(voiceover_asset)
                     if vo_duration and vo_duration > target_duration:
-                        speed = vo_duration / target_duration
+                        speed = min(
+                            vo_duration / target_duration, MAX_VOICEOVER_SPEEDUP
+                        )
 
                     # Look up this scene's clip position by stable scene_id
                     # (scene_id_to_clip_index is populated during video-track
