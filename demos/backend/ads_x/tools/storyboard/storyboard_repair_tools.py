@@ -279,6 +279,14 @@ async def finalize_and_persist_storyboard(
                 template_name,
             )
 
+        # Close the gaps left where the storyboard dropped a word as it
+        # wrote - a brand name a video prompt may not carry. Done here, the
+        # review checkpoint shows the same text the renderer is handed.
+        for scene in storyboard.scenes:
+            for prompt in (scene.first_frame_prompt, scene.video_prompt):
+                if prompt and prompt.description:
+                    prompt.description = common_utils.tidy_spacing(prompt.description)
+
         # 5. Persist to State & Explicitly save to Creative Studio
         storyboard.storyboard_id = None
         sb_dump = storyboard.model_dump()

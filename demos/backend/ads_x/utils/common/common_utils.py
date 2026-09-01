@@ -15,6 +15,7 @@
 """Utils shared among agents and tools."""
 
 import json
+import re
 import pydantic
 from typing import Any, get_args, get_origin
 from google.genai import types
@@ -23,6 +24,21 @@ PARAMETERS_KEY = "parameters"
 USER_ASSETS_KEY = "user_assets"
 STORYBOARD_KEY = "storyboard"
 VIRTUAL_CREATOR_KEY = "virtual_creator_metadata"
+
+
+def tidy_spacing(text: str) -> str:
+    """Closes the gap left where a word was taken out of a sentence.
+
+    Words are dropped from prompts in two places: the brand names a video
+    prompt may not carry, which the storyboard omits as it writes, and the
+    internal tags enrichment strips. Either leaves "the craftsman lowers the
+    onto the timber" or "the tin .", and a renderer reads the gap as a word it
+    cannot make out.
+    """
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r"[ \t]+([,.;:!?])", r"\1", text)
+    return text.strip()
+
 
 # Ordered pipeline stages. `STAGE_COMPLETED_KEY` records the furthest stage the
 # session has finished, giving the frontend an explicit cursor instead of having
