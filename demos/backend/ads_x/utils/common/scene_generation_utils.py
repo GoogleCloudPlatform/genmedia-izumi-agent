@@ -21,14 +21,21 @@ from typing import Any, Tuple, Optional, List
 import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 from mediagent_kit.services.types.common import AssetRef
+from mediagent_kit.utils.retry import ContentBlockedError
 
 from ...instructions.generation import generation_prompts
 from . import enrichment_utils
+from . import frame_validation
 
 logger = logging.getLogger(__name__)
 
 # Basic semaphore to avoid overloading Veo
 VEO_QUOTA_SEMAPHORE = asyncio.Semaphore(5)
+
+# Attempts allowed for one scene's first frame. The frame anchors the whole
+# clip, so a faulted one is worth regenerating, but each attempt costs an image
+# call and an inspection.
+MAX_FIRST_FRAME_ATTEMPTS = 2
 
 
 async def generate_scene_first_frame(
@@ -84,35 +91,115 @@ async def generate_scene_first_frame(
 
         # Resolve reference asset names/IDs to AssetRef objects
         reference_asset_refs: list[AssetRef] = []
+        refs_by_name: dict[str, AssetRef] = {}
         if reference_asset_names:
             asset_refs = asset_refs or {}
 
+            refs_by_name: dict[str, AssetRef] = {}
             for ref_name in reference_asset_names:
                 if ref_name in asset_refs:
                     ref_dict = asset_refs[ref_name]
-                    reference_asset_refs.append(
-                        AssetRef(
-                            id=ref_dict["id"],
-                            asset_type=ref_dict["asset_type"],
-                            workspace_id=ref_dict.get("workspace_id", workspace_id),
-                        )
+                    ref = AssetRef(
+                        id=ref_dict["id"],
+                        asset_type=ref_dict["asset_type"],
+                        workspace_id=ref_dict.get("workspace_id", workspace_id),
                     )
+                    reference_asset_refs.append(ref)
+                    refs_by_name[ref_name] = ref
                 else:
                     logger.warning(
                         f"Could not resolve reference asset '{ref_name}' from session state mappings."
                     )
 
-        # NOTE: Unified MediaGenerationServiceInterface adaptation.
-        # This would break legacy version due to function signature and method name mismatch.
-        generated_asset = await mediagen_service.generate_image(
-            workspace_id=workspace_id,
-            prompt=current_prompt_desc,
-            generation_model="gemini-3.1-flash-image",
-            aspect_ratio=aspect_ratio,
-            resolution="1K",
-            file_name=filename,
-            reference_assets=reference_asset_refs if reference_asset_refs else None,
+        # Each frame is inspected against the references it was built from, and
+        # a faulted frame is regenerated against that specific fault.
+        product_ref, logo_ref = frame_validation.product_and_logo_references(
+            reference_asset_names
         )
+        attempt_prompt = current_prompt_desc
+        generated_asset = None
+
+        for attempt in range(MAX_FIRST_FRAME_ATTEMPTS):
+            attempt_name = (
+                filename
+                if attempt == 0
+                else filename.replace(".png", f"_r{attempt}.png")
+            )
+            try:
+                # NOTE: Unified MediaGenerationServiceInterface adaptation.
+                # This would break legacy version due to function signature and method name mismatch.
+                generated_asset = await mediagen_service.generate_image(
+                    workspace_id=workspace_id,
+                    prompt=attempt_prompt,
+                    generation_model="gemini-3.1-flash-image",
+                    aspect_ratio=aspect_ratio,
+                    resolution="1K",
+                    file_name=attempt_name,
+                    reference_assets=(
+                        reference_asset_refs if reference_asset_refs else None
+                    ),
+                )
+            except ContentBlockedError as e:
+                if generated_asset is not None:
+                    logger.warning(
+                        f"Scene {index} regeneration was refused ({e}). Keeping "
+                        "the previous frame."
+                    )
+                    break
+                if attempt_prompt == original_prompt_desc:
+                    raise
+                # The refusal depends on the wording, and enrichment is what
+                # adds the elaborate language, so the retry falls back to the
+                # plain storyboard description rather than losing the scene.
+                logger.warning(
+                    f"Scene {index} first frame refused on policy grounds ({e}). "
+                    "Retrying with the un-enriched description."
+                )
+                attempt_prompt = original_prompt_desc
+                continue
+            except Exception as e:
+                # A first attempt that fails leaves the scene with nothing and
+                # the error propagates. A regeneration that fails still has the
+                # faulted frame from the attempt before, which beats no frame.
+                if generated_asset is None:
+                    raise
+                logger.warning(
+                    f"Scene {index} regeneration failed ({e}). Keeping the "
+                    "previous frame."
+                )
+                break
+
+            # The last attempt is kept whatever the inspection would say, so a
+            # scene is never left without a frame.
+            if not product_ref or attempt == MAX_FIRST_FRAME_ATTEMPTS - 1:
+                break
+
+            product_asset = refs_by_name.get(product_ref or "")
+            if product_asset is None:
+                break
+            faults = await frame_validation.inspect_first_frame(
+                workspace_id,
+                frame=AssetRef(
+                    id=generated_asset.id,
+                    asset_type="generated",
+                    workspace_id=workspace_id,
+                ),
+                product=product_asset,
+                logo=refs_by_name.get(logo_ref or ""),
+            )
+            if not faults:
+                break
+
+            logger.warning(
+                f"Scene {index} first frame rejected on attempt {attempt + 1}: "
+                f"{' '.join(faults)}"
+            )
+            attempt_prompt = current_prompt_desc + frame_validation.corrective_note(
+                faults
+            )
+
+        if generated_asset is None:
+            raise ValueError(f"No first frame was produced for scene {index}")
 
         first_frame_prompt["asset_id"] = generated_asset.id
         first_frame_prompt["asset_ref"] = {
