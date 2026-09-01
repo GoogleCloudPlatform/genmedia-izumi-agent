@@ -880,7 +880,7 @@ class MediaGenerationService:
                     }
                 )
             )
-            raise ValueError(error_message)
+            raise ContentBlockedError(error_message)
 
         if (
             response.candidates

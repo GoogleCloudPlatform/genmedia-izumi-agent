@@ -307,8 +307,12 @@ def test_generate_image_with_gemini_blocked(mock_asset_service, mock_config):
     mock_response.prompt_feedback.block_reason.name = "SAFETY"
     service._generate_gemini_image_content = MagicMock(return_value=mock_response)
 
+    # ContentBlockedError rather than a bare ValueError: the refusal depends on
+    # the prompt, so a caller recovers by rewording rather than by repeating.
+    from mediagent_kit.utils.retry import ContentBlockedError
+
     with pytest.raises(
-        ValueError, match="Image generation failed. The prompt was blocked"
+        ContentBlockedError, match="Image generation failed. The prompt was blocked"
     ):
         service.generate_image_with_gemini(
             user_id="user_123",
