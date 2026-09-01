@@ -30,8 +30,14 @@ from utils.adk import (
 )
 import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
+from mediagent_kit.services.types.common import AssetRef
 
-from ...utils.common import common_utils, enrichment_utils, scene_generation_utils
+from ...utils.common import (
+    common_utils,
+    enrichment_utils,
+    frame_reconciliation,
+    scene_generation_utils,
+)
 from ...utils.storyboard import storyboard_merge, template_library, storyboard_model
 from ...utils.generation import grouping_utils, generation_helpers
 from ..storyboard import gate_tools
@@ -93,8 +99,6 @@ async def generate_scene_video(
         asset_service = mediagent_kit.services.aio.get_asset_service()
         # NOTE: Unified AssetServiceInterface adaptation.
         # This would break legacy version due to function signature and method name mismatch.
-        from mediagent_kit.services.types.common import AssetRef
-
         ref_dict = video_prompt_data["asset_ref"]
         ref = AssetRef(
             id=str(ref_dict["id"]),
@@ -130,10 +134,27 @@ async def generate_scene_video(
         elif audio_hints := scene.get("audio_hints"):
             enrichment_data["audio"] = audio_hints
 
+    # The action was drafted beside an imagined opening frame rather than the
+    # one that was rendered. Reconcile the two before enrichment, which is
+    # handed the frame as well but has art direction to apply and rewords an
+    # action rather than restarting it.
+    reconciled_action = await frame_reconciliation.reconcile_action_with_frame(
+        workspace_id,
+        video_prompt_data["description"],
+        frame=AssetRef(
+            id=first_frame_asset.id,
+            asset_type="generated",
+            workspace_id=workspace_id,
+        ),
+        duration_seconds=valid_duration,
+        topic=scene.get("topic") or "",
+    )
+    video_prompt_data["reconciled_action"] = reconciled_action
+
     final_video_prompt, enrichment_asset_id = (
         await enrichment_utils.enrich_prompt_with_llm(
             workspace_id,
-            video_prompt_data["description"],
+            reconciled_action,
             enrichment_data,
             scene_index=index,
             prompt_type="video",
@@ -144,6 +165,10 @@ async def generate_scene_video(
     )
     if enrichment_asset_id:
         video_prompt_data["enrichment_asset_id"] = enrichment_asset_id
+    # The last text the clip is rendered from. Enrichment returns it inline
+    # rather than as an asset, so without this the only record of what the
+    # model was told is a line in the server log.
+    video_prompt_data["enriched_description"] = final_video_prompt
 
     try:
         winner_asset = await scene_generation_utils.generate_scene_video(
@@ -216,8 +241,6 @@ async def generate_scene_first_frame_step(
         asset_service = mediagent_kit.services.aio.get_asset_service()
         # NOTE: Unified AssetServiceInterface adaptation.
         # This would break legacy version due to function signature and method name mismatch.
-        from mediagent_kit.services.types.common import AssetRef
-
         ref_dict = first_frame_prompt["asset_ref"]
         ref = AssetRef(
             id=str(ref_dict["id"]),
@@ -511,21 +534,24 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
                 f"Proactive Fallback: Bound {primary_product} to scene to prevent hallucination."
             )
 
-        # 4. PROMPT SANITIZATION: Strip tags from description before persistence and media generation
-        final_desc = first_frame_prompt.get("description", "")
-        for tag in ["[PRODUCT REQUIRED]", "[CHARACTER REQUIRED]", "[PERSON REQUIRED]"]:
-            final_desc = final_desc.replace(tag, "").replace(tag.lower(), "")
-        scene["first_frame_prompt"]["description"] = final_desc.strip()
+        # 4. PROMPT SANITIZATION: Strip tags from description before persistence
+        # and media generation. Removing one mid-sentence leaves the gap
+        # behind, and this write is what the storyboard keeps, so the gap is
+        # closed rather than only trimmed at the ends.
+        _TAGS = ("[PRODUCT REQUIRED]", "[CHARACTER REQUIRED]", "[PERSON REQUIRED]")
 
+        def _sanitize(text: str) -> str:
+            for tag in _TAGS:
+                text = text.replace(tag, "").replace(tag.lower(), "")
+            return common_utils.tidy_spacing(text)
+
+        scene["first_frame_prompt"]["description"] = _sanitize(
+            first_frame_prompt.get("description", "")
+        )
         if "video_prompt" in scene:
-            v_desc = scene["video_prompt"].get("description", "")
-            for tag in [
-                "[PRODUCT REQUIRED]",
-                "[CHARACTER REQUIRED]",
-                "[PERSON REQUIRED]",
-            ]:
-                v_desc = v_desc.replace(tag, "").replace(tag.lower(), "")
-            scene["video_prompt"]["description"] = v_desc.strip()
+            scene["video_prompt"]["description"] = _sanitize(
+                scene["video_prompt"].get("description", "")
+            )
 
         scene["first_frame_prompt"]["assets"] = assets
 

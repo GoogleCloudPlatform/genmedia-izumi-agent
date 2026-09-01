@@ -177,6 +177,9 @@ async def test_generate_scene_video_success_internal(
 
     mock_media_gen_inst = AsyncMock()
     mock_get_media_gen_service.return_value = mock_media_gen_inst
+    # Reconciliation runs against this before enrichment; left unset the mock
+    # answers with an AsyncMock and the action is silently discarded.
+    mock_media_gen_inst.generate_text.return_value = "A video, reconciled"
 
     mock_enrich.return_value = ("Final prompt", "enrich_id")
 
