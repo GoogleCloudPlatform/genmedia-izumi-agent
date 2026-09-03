@@ -186,6 +186,7 @@ async def generate_scene_first_frame(
                 ),
                 product=product_asset,
                 logo=refs_by_name.get(logo_ref or ""),
+                scene_index=index,
             )
             if not faults:
                 break

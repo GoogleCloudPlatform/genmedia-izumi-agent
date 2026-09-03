@@ -164,6 +164,35 @@ storyboard_router = llm_agent.LlmAgent(
 )
 
 
+frames_agent = llm_agent.LlmAgent(
+    name="frames_agent",
+    description="Renders the audio and every scene's first frame.",
+    model="gemini-3.7-flash",
+    instruction=(
+        "Call `generate_scene_frames` once. It renders the narration, the "
+        "music and every scene's opening frame, and stops before the videos. "
+        "Say one short sentence about what was rendered. Do not call it twice "
+        "and do not attempt any video work."
+    ),
+    tools=[FunctionTool(generation_tools.generate_scene_frames)],
+    before_model_callback=instrument_agent("frames_agent"),
+)
+
+videos_agent = llm_agent.LlmAgent(
+    name="videos_agent",
+    description="Renders the scene videos and stitches the final cut.",
+    model="gemini-3.7-flash",
+    instruction=generation_instruction.INSTRUCTION,
+    tools=[
+        FunctionTool(generation_tools.generate_scene_videos),
+        FunctionTool(stitching_tools.stitch_final_video),
+        FunctionTool(summary_canvas_tool.create_campaign_summary),
+        FunctionTool(generation_tools.regenerate_scene),
+        FunctionTool(generation_tools.clear_scene_assets_for_regeneration),
+    ],
+    before_model_callback=instrument_agent("videos_agent"),
+)
+
 generation_agent = llm_agent.LlmAgent(
     name="generation_agent",
     description="Agent that generates all media and stitches them together.",
@@ -345,6 +374,48 @@ storyboard_review_loop = loop_agent.LoopAgent(
 )
 
 
+FRAME_GATE_INSTRUCTION = """You are the first frame checkpoint.
+
+Say one short sentence telling the reviewer what they are about to look at,
+then call `await_frame_approval`. Calling it suspends the run, so anything you
+plan to say afterwards will not reach them until they have replied.
+
+When their response arrives, call `record_frame_decision` with the decision
+verbatim ("accept", "modify" or "regenerate") and any guidance they gave.
+
+If they want changes, redo only the frames they named. Use `regenerate_scene`
+with that scene's `scene_id` and their direction, then call
+`await_frame_approval` again so they can see the result. Keep going until they
+accept.
+
+Redo only the frames they named. Re-rendering a frame they did not mention
+discards work they had already accepted.
+
+Do not render any video from this agent. Video generation runs after this
+checkpoint records an acceptance.
+"""
+
+frame_gate_agent = llm_agent.LlmAgent(
+    name="frame_gate_agent",
+    description="Pauses for human review of the rendered first frames.",
+    model="gemini-3.7-flash",
+    instruction=FRAME_GATE_INSTRUCTION,
+    tools=[
+        LongRunningFunctionTool(func=gate_tools.await_frame_approval),
+        FunctionTool(gate_tools.record_frame_decision),
+        FunctionTool(generation_tools.regenerate_scene),
+    ],
+    before_model_callback=instrument_agent("frame_gate_agent"),
+)
+
+frame_review_loop = loop_agent.LoopAgent(
+    name="frame_review_loop",
+    description="Reviews the rendered first frames with a human until they accept.",
+    sub_agents=[frame_gate_agent],
+    max_iterations=MAX_REVIEW_ROUNDS,
+)
+
+
 FINAL_CUT_GATE_INSTRUCTION = """You are the final cut checkpoint.
 
 Before calling it, say one short sentence telling the reviewer what they are
@@ -412,7 +483,13 @@ def _build_pipeline_stages() -> list:
     stages: list = [planning_agent_text]
     if settings.ENABLE_HITL_GATES:
         stages.append(storyboard_review_loop)
-    stages.append(generation_agent)
+        # Generation is split so the frames can be reviewed before the
+        # videos anchored to them are rendered.
+        stages.append(frames_agent)
+        stages.append(frame_review_loop)
+        stages.append(videos_agent)
+    else:
+        stages.append(generation_agent)
     if settings.ENABLE_HITL_GATES:
         # After stitching, not before: the fault a reviewer catches here is
         # usually one that only shows up in the assembled cut.

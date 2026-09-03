@@ -111,11 +111,14 @@ def test_review_gate_is_inserted_before_generation_when_enabled():
     assert stages == [
         "planning_agent_text",
         "storyboard_review_loop",
-        "generation_agent",
+        "frames_agent",
+        "frame_review_loop",
+        "videos_agent",
         "final_cut_review_loop",
     ]
-    # The gate is worthless if it lands after the expensive step.
-    assert stages.index("storyboard_review_loop") < stages.index("generation_agent")
+    # A checkpoint is worthless once the thing it guards has been paid for.
+    assert stages.index("storyboard_review_loop") < stages.index("frames_agent")
+    assert stages.index("frame_review_loop") < stages.index("videos_agent")
 
 
 def test_review_is_a_bounded_loop_around_the_gate():
@@ -164,19 +167,23 @@ def test_both_review_loops_are_bounded():
         assert loop.max_iterations and loop.max_iterations <= 20
 
 
-def test_all_three_checkpoints_appear_in_order_when_enabled():
+def test_every_checkpoint_appears_in_order_when_enabled():
     from ads_x.agent import _build_pipeline_stages, _planning_stages, settings
 
     with patch.object(settings, "ENABLE_HITL_GATES", True):
         planning = [a.name for a in _planning_stages()]
         pipeline = [a.name for a in _build_pipeline_stages()]
 
+    # Each checkpoint sits where the correction it invites is still cheap.
     # Strategy is reviewed before a scene is written...
     assert planning.index("strategy_review_loop") < planning.index("storyboard_router")
     # ...the storyboard before anything is rendered...
-    assert pipeline.index("storyboard_review_loop") < pipeline.index("generation_agent")
+    assert pipeline.index("storyboard_review_loop") < pipeline.index("frames_agent")
+    # ...the frames once they exist but before the videos they anchor...
+    assert pipeline.index("frames_agent") < pipeline.index("frame_review_loop")
+    assert pipeline.index("frame_review_loop") < pipeline.index("videos_agent")
     # ...and the cut after it is assembled.
-    assert pipeline.index("generation_agent") < pipeline.index("final_cut_review_loop")
+    assert pipeline.index("videos_agent") < pipeline.index("final_cut_review_loop")
 
 
 def test_no_checkpoints_at_all_when_disabled():

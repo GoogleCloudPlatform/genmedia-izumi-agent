@@ -259,3 +259,72 @@ async def test_generate_scene_success_internal(
     mock_generate_scene_first_frame.assert_called_once()
     mock_generate_scene_video.assert_called_once()
     mock_generate_scene_voiceover.assert_called_once()
+
+
+# --------------------------------------------------------------------------
+# The two phases
+#
+# Frames are cheap and videos are not, so the two halves can be run by
+# separate calls with a review checkpoint between them.
+# --------------------------------------------------------------------------
+
+
+def test_the_three_entry_points_select_a_phase():
+    from demos.backend.ads_x.tools.generation import generation_tools as gt
+
+    assert (gt.FRAMES_PHASE, gt.VIDEOS_PHASE, gt.ALL_PHASES) == (
+        "frames",
+        "videos",
+        "all",
+    )
+    for name in (
+        "generate_scene_frames",
+        "generate_scene_videos",
+        "generate_all_media",
+    ):
+        assert callable(getattr(gt, name))
+
+
+@pytest.mark.asyncio
+async def test_each_entry_point_asks_for_its_own_phase():
+    from unittest.mock import patch as _patch
+
+    from demos.backend.ads_x.tools.generation import generation_tools as gt
+
+    with _patch.object(gt, "_generate_media", new=AsyncMock(return_value="ok")) as run:
+        await gt.generate_scene_frames("ctx")
+        await gt.generate_scene_videos("ctx")
+        await gt.generate_all_media("ctx")
+
+    assert [c.args[1] for c in run.await_args_list] == ["frames", "videos", "all"]
+
+
+def test_the_visual_anchor_survives_between_the_phases():
+    """The videos may be rendered by a later request than the frames.
+
+    generate_scene_first_frame_step returns the anchor description only when
+    it renders; on the reuse path it reads it back from the scene, so the
+    video is still anchored to the frame it starts from.
+    """
+    import inspect
+
+    from demos.backend.ads_x.tools.generation import generation_tools as gt
+
+    source = inspect.getsource(gt.generate_scene_first_frame_step)
+    assert '["visual_anchor"] = first_frame_desc' in source
+    assert 'first_frame_prompt.get("visual_anchor"' in source
+
+
+def test_the_videos_phase_does_not_replan_the_narration():
+    import inspect
+
+    from demos.backend.ads_x.tools.generation import generation_tools as gt
+
+    source = inspect.getsource(gt._generate_media)
+    guard = source.index("if phase == VIDEOS_PHASE:")
+    replan = source.index("grouping_utils.create_voiceover_groups")
+    assert guard < replan, "the phase check must short-circuit the planning"
+
+    # The tail writes voiceover_groups back onto the storyboard. It must only
+    # do so when it holds some, or the videos phase erases the rendered audio.
+    assert "if voiceover_groups:" in source

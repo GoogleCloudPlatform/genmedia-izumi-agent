@@ -64,7 +64,55 @@ const storyboardGate: PendingGate = {
   },
 };
 
+const framesGate: PendingGate = {
+  id: 'gate-frames',
+  name: 'await_frame_approval',
+  payload: {
+    status: 'awaiting_human_review',
+    stage: 'frames',
+    message: 'Here are the opening frames.',
+    frames: [
+      {
+        scene_id: 'scene_001',
+        topic: 'Hook',
+        duration_seconds: 3,
+        asset_id: 'img-1',
+        opening_frame: 'Trainers on a doorstep at dawn.',
+      },
+      { scene_id: 'scene_002', topic: 'Payoff', duration_seconds: 3 },
+    ],
+  },
+};
+
 describe('GateReviewCard', () => {
+  it('shows the rendered frames, since the picture is what is being judged', () => {
+    render(
+      <GateReviewCard
+        gate={framesGate}
+        onRespond={vi.fn()}
+        projectAssets={[
+          {
+            id: 'img-1',
+            fileName: 'scene_0_first_frame.png',
+            url: 'https://example.test/img-1',
+          } as never,
+        ]}
+      />,
+    );
+
+    expect(screen.getByText('Opening frames')).toBeInTheDocument();
+    expect(screen.getByText('Checkpoint 3 of 4')).toBeInTheDocument();
+    expect(screen.getByAltText('scene_001')).toBeInTheDocument();
+    expect(screen.getByText('video not yet generated')).toBeInTheDocument();
+  });
+
+  it('marks a frame that did not render rather than leaving a gap', () => {
+    render(<GateReviewCard gate={framesGate} onRespond={vi.fn()} />);
+
+    expect(screen.getAllByText('not rendered')).toHaveLength(2);
+    expect(screen.getByText(/did not render/)).toBeInTheDocument();
+  });
+
   it('renders the payload message rather than relying on agent text', () => {
     render(<GateReviewCard gate={strategyGate} onRespond={vi.fn()} />);
 
@@ -72,7 +120,7 @@ describe('GateReviewCard', () => {
       screen.getByText('Check I have understood the brief.'),
     ).toBeInTheDocument();
     expect(screen.getByText('Campaign strategy')).toBeInTheDocument();
-    expect(screen.getByText('Checkpoint 1 of 3')).toBeInTheDocument();
+    expect(screen.getByText('Checkpoint 1 of 4')).toBeInTheDocument();
   });
 
   it('shows the strategy the reviewer is being asked to judge', () => {

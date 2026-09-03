@@ -233,11 +233,9 @@ async def await_storyboard_approval(tool_context: ToolContext) -> ToolResult:
     digest = _scene_digest(storyboard)
     total = sum(c.get("duration_seconds") or 0 for c in digest)
     message = (
-        f"Here is the storyboard: {len(digest)} scenes, about {total:g} seconds "
-        f"in total. Nothing has been rendered yet, so this is the last point "
-        f"where changes are free. Accept to start generating, or tell me what "
-        f"to change - you can name a scene to adjust, reorder them, or ask for "
-        f"a different storyboard entirely."
+        f"{len(digest)} scenes, {total:g} seconds in total. Accept to continue, "
+        f"or tell me what to change. You can adjust a scene, reorder them, or "
+        f"ask for a different storyboard."
     )
 
     return tool_success(
@@ -345,13 +343,11 @@ async def await_strategy_approval(tool_context: ToolContext) -> ToolResult:
     look_name = (recipe or {}).get("look_name") or "an automatically chosen Look"
     duration = parameters.get("target_duration") or "the requested length"
     message = (
-        f"Before I write a single scene, please check I have understood the "
-        f"brief. This is a {duration} "
+        f"A {duration} "
         f"{'ad featuring a person' if parameters.get('generate_virtual_creator') else 'product-only ad'} "
         f"for {parameters.get('target_audience') or 'the stated audience'}, "
         f'shot in the "{look_name}" style. Accept to continue, or tell me '
-        f"what to change - corrections are free at this point, and expensive "
-        f"once the video is rendered."
+        f"what to change."
     )
 
     return tool_success(
@@ -431,6 +427,118 @@ def strategy_is_approved(state: Any) -> bool:
 
 
 # --------------------------------------------------------------------------
+# First frame gate (Stage B2)
+# --------------------------------------------------------------------------
+
+FRAME_DECISION_KEY = "frame_decision"
+
+
+async def await_frame_approval(tool_context: ToolContext) -> ToolResult:
+    """Pauses for human review of the rendered first frames.
+
+    Call this once the frames and audio exist and before any video is
+    rendered. The run suspends here until the reviewer responds.
+
+    The storyboard checkpoint presents a description of each frame; this one
+    presents the rendered image.
+    """
+    blocked = _resumability_error(tool_context)
+    if blocked:
+        return tool_failure(blocked)
+
+    storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
+    if not isinstance(storyboard, dict) or not storyboard.get("scenes"):
+        return tool_failure("There is no storyboard, so there is nothing to review.")
+
+    frames = []
+    for scene, digest in zip(storyboard.get("scenes") or [], _scene_digest(storyboard)):
+        if not isinstance(scene, dict):
+            continue
+        first_frame = scene.get("first_frame_prompt") or {}
+        frames.append(
+            {
+                "scene_id": digest.get("scene_id"),
+                "topic": digest.get("topic"),
+                "opening_frame": digest.get("opening_frame"),
+                "action": digest.get("action"),
+                "duration_seconds": digest.get("duration_seconds"),
+                "asset_id": first_frame.get("asset_id"),
+                "asset_ref": first_frame.get("asset_ref"),
+            }
+        )
+
+    if not any(f.get("asset_id") for f in frames):
+        return tool_failure(
+            "No first frames have been rendered yet. Generate them first."
+        )
+
+    tool_context.state[FRAME_DECISION_KEY] = None
+
+    rendered = sum(1 for f in frames if f.get("asset_id"))
+    message = (
+        f"{rendered} of {len(frames)} opening frames are ready. Each one is "
+        f"the first frame of its scene. Accept to continue to video "
+        f"generation, or name the frames to redo."
+    )
+
+    return tool_success(
+        {
+            "status": "awaiting_human_review",
+            "stage": "frames",
+            "message": message,
+            "frames": frames,
+            "expected_response": {
+                "decision": list(VALID_DECISIONS),
+                "guidance": (
+                    "optional free text, e.g. 'scene_2's frame is too dark, redo it'"
+                ),
+            },
+        }
+    )
+
+
+async def record_frame_decision(
+    tool_context: ToolContext, decision: str, guidance: str = ""
+) -> ToolResult:
+    """Records the reviewer's verdict on the rendered first frames.
+
+    Args:
+        decision: One of "accept", "modify" or "regenerate".
+        guidance: Any free-text direction, such as which frames to redo.
+    """
+    normalised = (decision or "").strip().lower()
+    if normalised not in VALID_DECISIONS:
+        return tool_failure(
+            f"Unknown decision '{decision}'. Expected one of "
+            f"{', '.join(VALID_DECISIONS)}."
+        )
+
+    tool_context.state[FRAME_DECISION_KEY] = {
+        "decision": normalised,
+        "guidance": guidance.strip(),
+    }
+    logger.info("Frame gate: reviewer chose '%s'.", normalised)
+
+    if normalised == ACCEPT:
+        tool_context.actions.escalate = True
+        return tool_success("Frames approved. Rendering the videos.")
+
+    return tool_success(
+        f"Frames marked '{normalised}'. Redo the frames they named, then "
+        "present them again for review."
+    )
+
+
+def frames_are_approved(state: Any) -> bool:
+    """Whether the rendered frames in ``state`` carry an explicit approval."""
+    try:
+        decision = state.get(FRAME_DECISION_KEY)
+    except AttributeError:
+        return False
+    return isinstance(decision, dict) and decision.get("decision") == ACCEPT
+
+
+# --------------------------------------------------------------------------
 # Final cut gate (Stage C)
 # --------------------------------------------------------------------------
 
@@ -477,9 +585,9 @@ async def await_final_cut_approval(tool_context: ToolContext) -> ToolResult:
         clips.append({**digest, "asset_id": video.get("asset_id")})
 
     message = (
-        f"Your video is ready - {len(clips)} clips, stitched. Please watch it. "
-        f"Accept to finish, or name the clips that need another take and I will "
-        f"re-render just those and rebuild the cut."
+        f"Your video is ready: {len(clips)} clips, stitched. Accept to finish, "
+        f"or name the clips that need another take and they will be "
+        f"re-rendered and the cut rebuilt."
     )
 
     return tool_success(

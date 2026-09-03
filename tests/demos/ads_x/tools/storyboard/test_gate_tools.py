@@ -610,3 +610,84 @@ async def test_final_cut_clips_carry_the_scene_detail_and_the_render():
     assert clip["asset_id"] == "vid-1"
     assert clip["voiceover"] == "Pour something better."
     assert clip["action"] == "a hero shot"
+
+
+# --------------------------------------------------------------------------
+# await_frame_approval
+#
+# The last checkpoint where a correction is cheap: the frames are rendered,
+# the videos that would be built on them are not.
+# --------------------------------------------------------------------------
+
+
+def _rendered_frames():
+    storyboard = _storyboard()
+    for i, scene in enumerate(storyboard["scenes"], start=1):
+        scene["first_frame_prompt"] = {
+            "description": f"frame {i}",
+            "asset_id": f"img-{i}",
+            "asset_ref": {"id": f"img-{i}", "asset_type": "generated"},
+        }
+    return storyboard
+
+
+async def test_the_frame_gate_shows_every_rendered_frame():
+    ctx = _ctx({"storyboard": _rendered_frames()})
+
+    payload = (await gate_tools.await_frame_approval(ctx))["result"]
+
+    assert payload["stage"] == "frames"
+    assert [f["asset_id"] for f in payload["frames"]] == ["img-1", "img-2"]
+    assert all(f["scene_id"] for f in payload["frames"]), "a reviewer names a scene"
+
+
+async def test_the_frame_gate_states_what_is_ready_and_what_is_next():
+    payload = (
+        await gate_tools.await_frame_approval(_ctx({"storyboard": _rendered_frames()}))
+    )["result"]
+
+    message = payload["message"].lower()
+    assert "2 of 2" in message, "say how many frames are ready"
+    assert "video generation" in message, "say what accepting leads to"
+
+
+async def test_the_frame_gate_refuses_before_anything_is_rendered():
+    # Nothing to look at, and approving it would wave the videos through.
+    result = await gate_tools.await_frame_approval(_ctx({"storyboard": _storyboard()}))
+
+    assert result["status"] == "failed"
+
+
+async def test_the_frame_gate_clears_a_previous_verdict():
+    ctx = _ctx(
+        {
+            "storyboard": _rendered_frames(),
+            gate_tools.FRAME_DECISION_KEY: {"decision": "accept"},
+        }
+    )
+
+    await gate_tools.await_frame_approval(ctx)
+
+    assert not gate_tools.frames_are_approved(ctx.state)
+
+
+@pytest.mark.parametrize("decision", ["accept", "modify", "regenerate"])
+async def test_each_frame_verdict_is_recorded(decision):
+    ctx = _ctx()
+
+    result = await gate_tools.record_frame_decision(ctx, decision, "scene_2 is dark")
+
+    assert result["status"] == "succeeded"
+    assert ctx.state[gate_tools.FRAME_DECISION_KEY]["decision"] == decision
+    assert gate_tools.frames_are_approved(ctx.state) is (decision == "accept")
+    # Only an acceptance may release the videos.
+    assert bool(ctx.actions.escalate) is (decision == "accept")
+
+
+async def test_an_unknown_frame_verdict_is_refused():
+    ctx = _ctx()
+
+    result = await gate_tools.record_frame_decision(ctx, "looks fine")
+
+    assert result["status"] == "failed"
+    assert ctx.state.get(gate_tools.FRAME_DECISION_KEY) is None

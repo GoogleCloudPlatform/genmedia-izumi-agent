@@ -45,6 +45,12 @@ from . import voiceover_tools
 
 logger = logging.getLogger(__name__)
 
+# Which half of generation a call performs. The frames are cheap and the
+# videos are not, so the two can be separated by a review checkpoint.
+FRAMES_PHASE = "frames"
+VIDEOS_PHASE = "videos"
+ALL_PHASES = "all"
+
 
 def _configured_video_model() -> str | None:
     """The video model in force, so duration can be fitted to what it renders."""
@@ -148,6 +154,7 @@ async def generate_scene_video(
         ),
         duration_seconds=valid_duration,
         topic=scene.get("topic") or "",
+        scene_index=index,
     )
     video_prompt_data["reconciled_action"] = reconciled_action
 
@@ -248,6 +255,7 @@ async def generate_scene_first_frame_step(
             workspace_id=str(ref_dict.get("workspace_id", workspace_id)),
         )
         first_frame_asset = await asset_service.get_asset(ref)
+        first_frame_desc = first_frame_prompt.get("visual_anchor", "")
     else:
         logger.info(f"Starting generation for scene {index}")
 
@@ -273,6 +281,10 @@ async def generate_scene_first_frame_step(
                 "asset_type": "generated",
                 "workspace_id": workspace_id,
             }
+            # The video is anchored to a description of the frame it starts
+            # from. Frames and videos can be rendered in separate requests, so
+            # the anchor is kept rather than held in memory between them.
+            scene["first_frame_prompt"]["visual_anchor"] = first_frame_desc
         except Exception as e:
             logger.error(
                 f"Critical failure generating first frame for scene {index}: {e}"
@@ -351,8 +363,14 @@ async def generate_scene(
     return results
 
 
-async def generate_all_media(tool_context: ToolContext) -> ToolResult:
-    """Generates the media for all scenes in the storyboard."""
+async def _generate_media(tool_context: ToolContext, phase: str) -> ToolResult:
+    """Renders the storyboard's media, in one pass or in two.
+
+    Generation runs in two lanes: the fast one renders the audio and every
+    first frame, the slow one renders the videos, each anchored to its ready
+    frame. ``phase`` selects which lane this call performs, allowing a review
+    checkpoint between them.
+    """
     logger.error(
         "⭐⭐⭐ [NATIVE TOOL INVOCATION] `generate_all_media` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
     )
@@ -403,7 +421,13 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
     # choose grouped vs per-scene voiceover.
     voiceover_groups = []
     group_vo_tasks = []
-    if not is_ugc:
+    if phase == VIDEOS_PHASE:
+        # The frames phase rendered the narration and left it on the
+        # storyboard. Planning it again would yield groups carrying no audio,
+        # and the tail below writes whatever this holds back onto the
+        # storyboard. Left empty, that write is skipped.
+        pass
+    elif not is_ugc:
         try:
             storyboard_obj = storyboard_model.Storyboard(**storyboard)
             voiceover_groups = grouping_utils.create_voiceover_groups(storyboard_obj)
@@ -578,60 +602,101 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
 
     # Phase 1 -- fast lane: audio (grouped VO + music + per-scene VO) + first
     # frames. All are seconds-scale, so they drain before any slow video starts.
-    music_task = generation_helpers.generate_background_music(
-        workspace_id, storyboard["background_music_prompt"], uid
-    )
-    per_scene_vo_tasks = []
-    if use_per_scene_voiceover:
-        per_scene_vo_tasks = [
-            generation_helpers.generate_scene_voiceover(
-                workspace_id,
-                scene["voiceover_prompt"],
-                index,
-                uid,
-                target_duration=scene.get("duration_seconds", 4.0),
+    if phase == VIDEOS_PHASE:
+        # The frames and the audio were rendered by an earlier call and
+        # persisted on the storyboard. Running the same step again takes
+        # its reuse path, which loads each frame back rather than
+        # rendering it a second time.
+        frame_results = await asyncio.gather(
+            *[
+                generate_scene_first_frame_step(
+                    scene=scene,
+                    index=index,
+                    aspect_ratio=aspect_ratio,
+                    workspace_id=workspace_id,
+                    uid=uid,
+                    allow_veo_audio=is_ugc,
+                    global_context=global_contexts[index],
+                    asset_refs=asset_refs,
+                )
+                for index, scene in enumerate(scene_list)
+            ],
+            return_exceptions=True,
+        )
+    else:
+        music_task = generation_helpers.generate_background_music(
+            workspace_id, storyboard["background_music_prompt"], uid
+        )
+        per_scene_vo_tasks = []
+        if use_per_scene_voiceover:
+            per_scene_vo_tasks = [
+                generation_helpers.generate_scene_voiceover(
+                    workspace_id,
+                    scene["voiceover_prompt"],
+                    index,
+                    uid,
+                    target_duration=scene.get("duration_seconds", 4.0),
+                )
+                for index, scene in enumerate(scene_list)
+            ]
+        first_frame_tasks = [
+            generate_scene_first_frame_step(
+                scene=scene,
+                index=index,
+                aspect_ratio=aspect_ratio,
+                workspace_id=workspace_id,
+                uid=uid,
+                allow_veo_audio=is_ugc,
+                global_context=global_contexts[index],
+                asset_refs=asset_refs,
             )
             for index, scene in enumerate(scene_list)
         ]
-    first_frame_tasks = [
-        generate_scene_first_frame_step(
-            scene=scene,
-            index=index,
-            aspect_ratio=aspect_ratio,
-            workspace_id=workspace_id,
-            uid=uid,
-            allow_veo_audio=is_ugc,
-            global_context=global_contexts[index],
-            asset_refs=asset_refs,
+
+        num_vo = len(group_vo_tasks)
+        num_ps_vo = len(per_scene_vo_tasks)
+        phase1 = await asyncio.gather(
+            *group_vo_tasks,
+            music_task,
+            *per_scene_vo_tasks,
+            *first_frame_tasks,
+            return_exceptions=True,
         )
-        for index, scene in enumerate(scene_list)
-    ]
+        vo_results = phase1[:num_vo]
+        music_result = phase1[num_vo]
+        ps_vo_results = phase1[num_vo + 1 : num_vo + 1 + num_ps_vo]
+        frame_results = phase1[num_vo + 1 + num_ps_vo :]
 
-    num_vo = len(group_vo_tasks)
-    num_ps_vo = len(per_scene_vo_tasks)
-    phase1 = await asyncio.gather(
-        *group_vo_tasks,
-        music_task,
-        *per_scene_vo_tasks,
-        *first_frame_tasks,
-        return_exceptions=True,
-    )
-    vo_results = phase1[:num_vo]
-    music_result = phase1[num_vo]
-    ps_vo_results = phase1[num_vo + 1 : num_vo + 1 + num_ps_vo]
-    frame_results = phase1[num_vo + 1 + num_ps_vo :]
-
-    # Audio degrades gracefully -- a missing VO/music track still yields a usable
-    # video -- so log and continue.
-    for i, res in enumerate(vo_results):
-        if isinstance(res, Exception):
-            logger.error(f"Grouped voiceover {i} failed; continuing without it: {res}")
-    if isinstance(music_result, Exception):
-        logger.error(f"Background music failed; continuing without it: {music_result}")
-    for i, res in enumerate(ps_vo_results):
-        if isinstance(res, Exception):
+        # Audio degrades gracefully -- a missing VO/music track still yields a usable
+        # video -- so log and continue.
+        for i, res in enumerate(vo_results):
+            if isinstance(res, Exception):
+                logger.error(
+                    f"Grouped voiceover {i} failed; continuing without it: {res}"
+                )
+        if isinstance(music_result, Exception):
             logger.error(
-                f"Per-scene voiceover {i} failed; continuing without it: {res}"
+                f"Background music failed; continuing without it: {music_result}"
+            )
+        for i, res in enumerate(ps_vo_results):
+            if isinstance(res, Exception):
+                logger.error(
+                    f"Per-scene voiceover {i} failed; continuing without it: {res}"
+                )
+
+        if phase == FRAMES_PHASE:
+            # Everything cheap is now rendered and on the storyboard. Stop
+            # here so it can be looked at before the videos are paid for.
+            tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+            if voiceover_groups:
+                storyboard["voiceover_groups"] = [
+                    g.model_dump() for g in voiceover_groups
+                ]
+            common_utils.mark_stage_completed(tool_context, "frames")
+            rendered = sum(1 for f in frame_results if isinstance(f, tuple) and f[0])
+            return tool_success(
+                f"Rendered {rendered} of {len(scene_list)} first frames, "
+                "with the narration and music."
             )
 
     # Phase 2 -- slow lane: scene videos, each anchored to its ready first frame.
@@ -821,6 +886,24 @@ async def clear_scene_assets_for_regeneration(
         f"♻️ Released {cleared} rendered asset(s) for scene '{scene_id}'. "
         "It will be re-rendered on the next generation pass."
     )
+
+
+async def generate_scene_frames(tool_context: ToolContext) -> ToolResult:
+    """Renders the narration, the music and every scene's first frame.
+
+    Stops before the videos, so the frames can be reviewed first.
+    """
+    return await _generate_media(tool_context, FRAMES_PHASE)
+
+
+async def generate_scene_videos(tool_context: ToolContext) -> ToolResult:
+    """Renders each scene's video from the first frame already approved."""
+    return await _generate_media(tool_context, VIDEOS_PHASE)
+
+
+async def generate_all_media(tool_context: ToolContext) -> ToolResult:
+    """Renders every scene's media in one pass, frames then videos."""
+    return await _generate_media(tool_context, ALL_PHASES)
 
 
 async def regenerate_scene(

@@ -75,7 +75,7 @@ export interface FunctionResponse {
 
 export type GateDecision = 'accept' | 'modify' | 'regenerate';
 
-export type GateStage = 'strategy' | 'storyboard' | 'final_cut';
+export type GateStage = 'strategy' | 'storyboard' | 'frames' | 'final_cut';
 
 /** A scene or rendered clip as the checkpoint payload describes it. */
 export interface GateScene {
@@ -91,6 +91,8 @@ export interface GateScene {
   duration_seconds?: number;
   rendered?: boolean;
   asset_id?: string;
+  /** Where the rendered image lives, at the frame checkpoint. */
+  asset_ref?: { id?: string; asset_type?: string; workspace_id?: string };
 }
 
 /** The payload a checkpoint returns while it waits for a verdict. */
@@ -123,6 +125,8 @@ export interface GatePayload {
   // Final cut checkpoint.
   final_video?: { asset_id?: string; asset_ref?: string };
   clips?: GateScene[];
+  // Frame checkpoint: the rendered opening frames, before any video.
+  frames?: GateScene[];
 }
 
 /**

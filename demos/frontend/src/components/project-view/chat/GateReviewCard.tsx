@@ -27,6 +27,7 @@ import {
 } from "@mui/material";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import CheckIcon from "@mui/icons-material/Check";
+import ImageIcon from "@mui/icons-material/Image";
 import MovieFilterIcon from "@mui/icons-material/MovieFilter";
 import ReplayIcon from "@mui/icons-material/Replay";
 import TuneIcon from "@mui/icons-material/Tune";
@@ -45,19 +46,25 @@ const STAGES: Record<
   { step: string; title: string; icon: typeof TuneIcon; accent: string }
 > = {
   strategy: {
-    step: "Checkpoint 1 of 3",
+    step: "Checkpoint 1 of 4",
     title: "Campaign strategy",
     icon: AutoAwesomeIcon,
     accent: "#818CF8", // primary.light
   },
   storyboard: {
-    step: "Checkpoint 2 of 3",
+    step: "Checkpoint 2 of 4",
     title: "Storyboard",
     icon: ViewTimelineIcon,
     accent: "#F472B6", // secondary.light
   },
+  frames: {
+    step: "Checkpoint 3 of 4",
+    title: "Opening frames",
+    icon: ImageIcon,
+    accent: "#FBBF24",
+  },
   final_cut: {
-    step: "Checkpoint 3 of 3",
+    step: "Checkpoint 4 of 4",
     title: "Final cut",
     icon: MovieFilterIcon,
     accent: "#34D399",
@@ -65,12 +72,18 @@ const STAGES: Record<
 };
 
 /** The order the checkpoints happen in, for the progress dots. */
-const STAGE_ORDER: GateStage[] = ["strategy", "storyboard", "final_cut"];
+const STAGE_ORDER: GateStage[] = [
+  "strategy",
+  "storyboard",
+  "frames",
+  "final_cut",
+];
 
 /** What the guidance box is actually asking for at each checkpoint. */
 const GUIDANCE_PROMPTS: Record<GateStage, string> = {
   strategy: "What have I misunderstood?",
   storyboard: "What should change before anything is rendered?",
+  frames: "Which frames need redoing, and what is wrong with them?",
   final_cut: "Which clips need another take?",
 };
 
@@ -375,6 +388,84 @@ function SceneRow({
  * asking for a re-render, and puts the intended action last, where it serves
  * as something to compare the footage against.
  */
+/**
+ * One rendered opening frame, as the frame checkpoint shows it.
+ *
+ * The image leads, with the scene id and duration beneath it. A frame that
+ * failed to render is shown as an empty tile rather than omitted.
+ */
+function FrameTile({
+  frame,
+  index,
+  accent,
+  projectAssets,
+}: {
+  frame: GateScene;
+  index: number;
+  accent: string;
+  projectAssets?: readonly ProjectAsset[];
+}) {
+  const sceneId = asText(frame.scene_id);
+  const asset = findAsset(projectAssets, asText(frame.asset_id));
+  const caption = sceneId || `Scene ${index + 1}`;
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      {asset?.url ? (
+        <Box
+          component="img"
+          src={asset.thumbnailUrl || asset.url}
+          alt={caption}
+          title={asText(frame.opening_frame) || caption}
+          sx={{
+            width: '100%',
+            aspectRatio: '9 / 16',
+            objectFit: 'cover',
+            borderRadius: 1,
+            border: '1px solid',
+            borderColor: 'divider',
+            display: 'block',
+          }}
+        />
+      ) : (
+        <Box
+          sx={{
+            width: '100%',
+            aspectRatio: '9 / 16',
+            borderRadius: 1,
+            border: '1px dashed',
+            borderColor: 'divider',
+            bgcolor: alpha(accent, 0.06),
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'text.secondary',
+            fontSize: '0.65rem',
+            textAlign: 'center',
+            px: 0.5,
+          }}
+        >
+          not rendered
+        </Box>
+      )}
+      <Typography
+        variant="caption"
+        sx={{
+          display: 'block',
+          mt: 0.5,
+          color: 'text.secondary',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap',
+        }}
+        title={caption}
+      >
+        {caption}
+        {frame.duration_seconds ? ` · ${asText(frame.duration_seconds)}s` : ''}
+      </Typography>
+    </Box>
+  );
+}
+
 function ClipRow({
   clip,
   index,
@@ -649,6 +740,52 @@ function GateDetails({
             />
           ))}
         </Box>
+      </Stack>
+    );
+  }
+
+  if (payload.stage === 'frames') {
+    const frames = payload.frames || [];
+    const rendered = frames.filter((f) => f.asset_id).length;
+    return (
+      <Stack spacing={1.25}>
+        <Facts
+          values={[
+            `${frames.length} ${frames.length === 1 ? 'frame' : 'frames'}`,
+            runtime(frames) ? `${runtime(frames)}s total` : '',
+            'video not yet generated',
+          ]}
+          accent={accent}
+        />
+        <Typography
+          variant="caption"
+          sx={{ color: 'text.secondary', display: 'block' }}
+        >
+          Each frame is the first frame of its scene. Accept to continue to
+          video generation, or name the frames to redo.
+        </Typography>
+        <Box
+          sx={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(104px, 1fr))',
+            gap: 1,
+          }}
+        >
+          {frames.map((frame, index) => (
+            <FrameTile
+              key={asText(frame.scene_id) || index}
+              frame={frame}
+              index={index}
+              accent={accent}
+              projectAssets={projectAssets}
+            />
+          ))}
+        </Box>
+        {rendered < frames.length ? (
+          <Typography variant="caption" sx={{ color: 'warning.main' }}>
+            {frames.length - rendered} of {frames.length} did not render.
+          </Typography>
+        ) : null}
       </Stack>
     );
   }
