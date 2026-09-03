@@ -201,8 +201,12 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         prompt: str,
         reference_assets: Optional[list[AssetRef]] = None,
         idempotency_key: Optional[str] = None,
+        purpose: Optional[str] = None,
     ) -> str:
         """Generates text inline using Gemini model (Vertex AI).
+
+        ``purpose`` is accepted for interface parity and unused: nothing is
+        persisted on this path, so there is no asset to name.
 
         Retries a few times on transient failures and empty responses.
         Without this, a single flaky/empty Vertex response would bubble up

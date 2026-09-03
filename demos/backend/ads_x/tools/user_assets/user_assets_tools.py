@@ -157,6 +157,7 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
         try:
             logger.info("Starting Casting for virtual creator...")
             demographics = await mediagen_service.generate_text(
+                purpose="creator_demographics",
                 workspace_id=workspace_id,
                 prompt=casting_prompt,
             )

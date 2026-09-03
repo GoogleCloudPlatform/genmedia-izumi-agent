@@ -174,6 +174,21 @@ async def test_a_bold_composition_is_not_a_fault(mock_mediagen, mock_assets):
     assert faults == []
 
 
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_asset_service")
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+async def test_the_verdict_is_filed_under_its_scene(mock_mediagen, mock_assets):
+    # A panel of frame_check files is only readable if each names its scene.
+    mediagen, assets = _service_returning('{"added_markings": false}')
+    mock_mediagen.return_value, mock_assets.return_value = mediagen, assets
+
+    await frame_validation.inspect_first_frame(
+        "ws", FRAME, PRODUCT, LOGO, scene_index=2
+    )
+
+    assert mediagen.generate_text.await_args.kwargs["purpose"] == "frame_check_scene_2"
+
+
 def test_the_inspector_is_told_where_the_bar_sits():
     prompt = " ".join(frame_validation._INSPECTION_PROMPT.split())
     assert "implausible_product" in prompt

@@ -321,6 +321,7 @@ class MediaGenerationServiceInterface(ABC):
         prompt: str,
         reference_assets: Optional[list[AssetRef]] = None,
         idempotency_key: Optional[str] = None,
+        purpose: Optional[str] = None,
     ) -> str:
         """Generates text and returns it inline.
 

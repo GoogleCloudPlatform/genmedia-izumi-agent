@@ -51,6 +51,7 @@ async def extract_campaign_parameters(
     # agent (which has the tool); here there is no tool, so append the
     # text-output override or Gemini 3.x returns a MALFORMED_FUNCTION_CALL.
     raw_json = await mediagen_service.generate_text(
+        purpose="campaign_parameters",
         workspace_id=workspace_id,
         prompt=parameters_instruction.INSTRUCTION
         + f"\n\n**USER BRIEF:**\n{user_brief}"
@@ -100,6 +101,7 @@ async def extract_campaign_parameters(
     # 2. Repair Turn (Self-Correction)
     try:
         repaired_raw = await mediagen_service.generate_text(
+            purpose="campaign_parameters_repair",
             workspace_id=workspace_id,
             prompt=parameters_repair_instruction.REPAIR_PROMPT.format(
                 user_brief=user_brief, raw_json=clean_json, error=str(first_error)

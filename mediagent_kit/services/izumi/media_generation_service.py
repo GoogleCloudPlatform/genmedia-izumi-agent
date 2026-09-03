@@ -133,6 +133,7 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
         prompt: str,
         reference_assets: Optional[list[AssetRef]] = None,
         idempotency_key: Optional[str] = None,
+        purpose: Optional[str] = None,
     ) -> str:
         """Generates text and returns it inline as a ``str``.
 
@@ -141,9 +142,11 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
         the unified contract (text is not persisted at the interface level).
         """
         reference_image_filenames = self._resolve_refs_to_filenames(reference_assets)
-        # Synthetic file name: the legacy method persists a text asset; the
-        # unified contract discards it, so the name is internal-only.
-        file_name = f"gen_text_{uuid.uuid4().hex[:12]}.txt"
+        # The legacy method persists a text asset and the unified contract
+        # returns the string, but the asset stays in the workspace where a
+        # user sees it. Name it after what asked for it, so a panel full of
+        # these reads as a record rather than as noise.
+        file_name = f"{purpose or 'gen_text'}_{uuid.uuid4().hex[:8]}.txt"
 
         asset = await asyncio.to_thread(
             self._media.generate_text_with_gemini,

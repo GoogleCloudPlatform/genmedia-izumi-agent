@@ -158,7 +158,9 @@ async def _select_look(
                 or workspace_id
             )
         mediagen = mediagent_kit.services.aio.get_media_generation_service()
-        raw = await mediagen.generate_text(workspace_id=workspace_id, prompt=prompt)
+        raw = await mediagen.generate_text(
+            workspace_id=workspace_id, prompt=prompt, purpose="look_selection"
+        )
         name = (raw or "").strip().splitlines()[0].strip().strip("\"'*`. ")
         chosen = production_presets.get_look_by_name(name)
         if chosen and chosen in candidates:

@@ -78,6 +78,19 @@ async def test_the_frame_is_what_the_call_is_asked_about():
     assert "3 seconds" in prompt, "how much change fits depends on the runtime"
 
 
+async def test_the_rewrite_is_filed_under_its_scene():
+    mediagen_patch, asset_patch, mediagen = _services()
+
+    with mediagen_patch, asset_patch:
+        await frame_reconciliation.reconcile_action_with_frame(
+            "ws-1", DRAFT, frame=FRAME, duration_seconds=3.0, scene_index=2
+        )
+
+    assert (
+        mediagen.generate_text.await_args.kwargs["purpose"] == "frame_reconcile_scene_2"
+    )
+
+
 async def test_an_action_that_already_fits_comes_back_unchanged():
     result, _ = await _reconcile(reply=DRAFT)
 

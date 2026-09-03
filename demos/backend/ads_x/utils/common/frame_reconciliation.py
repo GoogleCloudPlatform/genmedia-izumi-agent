@@ -78,6 +78,7 @@ async def reconcile_action_with_frame(
     frame: Optional[AssetRef],
     duration_seconds: float,
     topic: str = "",
+    scene_index: Optional[int] = None,
 ) -> str:
     """Returns the action rewritten to start from the frame in ``frame``.
 
@@ -113,6 +114,11 @@ async def reconcile_action_with_frame(
                 workspace_id=workspace_id,
                 prompt=prompt,
                 reference_assets=[frame],
+                purpose=(
+                    "frame_reconcile"
+                    if scene_index is None
+                    else f"frame_reconcile_scene_{scene_index}"
+                ),
             )
         ).strip()
     except Exception as e:  # noqa: BLE001 - reconciliation must not fail a scene

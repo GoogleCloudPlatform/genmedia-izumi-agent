@@ -135,6 +135,7 @@ async def finalize_and_persist_storyboard(
             or tool_context.state.get("user_id", "default_user")
         )
         repaired_json = await mediagen_service.generate_text(
+            purpose="storyboard_repair",
             workspace_id=workspace_id,
             prompt=REPAIR_PROMPT.format(raw_json=clean_json[-5000:]),
         )

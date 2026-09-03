@@ -103,6 +103,7 @@ async def rewrite_group_script(
 
     try:
         rewritten_text = await mediagen_service.generate_text(
+            purpose="voiceover_rewrite",
             workspace_id=workspace_id,
             prompt=prompt,
         )
@@ -144,6 +145,7 @@ async def _shorten_group_script(
 
     try:
         response_text = await mediagen_service.generate_text(
+            purpose="voiceover_script",
             workspace_id=workspace_id,
             prompt=prompt,
         )

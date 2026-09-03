@@ -107,6 +107,7 @@ async def inspect_first_frame(
     frame: AssetRef,
     product: AssetRef,
     logo: Optional[AssetRef] = None,
+    scene_index: Optional[int] = None,
 ) -> list[str]:
     """Returns the faults found in a generated frame, empty when it is sound.
 
@@ -133,6 +134,11 @@ async def inspect_first_frame(
             workspace_id=workspace_id,
             prompt=prompt,
             reference_assets=references,
+            purpose=(
+                "frame_check"
+                if scene_index is None
+                else f"frame_check_scene_{scene_index}"
+            ),
         )
         verdict = _parse_verdict(reply)
     except Exception as e:  # noqa: BLE001 - inspection must not fail a scene

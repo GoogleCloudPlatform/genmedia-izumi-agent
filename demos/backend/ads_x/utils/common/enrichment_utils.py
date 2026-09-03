@@ -255,6 +255,7 @@ async def enrich_prompt_with_llm(
         enriched_text = await mediagen_service.generate_text(
             workspace_id=workspace_id,
             prompt=final_prompt,
+            purpose=f"enriched_{prompt_type}_scene_{scene_index}",
         )
         return common_utils.tidy_spacing(enriched_text), None
 
@@ -274,6 +275,7 @@ async def shorten_script(text: str, target_duration: float, workspace_id: str) -
     )
     try:
         shortened_text = await mediagen_service.generate_text(
+            purpose="script_shorten",
             workspace_id=workspace_id,
             prompt=prompt,
         )
