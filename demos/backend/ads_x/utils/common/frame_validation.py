@@ -48,8 +48,9 @@ FAULT_MISSING_MARKINGS = (
     "position and proportion. An unbranded product is not the product."
 )
 FAULT_LOGO_ON_PRODUCT = (
-    "The brand logo is applied to the product. Place it on its own surface, "
-    "physically separate, and leave the product bare."
+    "The supplied brand logo has been applied to the product. Move it onto "
+    "its own surface, physically separate from the product. The product keeps "
+    "every marking its own reference shows, unchanged and in place."
 )
 FAULT_STUDIO_CUTOUT = (
     "The frame is a product cutout on a plain studio background. Build the "
@@ -60,11 +61,17 @@ FAULT_IMPLAUSIBLE_PRODUCT = (
     "nothing holding it. Place it in the scene at its true size, resting on "
     "or attached to something."
 )
+FAULT_REFERENCE_REPRODUCTION = (
+    "The frame reproduces one of the reference images instead of building the "
+    "described scene. Take only the product's appearance from a reference. Do "
+    "not carry over its layout, its arrangement of products, its background, "
+    "or any headline or marketing copy set around the product. Build the "
+    "environment the description asks for."
+)
 
 _INSPECTION_PROMPT = """You are inspecting one generated advertising frame.
 
-Image 1 is the PRODUCT REFERENCE: the product exactly as it really looks.
-{logo_line}Image {frame_index} is the GENERATED FRAME under inspection.
+{roster}
 
 Compare them and answer only about what is visible. Reply with JSON and
 nothing else:
@@ -73,7 +80,8 @@ nothing else:
   "missing_markings": <true|false>,
   "logo_on_product": <true|false>,
   "studio_cutout": <true|false>,
-  "implausible_product": <true|false>}}
+  "implausible_product": <true|false>,
+  "reproduces_reference": <true|false>}}
 
 added_markings: true only if the product in the generated frame carries a
 marking that is ABSENT from the reference - different words, an emblem the
@@ -88,9 +96,13 @@ or other printed text and the generated product does not carry it. A branded
 product rendered blank is this fault. False when the reference product is
 itself unmarked.
 
-logo_on_product: true if a brand logo or wordmark appears printed, embossed,
-engraved, stitched or otherwise applied to the product itself. False when the
-logo sits on a separate surface such as a card, plate, sign or wall.
+logo_on_product: true only if the SUPPLIED LOGO has been applied to the
+product itself - printed, embossed, engraved, stitched or otherwise placed on
+it - where the product reference does not carry it there. The markings the
+product reference already shows are part of the product, so a label, wordmark
+or name the reference has is false here however prominent it is, and a bottle
+label, a printed carton or a bag front is false. False when the logo sits on a
+separate surface such as a card, plate, sign or wall.
 
 studio_cutout: true if the product stands on a plain white or grey studio
 sweep with no real environment around it.
@@ -100,7 +112,17 @@ several times its real size against the people or furniture beside it, or it
 hangs in the air with nothing holding it. Judge this one generously. A hero
 close-up, a product large in frame, a bold or unusual angle, an artistic
 composition: all fine, all false. Reserve true for what a viewer would read
-as a mistake rather than a choice."""
+as a mistake rather than a choice.
+
+reproduces_reference: true if the frame is a copy of one of the reference
+images rather than a new scene. Some references are themselves finished
+advertisements - a poster or marketing still carrying headline copy, a slogan
+or blocks of body text laid out around the product. That reference is
+reproduced when the frame repeats its wording, its arrangement of products, or
+its layout. The product itself appearing is expected and is never this fault;
+the reference's composition and its marketing words appearing is. False when
+the product has been placed in an environment none of the references show,
+however closely the product itself matches them."""
 
 
 def _parse_verdict(raw: str) -> Optional[dict[str, bool]]:
@@ -122,6 +144,7 @@ async def inspect_first_frame(
     frame: AssetRef,
     product: AssetRef,
     logo: Optional[AssetRef] = None,
+    others: Optional[list[AssetRef]] = None,
     scene_index: Optional[int] = None,
 ) -> list[str]:
     """Returns the faults found in a generated frame, empty when it is sound.
@@ -132,14 +155,27 @@ async def inspect_first_frame(
     """
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
+    # Every reference the frame was built from is shown, not just the product:
+    # the one a frame copies is usually a composed marketing still rather than
+    # the product shot, so a roster of one cannot find it.
     references = [product]
-    logo_line = ""
+    roster = [
+        "Image 1 is the PRODUCT REFERENCE: the product exactly as it really looks."
+    ]
     if logo is not None:
         references.append(logo)
-        logo_line = "Image 2 is the BRAND LOGO supplied for this campaign.\n"
+        roster.append(
+            f"Image {len(references)} is the BRAND LOGO supplied for this campaign."
+        )
+    for extra in others or []:
+        references.append(extra)
+        roster.append(
+            f"Image {len(references)} is another REFERENCE supplied for this scene."
+        )
     references.append(frame)
+    roster.append(f"Image {len(references)} is the GENERATED FRAME under inspection.")
 
-    prompt = _INSPECTION_PROMPT.format(logo_line=logo_line, frame_index=len(references))
+    prompt = _INSPECTION_PROMPT.format(roster="\n".join(roster))
 
     try:
         # generate_text, not generate_text_with_gemini: the latter is absent
@@ -175,6 +211,8 @@ async def inspect_first_frame(
         faults.append(FAULT_STUDIO_CUTOUT)
     if verdict.get("implausible_product"):
         faults.append(FAULT_IMPLAUSIBLE_PRODUCT)
+    if verdict.get("reproduces_reference"):
+        faults.append(FAULT_REFERENCE_REPRODUCTION)
     return faults
 
 

@@ -205,6 +205,16 @@ async def enrich_prompt_with_llm(
     if prompt_type == "image":
         mission_commands += [
             (
+                "SPELL THE WORDS THE FRAME MUST SHOW. Where the packet carries a "
+                "Text Overlay, or the action names text the frame displays, write "
+                "those words into your description inside quotation marks, spelled "
+                "character for character, and name the brand in full every time "
+                "you refer to the product or its logo. Naming a mark instead of "
+                "spelling it - 'the brand logo lockup', 'the product name', 'the "
+                "bottled water product' - leaves the renderer to copy the letters "
+                "out of the reference image, and it misspells them."
+            ),
+            (
                 "BRAND MARK PLACEMENT: a supplied logo occupies its own space in the "
                 "frame - an overlay, a card, a plate, a wall, or clear ground beside "
                 "the product. Do NOT print, emboss, engrave, etch, stitch or "
@@ -223,8 +233,9 @@ async def enrich_prompt_with_llm(
             ),
             (
                 "PRODUCT FIDELITY: a supplied product image is the authority on how "
-                "that product looks. Refer to it plainly - by name, or as 'the "
-                "supplied product' - and let the reference carry its appearance. Do "
+                "that product looks. Refer to it by its brand and product name and "
+                "let the reference carry its appearance. Naming it is required; "
+                "describing it is not. Do "
                 "NOT restate or elaborate its form, proportions, surface finish, "
                 "engraving, embossing, pattern, texture or markings, and do NOT "
                 "enrich them with adjectives such as ornate, intricate, filigreed, "

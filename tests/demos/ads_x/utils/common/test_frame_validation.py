@@ -236,3 +236,60 @@ def test_the_inspector_separates_absent_from_badly_drawn():
     # The false positive that stripped a real wordmark.
     assert "NOT about how well an existing marking is drawn" in prompt
     assert "rendered imperfectly" in prompt
+
+
+# --------------------------------------------------------------------------
+# Reference reproduction
+#
+# Some supplied references are finished advertisements rather than product
+# shots. Handed one, the renderer returned the poster: a SmartWater frame came
+# back carrying that still's own headline copy and its two-bottle arrangement.
+# --------------------------------------------------------------------------
+
+OTHER = AssetRef(id="other-1", asset_type="uploaded", workspace_id="ws")
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_asset_service")
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+async def test_a_copied_reference_is_reported(mock_mediagen, mock_assets):
+    mediagen, assets = _service_returning(
+        '{"added_markings": false, "missing_markings": false, '
+        '"logo_on_product": false, "studio_cutout": false, '
+        '"implausible_product": false, "reproduces_reference": true}'
+    )
+    mock_mediagen.return_value, mock_assets.return_value = mediagen, assets
+
+    faults = await frame_validation.inspect_first_frame("ws", FRAME, PRODUCT, LOGO)
+
+    assert len(faults) == 1
+    assert "reproduces one of the reference images" in faults[0]
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_asset_service")
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+async def test_every_reference_is_shown_to_the_inspector(mock_mediagen, mock_assets):
+    # The copied image is usually a marketing still rather than the product
+    # shot, so an inspection holding only the product cannot find it.
+    mediagen, assets = _service_returning('{"added_markings": false}')
+    mock_mediagen.return_value, mock_assets.return_value = mediagen, assets
+
+    await frame_validation.inspect_first_frame(
+        "ws", FRAME, PRODUCT, LOGO, others=[OTHER]
+    )
+
+    kwargs = mediagen.generate_text.await_args.kwargs
+    assert kwargs["reference_assets"] == [PRODUCT, LOGO, OTHER, FRAME]
+    # The frame is the last image, and the roster must say so for the indices
+    # in the prompt to name the right pictures.
+    assert "Image 4 is the GENERATED FRAME" in kwargs["prompt"]
+    assert "Image 3 is another REFERENCE" in kwargs["prompt"]
+
+
+def test_showing_the_product_is_not_reproducing_the_reference():
+    prompt = " ".join(frame_validation._INSPECTION_PROMPT.split())
+
+    assert "reproduces_reference" in prompt
+    # Every frame shows the product; only the borrowed layout is the fault.
+    assert "The product itself appearing is expected and is never this fault" in prompt

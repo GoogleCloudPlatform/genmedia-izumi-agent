@@ -186,6 +186,11 @@ async def generate_scene_first_frame(
                 ),
                 product=product_asset,
                 logo=refs_by_name.get(logo_ref or ""),
+                others=[
+                    ref
+                    for name, ref in refs_by_name.items()
+                    if name not in (product_ref, logo_ref)
+                ],
                 scene_index=index,
             )
             if not faults:
