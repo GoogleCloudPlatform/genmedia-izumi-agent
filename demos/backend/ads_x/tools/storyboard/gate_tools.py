@@ -582,11 +582,31 @@ async def await_final_cut_approval(tool_context: ToolContext) -> ToolResult:
         if not isinstance(scene, dict):
             continue
         video = scene.get("video_prompt") or {}
-        clips.append({**digest, "asset_id": video.get("asset_id")})
+        failure = video.get("render_failure") or {}
+        clips.append(
+            {
+                **digest,
+                "asset_id": video.get("asset_id"),
+                "render_failure": failure.get("message"),
+            }
+        )
+
+    # A scene that could not be rendered holds on its opening frame. It looks
+    # like a deliberate still unless it is called out.
+    blocked = [c for c in clips if c.get("render_failure")]
+    note = ""
+    if blocked:
+        listed = "; ".join(
+            f"{c.get('scene_id') or 'a scene'}: {c['render_failure']}" for c in blocked
+        )
+        note = (
+            f" {len(blocked)} of them could not be rendered and hold on a "
+            f"still image instead. {listed}"
+        )
 
     message = (
-        f"Your video is ready: {len(clips)} clips, stitched. Accept to finish, "
-        f"or name the clips that need another take and they will be "
+        f"Your video is ready: {len(clips)} clips, stitched.{note} Accept to "
+        f"finish, or name the clips that need another take and they will be "
         f"re-rendered and the cut rebuilt."
     )
 

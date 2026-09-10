@@ -691,3 +691,66 @@ async def test_an_unknown_frame_verdict_is_refused():
 
     assert result["status"] == "failed"
     assert ctx.state.get(gate_tools.FRAME_DECISION_KEY) is None
+
+
+# --------------------------------------------------------------------------
+# A scene that could not be rendered
+#
+# The clip falls back to its opening frame, which in the finished cut is
+# indistinguishable from a deliberate still.
+# --------------------------------------------------------------------------
+
+
+def _campaign_with_a_blocked_scene():
+    state = _finished_campaign()
+    state["storyboard"]["scenes"].append(
+        {
+            "scene_id": "scene_2",
+            "topic": "detail",
+            "video_prompt": {
+                "description": "a detail shot.",
+                "duration_seconds": 3,
+                "asset_id": "img-2",
+                "render_failure": {
+                    "kind": "blocked",
+                    "message": (
+                        "Video was blocked: the clip resembled a recognisable "
+                        "person."
+                    ),
+                },
+            },
+        }
+    )
+    return state
+
+
+async def test_a_blocked_scene_is_named_at_the_final_cut():
+    payload = (
+        await gate_tools.await_final_cut_approval(
+            _ctx(_campaign_with_a_blocked_scene())
+        )
+    )["result"]
+
+    assert "could not be rendered" in payload["message"]
+    assert "recognisable person" in payload["message"]
+    assert "scene_2" in payload["message"], "say which scene"
+
+
+async def test_the_clip_carries_its_own_failure():
+    payload = (
+        await gate_tools.await_final_cut_approval(
+            _ctx(_campaign_with_a_blocked_scene())
+        )
+    )["result"]
+
+    failures = [c.get("render_failure") for c in payload["clips"]]
+    assert failures[0] is None
+    assert "blocked" in (failures[1] or "").lower()
+
+
+async def test_a_clean_cut_says_nothing_about_failures():
+    payload = (await gate_tools.await_final_cut_approval(_ctx(_finished_campaign())))[
+        "result"
+    ]
+
+    assert "could not be rendered" not in payload["message"]

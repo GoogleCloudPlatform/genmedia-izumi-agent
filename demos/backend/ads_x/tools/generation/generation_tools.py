@@ -202,7 +202,11 @@ async def generate_scene_video(
 
     except Exception as e:
         logger.error(f"Critical video generation failure for scene {index}: {e}")
-        # Critical Fallback
+        # Critical Fallback. The scene keeps its opening frame as a still so
+        # the cut can still be assembled, and records why there is no motion:
+        # a still is otherwise indistinguishable from a rendered clip, and the
+        # reviewer is left wondering why one scene does not move.
+        video_prompt_data["render_failure"] = _describe_render_failure(e)
         logger.warning(
             f"Video generation failed for scene {index}. Using static frame."
         )
@@ -213,6 +217,49 @@ async def generate_scene_video(
             "workspace_id": workspace_id,
         }
         return [first_frame_asset, first_frame_asset]
+
+
+# Wording the responsible-AI filter returns, mapped to what a reviewer can act
+# on. The filter reports what it objected to; the brief is what produced it.
+_BLOCK_GUIDANCE = (
+    (
+        "prominent individuals",
+        "the clip resembled a recognisable person. Describe the cast "
+        "generically, or supply your own footage for this scene.",
+    ),
+    (
+        "reputational harms",
+        "the clip depicted a photorealistic person in a way the safety "
+        "filter refuses. Describe the cast generically, or keep this scene "
+        "product-only.",
+    ),
+    (
+        "child",
+        "the clip depicted a minor. Scenes featuring children cannot be " "generated.",
+    ),
+)
+
+
+def _describe_render_failure(error: Exception) -> dict[str, str]:
+    """Explains, in the reviewer's terms, why a scene has no video."""
+    text = str(error)
+    lowered = text.lower()
+    if "content_blocked" in lowered or "responsible ai" in lowered:
+        reason = next(
+            (guidance for needle, guidance in _BLOCK_GUIDANCE if needle in lowered),
+            "the safety filter refused the generated clip.",
+        )
+        return {
+            "kind": "blocked",
+            "message": f"Video was blocked: {reason}",
+            "detail": text[:500],
+        }
+    return {
+        "kind": "error",
+        "message": "Video generation failed, so this scene holds on its "
+        "opening frame.",
+        "detail": text[:500],
+    }
 
 
 async def generate_scene_first_frame_step(
