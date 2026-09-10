@@ -19,6 +19,8 @@ import uuid
 from typing import Any, Dict, Tuple
 
 import mediagent_kit.services.aio
+
+from . import common_utils
 from ...instructions.generation import generation_prompts
 
 logger = logging.getLogger(__name__)
@@ -40,7 +42,7 @@ async def enrich_prompt_with_llm(
     # SANITIZATION: Strip internal logic tags from description before building prompt
     for tag in ["[PRODUCT REQUIRED]", "[CHARACTER REQUIRED]", "[PERSON REQUIRED]"]:
         description = description.replace(tag, "").replace(tag.lower(), "")
-    description = description.strip()
+    description = common_utils.tidy_spacing(description)
 
     cinematography = prompt_data.get("cinematography", {})
     audio = prompt_data.get("audio", {})
@@ -124,7 +126,14 @@ async def enrich_prompt_with_llm(
             )
         else:
             prompt_packet.append(
-                "### [VISUAL CONTINUITY REFERENCE]\nUse the attached image as the literal starting frame. Do NOT deviate from its established look."
+                "### [WHAT THE SHOT ALREADY CONTAINS]\n"
+                "The action below has already been checked against this shot's "
+                "rendered first frame, so it is a true account of what is "
+                "there at the start. You are not shown that frame; the action "
+                "is your only sight of it. Read every object it names as "
+                "present, and every object it does not name as absent.\n"
+                "Movement is unconstrained. Invent freely in time within the "
+                "world the action establishes."
             )
 
     # 5. AUDIO & PERFORMANCE CONTEXT
@@ -157,7 +166,96 @@ async def enrich_prompt_with_llm(
             "soften, or omit them. Express them in natural cinematic language and do "
             "NOT print the literal bracket tag."
         ),
+        (
+            "BRAND MARK FIDELITY: a supplied logo or wordmark is reproduced "
+            "exactly as provided, in its own colours and proportions. The art "
+            "direction governs the scene around it - the surface it rests on, "
+            "the light falling across it, the depth of field - never the mark "
+            "itself. Do NOT recolour, tint, plate, or re-finish it to match "
+            "the palette, and do NOT describe it in the palette's materials."
+        ),
     ]
+
+    # A video call is handed a frame that has already settled what is in the
+    # shot, so it is asked for time rather than composition.
+    if prompt_type == "video":
+        mission_commands.append(
+            "WHAT EXISTS IS SETTLED BY THE FRAME. Invent freely in time: "
+            "movement, shifting light, a rack of focus, rising steam, drifting "
+            "dust, a travelling reflection, the way the camera breathes. Those "
+            "are the frame's own contents behaving over the seconds that "
+            "follow, and richer is better. What you must not do is add matter: "
+            "no object or substance the frame does not already hold, and no "
+            "person or hand entering a shot they were never in. If it would "
+            "have to be painted into the picture before the clip could start, "
+            "it does not belong in the action."
+        )
+        mission_commands.append(
+            "TEXT DOES NOT VANISH. Readable text in the frame - a logo "
+            "lockup, a product name, a label, a sign - is still accounted for "
+            "when the shot ends. It may hold, drift out of frame with the "
+            "camera, or fade. It may not be present in one moment and gone "
+            "the next. This is one continuous shot: do not change framing "
+            "part way through."
+        )
+
+    # Composition rules for a still frame. A video call is anchored by the
+    # first frame it is handed, so sending these there would spend the
+    # model's attention on decisions the image has already made.
+    if prompt_type == "image":
+        mission_commands += [
+            (
+                "SPELL THE WORDS THE FRAME MUST SHOW. Where the packet carries a "
+                "Text Overlay, or the action names text the frame displays, write "
+                "those words into your description inside quotation marks, spelled "
+                "character for character, and name the brand in full every time "
+                "you refer to the product or its logo. Naming a mark instead of "
+                "spelling it - 'the brand logo lockup', 'the product name', 'the "
+                "bottled water product' - leaves the renderer to copy the letters "
+                "out of the reference image, and it misspells them."
+            ),
+            (
+                "BRAND MARK PLACEMENT: a supplied logo occupies its own space in the "
+                "frame - an overlay, a card, a plate, a wall, or clear ground beside "
+                "the product. Do NOT print, emboss, engrave, etch, stitch or "
+                "otherwise apply it to the product. A supplied logo is a separate "
+                "brand asset and the marking it carries is frequently not the "
+                "marking the product carries, so applying it invents branding the "
+                "product reference does not show. The product wears exactly what "
+                "its own reference image shows, no more and no less. Count the "
+                "marks in that image and reproduce those: a wordmark, a product "
+                "name or printed text on the reference must appear on the "
+                "product, in the same place and proportion. If it carries an icon "
+                "and no words, NO words appear on the product anywhere in the "
+                "frame. If it carries no mark at all, the product surface stays "
+                "bare. A branded product rendered blank is as wrong as an "
+                "unbranded one covered in text."
+            ),
+            (
+                "PRODUCT FIDELITY: a supplied product image is the authority on how "
+                "that product looks. Refer to it by its brand and product name and "
+                "let the reference carry its appearance. Naming it is required; "
+                "describing it is not. Do "
+                "NOT restate or elaborate its form, proportions, surface finish, "
+                "engraving, embossing, pattern, texture or markings, and do NOT "
+                "enrich them with adjectives such as ornate, intricate, filigreed, "
+                "finely detailed or hand-tooled. Decoration the reference does not "
+                "show must not appear, and branding it does show must not be "
+                "dropped. The art direction governs the scene around "
+                "the product - the surface it rests on, the light, the lens, the "
+                "depth of field - never the product itself."
+            ),
+            (
+                "THE FRAME IS A SCENE, NOT A CUTOUT. A reference image supplies the "
+                "product's appearance, never the shot. The described environment is "
+                "built around the product: its surfaces, depth, light sources and "
+                "background all appear. NEVER place the product on a plain white, "
+                "grey or empty studio sweep, and NEVER reproduce the framing or "
+                "backdrop of the reference photograph. A frame that could be "
+                "mistaken for the supplied product shot is wrong, and cutting from "
+                "it into a dressed scene reads as a jump cut."
+            ),
+        ]
 
     if context:
         mission_commands.append(
@@ -181,8 +279,9 @@ async def enrich_prompt_with_llm(
         enriched_text = await mediagen_service.generate_text(
             workspace_id=workspace_id,
             prompt=final_prompt,
+            purpose=f"enriched_{prompt_type}_scene_{scene_index}",
         )
-        return enriched_text.strip(), None
+        return common_utils.tidy_spacing(enriched_text), None
 
     except Exception as e:
         logger.warning(f"Prompt enrichment failed ({e}). Falling back to raw formula.")
@@ -200,6 +299,7 @@ async def shorten_script(text: str, target_duration: float, workspace_id: str) -
     )
     try:
         shortened_text = await mediagen_service.generate_text(
+            purpose="script_shorten",
             workspace_id=workspace_id,
             prompt=prompt,
         )

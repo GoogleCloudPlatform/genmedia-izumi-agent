@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.agents.sequential_agent import SequentialAgent
@@ -25,7 +27,7 @@ def test_agent_definitions():
     # Verify LlmAgents
     assert isinstance(parameters_agent, LlmAgent)
     assert parameters_agent.name == "parameters_agent"
-    assert parameters_agent.model == "gemini-3.5-flash"
+    assert parameters_agent.model == "gemini-3.7-flash"
 
     assert isinstance(user_assets_agent, LlmAgent)
     assert user_assets_agent.name == "user_assets_agent"
@@ -36,7 +38,7 @@ def test_agent_definitions():
 
     assert isinstance(storyboard_agent_templated, LlmAgent)
     assert storyboard_agent_templated.name == "storyboard_agent_templated"
-    assert storyboard_agent_templated.model == "gemini-3.5-flash"
+    assert storyboard_agent_templated.model == "gemini-3.7-flash"
 
     assert isinstance(strategy_agent, LlmAgent)
     assert strategy_agent.name == "strategy_agent"
@@ -80,5 +82,116 @@ def test_agent_tools():
     # Storyboard Agent Creative should have recommend_production_recipe and finalize_and_persist_storyboard
     assert len(storyboard_agent_creative.tools) == 2
 
-    # Generation Agent should have generate_all_media, stitch_final_video, create_campaign_summary
-    assert len(generation_agent.tools) == 3
+    # Generation Agent: the batch pipeline plus the per-scene HITL entry points.
+    assert {t.name for t in generation_agent.tools} == {
+        "generate_all_media",
+        "stitch_final_video",
+        "create_campaign_summary",
+        "regenerate_scene",
+        "clear_scene_assets_for_regeneration",
+    }
+
+
+def test_pipeline_has_no_review_gate_by_default():
+    """Standalone Izumi must be unaffected: a gate nobody answers hangs the run."""
+    from ads_x.agent import _build_pipeline_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", False):
+        stages = [a.name for a in _build_pipeline_stages()]
+
+    assert stages == ["planning_agent_text", "generation_agent"]
+
+
+def test_review_gate_is_inserted_before_generation_when_enabled():
+    from ads_x.agent import _build_pipeline_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", True):
+        stages = [a.name for a in _build_pipeline_stages()]
+
+    assert stages == [
+        "planning_agent_text",
+        "storyboard_review_loop",
+        "frames_agent",
+        "frame_review_loop",
+        "videos_agent",
+        "final_cut_review_loop",
+    ]
+    # A checkpoint is worthless once the thing it guards has been paid for.
+    assert stages.index("storyboard_review_loop") < stages.index("frames_agent")
+    assert stages.index("frame_review_loop") < stages.index("videos_agent")
+
+
+def test_review_is_a_bounded_loop_around_the_gate():
+    """Review is a conversation: modify -> edit -> review again, until accept."""
+    from ads_x.agent import storyboard_review_loop
+
+    assert [a.name for a in storyboard_review_loop.sub_agents] == [
+        "storyboard_gate_agent"
+    ]
+    # Each pass waits on a human, so this is a backstop against a model that
+    # re-gates forever without ever recording an acceptance - not a throttle.
+    assert storyboard_review_loop.max_iterations
+    assert storyboard_review_loop.max_iterations <= 20
+
+
+def test_planning_has_no_strategy_gate_by_default():
+    from ads_x.agent import _planning_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", False):
+        stages = [a.name for a in _planning_stages()]
+
+    assert stages == [
+        "parameters_agent",
+        "user_assets_agent",
+        "strategy_agent",
+        "storyboard_router",
+    ]
+
+
+def test_strategy_gate_sits_between_strategy_and_the_storyboard():
+    from ads_x.agent import _planning_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", True):
+        stages = [a.name for a in _planning_stages()]
+
+    # Late enough that there is a plan to review, early enough that changing
+    # it costs nothing.
+    assert stages.index("strategy_agent") < stages.index("strategy_review_loop")
+    assert stages.index("strategy_review_loop") < stages.index("storyboard_router")
+
+
+def test_both_review_loops_are_bounded():
+    from ads_x.agent import storyboard_review_loop, strategy_review_loop
+
+    for loop in (strategy_review_loop, storyboard_review_loop):
+        assert loop.max_iterations and loop.max_iterations <= 20
+
+
+def test_every_checkpoint_appears_in_order_when_enabled():
+    from ads_x.agent import _build_pipeline_stages, _planning_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", True):
+        planning = [a.name for a in _planning_stages()]
+        pipeline = [a.name for a in _build_pipeline_stages()]
+
+    # Each checkpoint sits where the correction it invites is still cheap.
+    # Strategy is reviewed before a scene is written...
+    assert planning.index("strategy_review_loop") < planning.index("storyboard_router")
+    # ...the storyboard before anything is rendered...
+    assert pipeline.index("storyboard_review_loop") < pipeline.index("frames_agent")
+    # ...the frames once they exist but before the videos they anchor...
+    assert pipeline.index("frames_agent") < pipeline.index("frame_review_loop")
+    assert pipeline.index("frame_review_loop") < pipeline.index("videos_agent")
+    # ...and the cut after it is assembled.
+    assert pipeline.index("videos_agent") < pipeline.index("final_cut_review_loop")
+
+
+def test_no_checkpoints_at_all_when_disabled():
+    from ads_x.agent import _build_pipeline_stages, _planning_stages, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", False):
+        names = [a.name for a in _planning_stages()] + [
+            a.name for a in _build_pipeline_stages()
+        ]
+
+    assert not [n for n in names if "gate" in n or "review" in n]

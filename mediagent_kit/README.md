@@ -64,9 +64,9 @@ To ensure the absolute highest fidelity and smoothest media rendering experience
 - **Why it Matters**: Just like organizing footage in a professional editing bay, mixing multiple products and brands into the same Izumi workspace can clutter your media library. Uploaded images and rendered clips accumulate in the right-hand canvas panel.
 - **Pro-Tip**: To keep your art direction perfectly focused, always **create a completely new Izumi project** whenever you begin generating an entirely new advertising campaign.
 
-### 2. Keep Content Commercial-Safe (Veo Compliance)
-- **Why it Matters**: The underlying Google Veo video engine is highly optimized for premium commercial rendering and enforces strict safety compliance guidelines. 
-- **Pro-Tip**: Ensure your creative scripts and visual action prompts maintain standard PG-rated, brand-safe commercial messaging. If the Veo engine detects sensitive, explicit, or restricted topics, the video rendering pipeline will automatically pause, outputting a **high-quality static frame** in place of your full video clip to protect brand integrity.
+### 2. Keep Content Commercial-Safe
+- **Why it Matters**: The underlying generative models are optimized for premium commercial rendering and enforce strict safety compliance guidelines. This applies to every stage, not only video: a music brief can be refused on policy grounds just as a visual prompt can.
+- **Pro-Tip**: Ensure your creative scripts and visual action prompts maintain standard PG-rated, brand-safe commercial messaging. A prompt a model declines does not fail the campaign; the pipeline reports the refusal and continues, so a run can complete with a scene or an audio track missing.
 - **Reference**: Review the official [Vertex AI Responsible AI and Usage Guidelines](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/video/responsible-ai-and-usage-guidelines) for complete details on content policies.
 
 ## 🛠️ Getting Started for Developers
@@ -123,20 +123,49 @@ This section provides a detailed estimate of the API calls and associated costs 
 
 ### 🛠️ Pipeline Models in Use
 Based on the codebase (`agent.py` and `mediagent_config.json`), the pipeline uses a multi-model approach:
--   🤖 **Root & Sequential Agents**: `gemini-2.5-flash`
+-   🤖 **Root & Sequential Agents**: `gemini-3.7-flash`
 -   🎬 **Custom Storyboard Agent**: `gemini-3.1-pro-preview`
--   📋 **Templated Storyboard Agent**: `gemini-3-flash-preview`
--   ✨ **Prompt Enrichment**: `gemini-3-flash-preview`
+-   📋 **Templated Storyboard Agent**: `gemini-3.7-flash`
+-   ✨ **Prompt Enrichment**: `gemini-3.7-flash`
 -   🎨 **Image Generation**: `gemini-3.1-flash-image`
 -   🗣️ **Voiceover (TTS)**: `gemini-3.1-flash-tts-preview`
--   🎥 **Video Generation**: `veo-3.1-generate-001`
+-   🎥 **Video Generation**: `gemini-omni-flash-preview`
 -   🎵 **Music**: `lyria-3-clip-preview`
+
+### 🎥 Gemini Omni Video Generation
+
+`gemini-omni-flash-preview` is the default video model. It is reached through the
+Vertex AI `interactions` resource rather than the `:predict` endpoint that Veo
+uses, which changes several things a caller has to account for:
+
+| Property | Behaviour |
+| :--- | :--- |
+| **Endpoint** | `v1beta1/projects/{project}/locations/global/interactions`, served from `global` only with no regional host |
+| **Invocation** | A single synchronous `POST`. The clip arrives in the response body instead of behind a long-running operation to poll |
+| **Clip duration** | Honoured exactly, for any whole number of seconds from 3 to 10. A request outside that range is clamped and the substitution is logged |
+| **Resolution** | 720p |
+| **Tasks** | `text_to_video`, and `image_to_video` when a first frame is supplied |
+| **Audio** | Always produced, with no parameter to decline it. `strip_audio_from_video_blob` removes the track so the composed voiceover and music are the only audio in the finished cut |
+
+The duration contract is the practical difference from Veo. Veo renders to a
+four-second grid and the pipeline trims the surplus, so a scene is requested at
+one length and cut down to another; Omni returns the length it was asked for, and
+a storyboard's planned runtime equals the runtime of the assembled cut.
+
+Veo remains fully supported. Any model listed under `video._compatible_models` in
+`mediagent_config.json` may be set as the default, and the Veo rendering path is
+unchanged.
 
 ---
 
 ### 📈 Scenario Breakdown
 
 We analyze the two real use cases available in the repository to demonstrate the cost difference between a custom creative pipeline and a templated one. The estimates are grounded in actual log traces for a full run.
+
+> [!NOTE]
+> Both breakdowns are archived traces of specific runs, and the model names and unit prices in them are those that were current when the traces were captured. They are retained to illustrate the cost *shape* of a custom pipeline against a templated one, not as a current quote. See **Pipeline Models in Use** above for the models actually configured today.
+>
+> The video rows differ most: they price Veo's four-second rendering grid, where every scene is rounded up to four seconds and trimmed back. The configured default is now `gemini-omni-flash-preview`, which renders whole seconds from 3 to 10, so a campaign generates close to its target duration instead.
 
 ### 🎬 Case 1: Custom Cinematic Ad ("SED Snacks")
 This scenario involves dynamic planning, script generation, asset description, and iterative tool use by the agent.

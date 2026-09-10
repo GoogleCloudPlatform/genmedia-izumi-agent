@@ -1,9 +1,9 @@
 {
   "models": {
     "text": {
-      "default": "gemini-3.5-flash",
-      "repair": "gemini-3.5-flash",
-      "enrichment": "gemini-3.1-flash-preview",
+      "default": "gemini-3.7-flash",
+      "repair": "gemini-3.7-flash",
+      "enrichment": "gemini-3.7-flash",
       "_compatible_models": [
         "gemini-2.5-flash",
         "gemini-2.5-pro",
@@ -11,7 +11,8 @@
         "gemini-3.1-flash-lite-preview",
         "gemini-3.1-flash-preview",
         "gemini-3.1-pro-preview",
-        "gemini-3.5-flash"
+        "gemini-3.5-flash",
+        "gemini-3.7-flash"
       ]
     },
     "image_imagen": {
@@ -31,18 +32,19 @@
       ]
     },
     "video": {
-      "default": "veo-3.1-generate-001",
+      "default": "gemini-omni-flash-preview",
       "_compatible_models": [
         "veo-3.0-fast-generate-001",
         "veo-3.0-generate-001",
         "veo-3.1-generate-001",
         "veo-3.1-lite-generate-preview",
         "veo-3.1-lite-generate-001",
-        "veo-3.1-fast-generate-001"
+        "veo-3.1-fast-generate-001",
+        "gemini-omni-flash-preview"
       ]
     },
     "music": {
-      "default": "lyria-002",
+      "default": "lyria-3-clip-preview",
       "_compatible_models": [
         "lyria-002",
         "lyria-3-clip-preview",

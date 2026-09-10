@@ -103,6 +103,7 @@ async def rewrite_group_script(
 
     try:
         rewritten_text = await mediagen_service.generate_text(
+            purpose="voiceover_rewrite",
             workspace_id=workspace_id,
             prompt=prompt,
         )
@@ -144,6 +145,7 @@ async def _shorten_group_script(
 
     try:
         response_text = await mediagen_service.generate_text(
+            purpose="voiceover_script",
             workspace_id=workspace_id,
             prompt=prompt,
         )
@@ -170,7 +172,13 @@ async def generate_group_voiceover(
 
     # 2. Generation Loop (Max 3 attempts)
     MAX_ATTEMPTS = 4
-    SPEED_TOLERANCE = 1.25  # Allow up to 25% speed-up in post-processing
+    SPEED_TOLERANCE = 1.20  # Allow up to 20% speed-up in post-processing
+
+    # The shortest take so far. A group whose script never fits is given its
+    # closest take rather than no audio; the stitcher compresses it onto the
+    # scene, bounded by the same tolerance.
+    best_asset = None
+    best_duration = float("inf")
 
     for attempt in range(MAX_ATTEMPTS):
         filename = f"voiceover_group_{group_index}_{group.group_id}_att{attempt}.mp3"
@@ -193,6 +201,9 @@ async def generate_group_voiceover(
                 float(duration) if isinstance(duration, (int, float)) else 0.0
             )
             max_allowed = group.total_duration * SPEED_TOLERANCE
+
+            if actual_duration and actual_duration < best_duration:
+                best_asset, best_duration = voiceover_asset, actual_duration
 
             if actual_duration <= max_allowed:
                 logger.info(
@@ -222,5 +233,19 @@ async def generate_group_voiceover(
                 f"Failed to generate voiceover audio for group {group.group_id}: {e}"
             )
             break
+
+    if best_asset is not None:
+        logger.warning(
+            f"Group {group_index} never fit {group.total_duration}s. Using the "
+            f"shortest take at {best_duration:.2f}s."
+        )
+        group.rewritten_script = current_text
+        group.audio_asset_id = best_asset.id
+        group.audio_asset_ref = {
+            "id": best_asset.id,
+            "asset_type": "generated",
+            "workspace_id": workspace_id,
+        }
+        return best_asset
 
     return None

@@ -23,7 +23,7 @@ Because generating videos across Vertex AI APIs can take minutes, everything mus
 - **`job_orchestrator_service.py`**: Encapsulates the multi-step execution loop for generation tools.
 
 ### 3. The Media Generators
-- **`media_generation_service.py`**: The raw translation layer piping prompts to native Google AI models. It natively implements abstractions like **Imagen** (for Text-to-Image / Image-Editing), **Veo** (for Text/Image-to-Video), and Google Cloud Text-to-Speech (for natural voiceovers).
+- **`media_generation_service.py`**: The raw translation layer piping prompts to native Google AI models. It implements abstractions for **Imagen** and **Gemini** (Text-to-Image / Image-Editing), **Gemini Omni** and **Veo** (Text/Image-to-Video), **Lyria** (background music), and **Gemini TTS** (natural voiceovers). Omni and Lyria 3 are reached through the Vertex AI `interactions` resource, which returns the asset in the response body rather than behind a long-running operation to poll.
 - **`video_stitching_service.py`**: An advanced Python controller bridging the `AssetService` blobs into native local `tempfile` buffers, dynamically generating complex `filter_complex` graphs, and executing optimized `ffmpeg` subprocesses to concatenate multi-clip campaigns with fading audio chains into single unified MP4s. 
 
 > [!IMPORTANT]

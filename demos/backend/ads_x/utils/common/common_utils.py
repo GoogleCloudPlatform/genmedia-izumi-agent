@@ -15,6 +15,7 @@
 """Utils shared among agents and tools."""
 
 import json
+import re
 import pydantic
 from typing import Any, get_args, get_origin
 from google.genai import types
@@ -24,9 +25,55 @@ USER_ASSETS_KEY = "user_assets"
 STORYBOARD_KEY = "storyboard"
 VIRTUAL_CREATOR_KEY = "virtual_creator_metadata"
 
+
+def tidy_spacing(text: str) -> str:
+    """Closes the gap left where a word was taken out of a sentence.
+
+    Words are dropped from prompts in two places: the brand names a video
+    prompt may not carry, which the storyboard omits as it writes, and the
+    internal tags enrichment strips. Either leaves "the craftsman lowers the
+    onto the timber" or "the tin .", and a renderer reads the gap as a word it
+    cannot make out.
+    """
+    text = re.sub(r"[ \t]{2,}", " ", text)
+    text = re.sub(r"[ \t]+([,.;:!?])", r"\1", text)
+    return text.strip()
+
+
+# Ordered pipeline stages. `STAGE_COMPLETED_KEY` records the furthest stage the
+# session has finished, giving the frontend an explicit cursor instead of having
+# to infer progress from which state keys happen to be populated. HITL needs this
+# to decide which gate is active and to resume deterministically.
+STAGE_COMPLETED_KEY = "stage_completed"
+STAGES = (
+    "parameters",
+    "user_assets",
+    "strategy",
+    "storyboard",
+    "generation",
+)
+
 JSON_CONFIG = types.GenerateContentConfig(response_mime_type="application/json")
 
 ToolResult = dict[str, Any]
+
+
+def mark_stage_completed(tool_context: Any, stage: str) -> None:
+    """Records that ``stage`` finished, if it is further along than the cursor.
+
+    Only ever advances: re-running an earlier stage (an edit, a repair) must not
+    rewind the cursor and make completed downstream work look undone.
+    """
+    if stage not in STAGES or tool_context is None:
+        return
+    state = getattr(tool_context, "state", None)
+    if state is None:
+        return
+
+    current = state.get(STAGE_COMPLETED_KEY)
+    current_rank = STAGES.index(current) if current in STAGES else -1
+    if STAGES.index(stage) > current_rank:
+        state[STAGE_COMPLETED_KEY] = stage
 
 
 def tool_success(result: Any = "") -> ToolResult:

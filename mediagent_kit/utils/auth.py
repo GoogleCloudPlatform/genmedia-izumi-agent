@@ -81,3 +81,18 @@ def get_google_id_token(target_url: str) -> str | None:
     except Exception as e:
         logger.warning(f"[AUTH] Failed to fetch Google authentication token: {e}")
         return None
+
+
+def bearer(token: str | None) -> str:
+    """Formats a credential as an ``Authorization``-style header value.
+
+    A token taken from an incoming request usually arrives with the scheme
+    already on it. Prefixing it again produces "Bearer Bearer <jwt>", which a
+    backend reads as a malformed credential and rejects, so the scheme is
+    normalized here rather than assumed absent at each call site.
+    """
+    text = str(token or "").strip()
+    scheme, _, rest = text.partition(" ")
+    if scheme.lower() == "bearer":
+        text = rest.strip()
+    return f"Bearer {text}"

@@ -15,17 +15,70 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import chatService from './chatService';
+import chatService, {
+  collectReviewedGates,
+  findPendingGate,
+} from './chatService';
 import { api } from './api';
-import type { ChatMessage } from '../data/types';
+import type { ChatApiResponse, ChatMessage, PendingGate } from '../data/types';
 
 vi.mock('./api', () => ({
   api: {
     getChatMessages: vi.fn(),
     createChatSession: vi.fn(),
     sendMessage: vi.fn(),
+    sendFunctionResponse: vi.fn(),
   },
 }));
+
+/** The call event a review checkpoint opens with. */
+const gateCall = (id: string, name: string) =>
+  ({
+    author: 'ads_x',
+    longRunningToolIds: [id],
+    content: { parts: [{ functionCall: { id, name, args: {} } }] },
+  }) as unknown as ChatApiResponse;
+
+/** The "awaiting review" placeholder the checkpoint returns. */
+const gateResponse = (id: string, name: string, stage: string) =>
+  ({
+    author: 'ads_x',
+    content: {
+      parts: [
+        {
+          functionResponse: {
+            id,
+            name,
+            response: {
+              status: 'succeeded',
+              result: {
+                status: 'awaiting_human_review',
+                stage,
+                message: `Review the ${stage}.`,
+              },
+            },
+          },
+        },
+      ],
+    },
+  }) as unknown as ChatApiResponse;
+
+/** The reviewer's verdict, which closes the checkpoint. */
+const gateAnswer = (id: string, name: string) =>
+  ({
+    author: 'user',
+    content: {
+      parts: [
+        {
+          functionResponse: {
+            id,
+            name,
+            response: { decision: 'accept', guidance: '' },
+          },
+        },
+      ],
+    },
+  }) as unknown as ChatApiResponse;
 
 describe('chatService', () => {
   beforeEach(() => {
@@ -233,6 +286,259 @@ describe('chatService', () => {
       expect(cachedMessages).toHaveLength(2);
       expect(cachedMessages[0].text).toBe('Hello Gemini');
       expect(cachedMessages[1].text).toBe('Agent response');
+    });
+  });
+
+  describe('findPendingGate', () => {
+    it('returns nothing when no checkpoint was opened', () => {
+      expect(
+        findPendingGate([
+          { content: { parts: [{ text: 'Hi' }] } } as ChatApiResponse,
+        ]),
+      ).toBeNull();
+    });
+
+    it('finds the checkpoint a run is suspended on', () => {
+      const gate = findPendingGate([
+        gateCall('call-1', 'await_strategy_approval'),
+        gateResponse('call-1', 'await_strategy_approval', 'strategy'),
+      ]);
+
+      expect(gate).toEqual({
+        id: 'call-1',
+        name: 'await_strategy_approval',
+        payload: {
+          status: 'awaiting_human_review',
+          stage: 'strategy',
+          message: 'Review the strategy.',
+        },
+      });
+    });
+
+    it('ignores a long-running call that is not a checkpoint', () => {
+      expect(
+        findPendingGate([
+          gateCall('call-1', 'generate_all_media'),
+          gateResponse('call-1', 'generate_all_media', 'strategy'),
+        ]),
+      ).toBeNull();
+    });
+
+    it('ignores a checkpoint call that is not long-running', () => {
+      const call = gateCall('call-1', 'await_strategy_approval');
+      expect(
+        findPendingGate([
+          { ...call, longRunningToolIds: [] },
+          gateResponse('call-1', 'await_strategy_approval', 'strategy'),
+        ]),
+      ).toBeNull();
+    });
+
+    it('treats a checkpoint as closed once it has been answered', () => {
+      expect(
+        findPendingGate([
+          gateCall('call-1', 'await_strategy_approval'),
+          gateResponse('call-1', 'await_strategy_approval', 'strategy'),
+          gateAnswer('call-1', 'await_strategy_approval'),
+        ]),
+      ).toBeNull();
+    });
+
+    it('returns the later checkpoint when an earlier one was answered', () => {
+      const gate = findPendingGate([
+        gateCall('call-1', 'await_strategy_approval'),
+        gateResponse('call-1', 'await_strategy_approval', 'strategy'),
+        gateAnswer('call-1', 'await_strategy_approval'),
+        gateCall('call-2', 'await_storyboard_approval'),
+        gateResponse('call-2', 'await_storyboard_approval', 'storyboard'),
+      ]);
+
+      expect(gate?.id).toBe('call-2');
+      expect(gate?.payload.stage).toBe('storyboard');
+    });
+  });
+
+  describe('review checkpoints', () => {
+    const projectId = 'proj-gate';
+    const appName = 'ads_x';
+    const chatSessionId = 'session-gate';
+    const gate: PendingGate = {
+      id: 'call-1',
+      name: 'await_storyboard_approval',
+      payload: { status: 'awaiting_human_review', stage: 'storyboard' },
+    };
+
+    it('exposes the checkpoint found while loading history', async () => {
+      (api.getChatMessages as vi.Mock).mockResolvedValue({
+        events: [
+          gateCall('call-1', 'await_storyboard_approval'),
+          gateResponse('call-1', 'await_storyboard_approval', 'storyboard'),
+        ],
+      });
+
+      await chatService.getChatSessionMessages(
+        projectId,
+        appName,
+        chatSessionId,
+        true,
+      );
+
+      expect(
+        chatService.getPendingGate(projectId, appName, chatSessionId)?.id,
+      ).toBe('call-1');
+    });
+
+    it('reports a checkpoint opened mid-stream', async () => {
+      const onGate = vi.fn();
+      (api.sendMessage as vi.Mock).mockImplementation(
+        (_p, _a, _cs, _ut, _f, callbacks) => {
+          callbacks.onMessage(gateCall('call-9', 'await_final_cut_approval'));
+          callbacks.onMessage(
+            gateResponse('call-9', 'await_final_cut_approval', 'final_cut'),
+          );
+          callbacks.onClose();
+          return Promise.resolve();
+        },
+      );
+
+      await chatService.sendMessage(
+        projectId,
+        appName,
+        chatSessionId,
+        { id: 'u1', sender: 'user', text: 'go', timestamp: '' },
+        [],
+        undefined,
+        onGate,
+      );
+
+      expect(onGate).toHaveBeenCalledTimes(1);
+      expect(onGate.mock.calls[0][0].id).toBe('call-9');
+    });
+
+    it('answers a checkpoint with a function response, not text', async () => {
+      (api.sendFunctionResponse as vi.Mock).mockImplementation(
+        (_p, _a, _cs, _fr, callbacks) => {
+          callbacks.onClose();
+          return Promise.resolve();
+        },
+      );
+
+      await chatService.respondToGate(
+        projectId,
+        appName,
+        chatSessionId,
+        gate,
+        'modify',
+        'Shorten scene_2.',
+      );
+
+      expect(api.sendMessage).not.toHaveBeenCalled();
+      expect(api.sendFunctionResponse).toHaveBeenCalledWith(
+        projectId,
+        appName,
+        chatSessionId,
+        {
+          id: 'call-1',
+          name: 'await_storyboard_approval',
+          response: { decision: 'modify', guidance: 'Shorten scene_2.' },
+        },
+        expect.any(Object),
+      );
+    });
+
+    it('clears the cached checkpoint once it has been answered', async () => {
+      (api.getChatMessages as vi.Mock).mockResolvedValue({
+        events: [
+          gateCall('call-1', 'await_storyboard_approval'),
+          gateResponse('call-1', 'await_storyboard_approval', 'storyboard'),
+        ],
+      });
+      (api.sendFunctionResponse as vi.Mock).mockImplementation(
+        (_p, _a, _cs, _fr, callbacks) => {
+          callbacks.onClose();
+          return Promise.resolve();
+        },
+      );
+
+      await chatService.getChatSessionMessages(
+        projectId,
+        appName,
+        chatSessionId,
+        true,
+      );
+      await chatService.respondToGate(
+        projectId,
+        appName,
+        chatSessionId,
+        gate,
+        'accept',
+      );
+
+      expect(
+        chatService.getPendingGate(projectId, appName, chatSessionId),
+      ).toBeNull();
+    });
+  });
+
+  describe('collectReviewedGates', () => {
+    it('pairs an answered checkpoint with the plan it approved', () => {
+      const reviewed = collectReviewedGates([
+        gateCall('call-1', 'await_strategy_approval'),
+        gateResponse('call-1', 'await_strategy_approval', 'strategy'),
+        gateAnswer('call-1', 'await_strategy_approval'),
+      ]);
+
+      // Keyed by the answering event, so it lands where the call was made.
+      const entry = reviewed.get(2);
+      expect(entry?.decision).toBe('accept');
+      expect(entry?.payload.stage).toBe('strategy');
+      expect(entry?.payload.message).toBe('Review the strategy.');
+    });
+
+    it('ignores a checkpoint that is still open', () => {
+      const reviewed = collectReviewedGates([
+        gateCall('call-1', 'await_strategy_approval'),
+        gateResponse('call-1', 'await_strategy_approval', 'strategy'),
+      ]);
+
+      expect(reviewed.size).toBe(0);
+    });
+
+    it('keeps every checkpoint of a run, not just the last', () => {
+      const reviewed = collectReviewedGates([
+        gateCall('call-1', 'await_strategy_approval'),
+        gateResponse('call-1', 'await_strategy_approval', 'strategy'),
+        gateAnswer('call-1', 'await_strategy_approval'),
+        gateCall('call-2', 'await_storyboard_approval'),
+        gateResponse('call-2', 'await_storyboard_approval', 'storyboard'),
+        gateAnswer('call-2', 'await_storyboard_approval'),
+      ]);
+
+      expect([...reviewed.values()].map((g) => g.payload.stage)).toEqual([
+        'strategy',
+        'storyboard',
+      ]);
+    });
+
+    it('surfaces past reviews when the session is reloaded', async () => {
+      (api.getChatMessages as vi.Mock).mockResolvedValue({
+        events: [
+          gateCall('call-1', 'await_strategy_approval'),
+          gateResponse('call-1', 'await_strategy_approval', 'strategy'),
+          gateAnswer('call-1', 'await_strategy_approval'),
+        ],
+      });
+
+      const messages = await chatService.getChatSessionMessages(
+        'proj-r',
+        'ads_x',
+        'session-r',
+        true,
+      );
+
+      const withGate = messages.filter((m) => m.reviewedGate);
+      expect(withGate).toHaveLength(1);
+      expect(withGate[0].reviewedGate?.payload.stage).toBe('strategy');
     });
   });
 });

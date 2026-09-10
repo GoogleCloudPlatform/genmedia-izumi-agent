@@ -158,3 +158,20 @@ def client():
     """Returns a FastAPI TestClient for E2E API testing."""
     with TestClient(app) as client:
         yield client
+
+
+@pytest.fixture(autouse=True)
+def reset_request_context():
+    """Isolates the request context, which is a process-global contextvar.
+
+    Credentials published by one test are visible to every test that runs
+    after it in the same process, which turns a missing-token assertion into
+    a pass depending on file ordering.
+    """
+    from mediagent_kit.utils.context import request_context_var
+
+    token = request_context_var.set(None)
+    try:
+        yield
+    finally:
+        request_context_var.reset(token)

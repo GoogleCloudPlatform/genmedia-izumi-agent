@@ -80,6 +80,18 @@ class ImmediateRetriableAPIError(Exception):
     pass
 
 
+class ContentBlockedError(Exception):
+    """Exception raised when a model refuses a prompt on policy grounds.
+
+    Distinct from ImmediateRetriableAPIError: the refusal depends on the prompt,
+    so resending the same text yields the same refusal. The retry decorator
+    re-raises it without retrying, and a caller recovers by rewording the
+    request.
+    """
+
+    pass
+
+
 ReturnType = TypeVar("ReturnType")  # Return type of the decorated function
 
 
@@ -102,6 +114,15 @@ def retry_on_error(
                 try:
                     return func(*args, **kwargs)
                 except Exception as e:
+                    # A policy refusal depends on the request content, so an
+                    # identical retry cannot succeed. It leaves the loop here
+                    # rather than being logged as an unexpected error.
+                    if isinstance(e, ContentBlockedError):
+                        logger.warning(
+                            f"Function {func.__name__} was refused on policy grounds: {e}"
+                        )
+                        raise
+
                     if i == retries:
                         logger.error(
                             f"Function {func.__name__} failed after {retries + 1} attempts. Final error: {e}"

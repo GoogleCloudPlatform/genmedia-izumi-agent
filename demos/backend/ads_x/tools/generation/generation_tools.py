@@ -22,6 +22,7 @@ from typing import Any, List, Optional
 
 from google.adk.tools.tool_context import ToolContext
 
+from config import settings
 from utils.adk import (
     get_user_id_from_context,
     get_session_id_from_context,
@@ -29,13 +30,53 @@ from utils.adk import (
 )
 import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
+from mediagent_kit.services.types.common import AssetRef
 
-from ...utils.common import common_utils, enrichment_utils, scene_generation_utils
-from ...utils.storyboard import template_library, storyboard_model
+from ...utils.common import (
+    common_utils,
+    enrichment_utils,
+    frame_reconciliation,
+    scene_generation_utils,
+)
+from ...utils.storyboard import storyboard_merge, template_library, storyboard_model
 from ...utils.generation import grouping_utils, generation_helpers
+from ..storyboard import gate_tools
 from . import voiceover_tools
 
 logger = logging.getLogger(__name__)
+
+# Which half of generation a call performs. The frames are cheap and the
+# videos are not, so the two can be separated by a review checkpoint.
+FRAMES_PHASE = "frames"
+VIDEOS_PHASE = "videos"
+ALL_PHASES = "all"
+
+
+def _configured_video_model() -> str | None:
+    """The video model in force, so duration can be fitted to what it renders."""
+    try:
+        config = mediagent_kit.services.aio.get_config()
+        return (config.models.get("video", {}) or {}).get("default")
+    except Exception:  # pragma: no cover - config is optional at import time
+        return None
+
+
+def _cast_creator_filename(
+    tool_context: ToolContext, user_assets: dict[str, Any]
+) -> Optional[str]:
+    """The filename of the cast virtual creator, or None if none was cast.
+
+    Casting records the name it saved the headshot under, and that name is the
+    only one the asset store resolves. It is therefore preferred over any name
+    rebuilt from the database id; the scan of ``user_assets`` covers sessions
+    cast before the name was recorded.
+    """
+    metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY) or {}
+    recorded = metadata.get("file_name")
+    if recorded:
+        return str(recorded)
+    return next((k for k in user_assets if k.startswith("virtual_creator_")), None)
+
 
 ToolResult = common_utils.ToolResult
 tool_success = common_utils.tool_success
@@ -64,8 +105,6 @@ async def generate_scene_video(
         asset_service = mediagent_kit.services.aio.get_asset_service()
         # NOTE: Unified AssetServiceInterface adaptation.
         # This would break legacy version due to function signature and method name mismatch.
-        from mediagent_kit.services.types.common import AssetRef
-
         ref_dict = video_prompt_data["asset_ref"]
         ref = AssetRef(
             id=str(ref_dict["id"]),
@@ -89,7 +128,8 @@ async def generate_scene_video(
         return []
 
     valid_duration = generation_helpers.clamp_duration(
-        video_prompt_data.get("duration_seconds", 6)
+        video_prompt_data.get("duration_seconds", 6),
+        model=_configured_video_model(),
     )
 
     # Enrichment Logic
@@ -100,10 +140,28 @@ async def generate_scene_video(
         elif audio_hints := scene.get("audio_hints"):
             enrichment_data["audio"] = audio_hints
 
+    # The action was drafted beside an imagined opening frame rather than the
+    # one that was rendered. Reconcile the two before enrichment, which is
+    # handed the frame as well but has art direction to apply and rewords an
+    # action rather than restarting it.
+    reconciled_action = await frame_reconciliation.reconcile_action_with_frame(
+        workspace_id,
+        video_prompt_data["description"],
+        frame=AssetRef(
+            id=first_frame_asset.id,
+            asset_type="generated",
+            workspace_id=workspace_id,
+        ),
+        duration_seconds=valid_duration,
+        topic=scene.get("topic") or "",
+        scene_index=index,
+    )
+    video_prompt_data["reconciled_action"] = reconciled_action
+
     final_video_prompt, enrichment_asset_id = (
         await enrichment_utils.enrich_prompt_with_llm(
             workspace_id,
-            video_prompt_data["description"],
+            reconciled_action,
             enrichment_data,
             scene_index=index,
             prompt_type="video",
@@ -114,6 +172,10 @@ async def generate_scene_video(
     )
     if enrichment_asset_id:
         video_prompt_data["enrichment_asset_id"] = enrichment_asset_id
+    # The last text the clip is rendered from. Enrichment returns it inline
+    # rather than as an asset, so without this the only record of what the
+    # model was told is a line in the server log.
+    video_prompt_data["enriched_description"] = final_video_prompt
 
     try:
         winner_asset = await scene_generation_utils.generate_scene_video(
@@ -140,7 +202,11 @@ async def generate_scene_video(
 
     except Exception as e:
         logger.error(f"Critical video generation failure for scene {index}: {e}")
-        # Critical Fallback
+        # Critical Fallback. The scene keeps its opening frame as a still so
+        # the cut can still be assembled, and records why there is no motion:
+        # a still is otherwise indistinguishable from a rendered clip, and the
+        # reviewer is left wondering why one scene does not move.
+        video_prompt_data["render_failure"] = _describe_render_failure(e)
         logger.warning(
             f"Video generation failed for scene {index}. Using static frame."
         )
@@ -151,6 +217,49 @@ async def generate_scene_video(
             "workspace_id": workspace_id,
         }
         return [first_frame_asset, first_frame_asset]
+
+
+# Wording the responsible-AI filter returns, mapped to what a reviewer can act
+# on. The filter reports what it objected to; the brief is what produced it.
+_BLOCK_GUIDANCE = (
+    (
+        "prominent individuals",
+        "the clip resembled a recognisable person. Describe the cast "
+        "generically, or supply your own footage for this scene.",
+    ),
+    (
+        "reputational harms",
+        "the clip depicted a photorealistic person in a way the safety "
+        "filter refuses. Describe the cast generically, or keep this scene "
+        "product-only.",
+    ),
+    (
+        "child",
+        "the clip depicted a minor. Scenes featuring children cannot be " "generated.",
+    ),
+)
+
+
+def _describe_render_failure(error: Exception) -> dict[str, str]:
+    """Explains, in the reviewer's terms, why a scene has no video."""
+    text = str(error)
+    lowered = text.lower()
+    if "content_blocked" in lowered or "responsible ai" in lowered:
+        reason = next(
+            (guidance for needle, guidance in _BLOCK_GUIDANCE if needle in lowered),
+            "the safety filter refused the generated clip.",
+        )
+        return {
+            "kind": "blocked",
+            "message": f"Video was blocked: {reason}",
+            "detail": text[:500],
+        }
+    return {
+        "kind": "error",
+        "message": "Video generation failed, so this scene holds on its "
+        "opening frame.",
+        "detail": text[:500],
+    }
 
 
 async def generate_scene_first_frame_step(
@@ -186,8 +295,6 @@ async def generate_scene_first_frame_step(
         asset_service = mediagent_kit.services.aio.get_asset_service()
         # NOTE: Unified AssetServiceInterface adaptation.
         # This would break legacy version due to function signature and method name mismatch.
-        from mediagent_kit.services.types.common import AssetRef
-
         ref_dict = first_frame_prompt["asset_ref"]
         ref = AssetRef(
             id=str(ref_dict["id"]),
@@ -195,6 +302,7 @@ async def generate_scene_first_frame_step(
             workspace_id=str(ref_dict.get("workspace_id", workspace_id)),
         )
         first_frame_asset = await asset_service.get_asset(ref)
+        first_frame_desc = first_frame_prompt.get("visual_anchor", "")
     else:
         logger.info(f"Starting generation for scene {index}")
 
@@ -220,6 +328,10 @@ async def generate_scene_first_frame_step(
                 "asset_type": "generated",
                 "workspace_id": workspace_id,
             }
+            # The video is anchored to a description of the frame it starts
+            # from. Frames and videos can be rendered in separate requests, so
+            # the anchor is kept rather than held in memory between them.
+            scene["first_frame_prompt"]["visual_anchor"] = first_frame_desc
         except Exception as e:
             logger.error(
                 f"Critical failure generating first frame for scene {index}: {e}"
@@ -298,12 +410,30 @@ async def generate_scene(
     return results
 
 
-async def generate_all_media(tool_context: ToolContext) -> ToolResult:
-    """Generates the media for all scenes in the storyboard."""
+async def _generate_media(tool_context: ToolContext, phase: str) -> ToolResult:
+    """Renders the storyboard's media, in one pass or in two.
+
+    Generation runs in two lanes: the fast one renders the audio and every
+    first frame, the slow one renders the videos, each anchored to its ready
+    frame. ``phase`` selects which lane this call performs, allowing a review
+    checkpoint between them.
+    """
     logger.error(
         "⭐⭐⭐ [NATIVE TOOL INVOCATION] `generate_all_media` WAS SUCCESSFULLY TRIGGERED ⭐⭐⭐"
     )
     logger.info("Tool 'generate_all_media' invoked.")
+
+    # Backstop for the review gate. The gate agent is what normally holds the
+    # pipeline, but generation is the expensive, irreversible step, so refuse it
+    # outright unless a reviewer approved this storyboard. Only enforced when
+    # gates are enabled; otherwise there is no reviewer to have approved it.
+    if settings.ENABLE_HITL_GATES and not gate_tools.storyboard_is_approved(
+        tool_context.state
+    ):
+        return tool_failure(
+            "This storyboard has not been approved yet. Seek human review with "
+            "`await_storyboard_approval` before generating media."
+        )
 
     workspace_id, ws_error = resolve_workspace_id(tool_context)
     if ws_error:
@@ -338,7 +468,13 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
     # choose grouped vs per-scene voiceover.
     voiceover_groups = []
     group_vo_tasks = []
-    if not is_ugc:
+    if phase == VIDEOS_PHASE:
+        # The frames phase rendered the narration and left it on the
+        # storyboard. Planning it again would yield groups carrying no audio,
+        # and the tail below writes whatever this holds back onto the
+        # storyboard. Left empty, that write is skipped.
+        pass
+    elif not is_ugc:
         try:
             storyboard_obj = storyboard_model.Storyboard(**storyboard)
             voiceover_groups = grouping_utils.create_voiceover_groups(storyboard_obj)
@@ -380,17 +516,7 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
 
     # --- ASSET BINDING (Hardened & Sanitized) ---
     user_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
-    creator_metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY, {})
-    creator_id_val = (
-        creator_metadata.get("asset_ref", {}).get("id") if creator_metadata else None
-    )
-    creator_id = (
-        f"virtual_creator_{creator_id_val}.png"
-        if creator_id_val
-        else next(
-            (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
-        )
-    )
+    creator_id = _cast_creator_filename(tool_context, user_assets)
     primary_product = next(
         (
             k
@@ -479,21 +605,24 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
                 f"Proactive Fallback: Bound {primary_product} to scene to prevent hallucination."
             )
 
-        # 4. PROMPT SANITIZATION: Strip tags from description before persistence and media generation
-        final_desc = first_frame_prompt.get("description", "")
-        for tag in ["[PRODUCT REQUIRED]", "[CHARACTER REQUIRED]", "[PERSON REQUIRED]"]:
-            final_desc = final_desc.replace(tag, "").replace(tag.lower(), "")
-        scene["first_frame_prompt"]["description"] = final_desc.strip()
+        # 4. PROMPT SANITIZATION: Strip tags from description before persistence
+        # and media generation. Removing one mid-sentence leaves the gap
+        # behind, and this write is what the storyboard keeps, so the gap is
+        # closed rather than only trimmed at the ends.
+        _TAGS = ("[PRODUCT REQUIRED]", "[CHARACTER REQUIRED]", "[PERSON REQUIRED]")
 
+        def _sanitize(text: str) -> str:
+            for tag in _TAGS:
+                text = text.replace(tag, "").replace(tag.lower(), "")
+            return common_utils.tidy_spacing(text)
+
+        scene["first_frame_prompt"]["description"] = _sanitize(
+            first_frame_prompt.get("description", "")
+        )
         if "video_prompt" in scene:
-            v_desc = scene["video_prompt"].get("description", "")
-            for tag in [
-                "[PRODUCT REQUIRED]",
-                "[CHARACTER REQUIRED]",
-                "[PERSON REQUIRED]",
-            ]:
-                v_desc = v_desc.replace(tag, "").replace(tag.lower(), "")
-            scene["video_prompt"]["description"] = v_desc.strip()
+            scene["video_prompt"]["description"] = _sanitize(
+                scene["video_prompt"].get("description", "")
+            )
 
         scene["first_frame_prompt"]["assets"] = assets
 
@@ -520,60 +649,101 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
 
     # Phase 1 -- fast lane: audio (grouped VO + music + per-scene VO) + first
     # frames. All are seconds-scale, so they drain before any slow video starts.
-    music_task = generation_helpers.generate_background_music(
-        workspace_id, storyboard["background_music_prompt"], uid
-    )
-    per_scene_vo_tasks = []
-    if use_per_scene_voiceover:
-        per_scene_vo_tasks = [
-            generation_helpers.generate_scene_voiceover(
-                workspace_id,
-                scene["voiceover_prompt"],
-                index,
-                uid,
-                target_duration=scene.get("duration_seconds", 4.0),
+    if phase == VIDEOS_PHASE:
+        # The frames and the audio were rendered by an earlier call and
+        # persisted on the storyboard. Running the same step again takes
+        # its reuse path, which loads each frame back rather than
+        # rendering it a second time.
+        frame_results = await asyncio.gather(
+            *[
+                generate_scene_first_frame_step(
+                    scene=scene,
+                    index=index,
+                    aspect_ratio=aspect_ratio,
+                    workspace_id=workspace_id,
+                    uid=uid,
+                    allow_veo_audio=is_ugc,
+                    global_context=global_contexts[index],
+                    asset_refs=asset_refs,
+                )
+                for index, scene in enumerate(scene_list)
+            ],
+            return_exceptions=True,
+        )
+    else:
+        music_task = generation_helpers.generate_background_music(
+            workspace_id, storyboard["background_music_prompt"], uid
+        )
+        per_scene_vo_tasks = []
+        if use_per_scene_voiceover:
+            per_scene_vo_tasks = [
+                generation_helpers.generate_scene_voiceover(
+                    workspace_id,
+                    scene["voiceover_prompt"],
+                    index,
+                    uid,
+                    target_duration=scene.get("duration_seconds", 4.0),
+                )
+                for index, scene in enumerate(scene_list)
+            ]
+        first_frame_tasks = [
+            generate_scene_first_frame_step(
+                scene=scene,
+                index=index,
+                aspect_ratio=aspect_ratio,
+                workspace_id=workspace_id,
+                uid=uid,
+                allow_veo_audio=is_ugc,
+                global_context=global_contexts[index],
+                asset_refs=asset_refs,
             )
             for index, scene in enumerate(scene_list)
         ]
-    first_frame_tasks = [
-        generate_scene_first_frame_step(
-            scene=scene,
-            index=index,
-            aspect_ratio=aspect_ratio,
-            workspace_id=workspace_id,
-            uid=uid,
-            allow_veo_audio=is_ugc,
-            global_context=global_contexts[index],
-            asset_refs=asset_refs,
+
+        num_vo = len(group_vo_tasks)
+        num_ps_vo = len(per_scene_vo_tasks)
+        phase1 = await asyncio.gather(
+            *group_vo_tasks,
+            music_task,
+            *per_scene_vo_tasks,
+            *first_frame_tasks,
+            return_exceptions=True,
         )
-        for index, scene in enumerate(scene_list)
-    ]
+        vo_results = phase1[:num_vo]
+        music_result = phase1[num_vo]
+        ps_vo_results = phase1[num_vo + 1 : num_vo + 1 + num_ps_vo]
+        frame_results = phase1[num_vo + 1 + num_ps_vo :]
 
-    num_vo = len(group_vo_tasks)
-    num_ps_vo = len(per_scene_vo_tasks)
-    phase1 = await asyncio.gather(
-        *group_vo_tasks,
-        music_task,
-        *per_scene_vo_tasks,
-        *first_frame_tasks,
-        return_exceptions=True,
-    )
-    vo_results = phase1[:num_vo]
-    music_result = phase1[num_vo]
-    ps_vo_results = phase1[num_vo + 1 : num_vo + 1 + num_ps_vo]
-    frame_results = phase1[num_vo + 1 + num_ps_vo :]
-
-    # Audio degrades gracefully -- a missing VO/music track still yields a usable
-    # video -- so log and continue.
-    for i, res in enumerate(vo_results):
-        if isinstance(res, Exception):
-            logger.error(f"Grouped voiceover {i} failed; continuing without it: {res}")
-    if isinstance(music_result, Exception):
-        logger.error(f"Background music failed; continuing without it: {music_result}")
-    for i, res in enumerate(ps_vo_results):
-        if isinstance(res, Exception):
+        # Audio degrades gracefully -- a missing VO/music track still yields a usable
+        # video -- so log and continue.
+        for i, res in enumerate(vo_results):
+            if isinstance(res, Exception):
+                logger.error(
+                    f"Grouped voiceover {i} failed; continuing without it: {res}"
+                )
+        if isinstance(music_result, Exception):
             logger.error(
-                f"Per-scene voiceover {i} failed; continuing without it: {res}"
+                f"Background music failed; continuing without it: {music_result}"
+            )
+        for i, res in enumerate(ps_vo_results):
+            if isinstance(res, Exception):
+                logger.error(
+                    f"Per-scene voiceover {i} failed; continuing without it: {res}"
+                )
+
+        if phase == FRAMES_PHASE:
+            # Everything cheap is now rendered and on the storyboard. Stop
+            # here so it can be looked at before the videos are paid for.
+            tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+            if voiceover_groups:
+                storyboard["voiceover_groups"] = [
+                    g.model_dump() for g in voiceover_groups
+                ]
+            common_utils.mark_stage_completed(tool_context, "frames")
+            rendered = sum(1 for f in frame_results if isinstance(f, tuple) and f[0])
+            return tool_success(
+                f"Rendered {rendered} of {len(scene_list)} first frames, "
+                "with the narration and music."
             )
 
     # Phase 2 -- slow lane: scene videos, each anchored to its ready first frame.
@@ -639,6 +809,8 @@ async def generate_all_media(tool_context: ToolContext) -> ToolResult:
         storyboard.session_id = session_id
         storyboard.workspace_id = workspace_id
 
+    common_utils.mark_stage_completed(tool_context, "generation")
+
     return tool_success(
         "🎬 **Visuals Rendered!** All cinematic scenes successfully generated. Proceeding to stitching..."
     )
@@ -675,17 +847,7 @@ async def generate_single_scene(
 
     # Simple Binding refresh
     user_assets = tool_context.state.get(common_utils.USER_ASSETS_KEY, {})
-    creator_metadata = tool_context.state.get(common_utils.VIRTUAL_CREATOR_KEY, {})
-    creator_id_val = (
-        creator_metadata.get("asset_ref", {}).get("id") if creator_metadata else None
-    )
-    creator_id = (
-        f"virtual_creator_{creator_id_val}.png"
-        if creator_id_val
-        else next(
-            (k for k in user_assets.keys() if k.startswith("virtual_creator_")), None
-        )
-    )
+    creator_id = _cast_creator_filename(tool_context, user_assets)
     primary_product = next(
         (
             k
@@ -734,3 +896,97 @@ async def generate_single_scene(
     return tool_success(
         f"🎬 **Visuals Rendered!** Successfully regenerated scene {scene_index}."
     )
+
+
+async def clear_scene_assets_for_regeneration(
+    tool_context: ToolContext, scene_id: str
+) -> ToolResult:
+    """Drops the rendered media for one scene so it can be generated again.
+
+    The media tools are idempotent — they skip any scene that already has an
+    asset — so a scene's existing frame, clip and voiceover must be released
+    before it will re-render. Prompts and all other creative content are left
+    untouched. Use this when the user wants a different take of a scene whose
+    prompt has not changed; editing a prompt already invalidates its asset.
+
+    Args:
+        scene_id: Stable id of the scene to clear (e.g. "scene_2").
+    """
+    storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
+    if not isinstance(storyboard, dict):
+        return tool_failure("No storyboard found in session state.")
+
+    index = storyboard_merge.find_scene_index(storyboard, scene_id)
+    if index is None:
+        available = [s.get("scene_id") for s in storyboard.get("scenes") or []]
+        return tool_failure(f"Unknown scene_id '{scene_id}'. Available: {available}")
+
+    cleared = storyboard_merge.clear_scene_assets(storyboard["scenes"][index])
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+
+    if not cleared:
+        return tool_success(
+            f"Scene '{scene_id}' had no rendered media; it will generate on the "
+            "next run."
+        )
+    return tool_success(
+        f"♻️ Released {cleared} rendered asset(s) for scene '{scene_id}'. "
+        "It will be re-rendered on the next generation pass."
+    )
+
+
+async def generate_scene_frames(tool_context: ToolContext) -> ToolResult:
+    """Renders the narration, the music and every scene's first frame.
+
+    Stops before the videos, so the frames can be reviewed first.
+    """
+    return await _generate_media(tool_context, FRAMES_PHASE)
+
+
+async def generate_scene_videos(tool_context: ToolContext) -> ToolResult:
+    """Renders each scene's video from the first frame already approved."""
+    return await _generate_media(tool_context, VIDEOS_PHASE)
+
+
+async def generate_all_media(tool_context: ToolContext) -> ToolResult:
+    """Renders every scene's media in one pass, frames then videos."""
+    return await _generate_media(tool_context, ALL_PHASES)
+
+
+async def regenerate_scene(
+    tool_context: ToolContext, scene_id: str, guidance: str = ""
+) -> ToolResult:
+    """Re-renders a single scene, optionally steering it with new direction.
+
+    This is the per-scene HITL entry point: it releases the scene's existing
+    media and renders it again, leaving every other scene's work intact.
+
+    Args:
+        scene_id: Stable id of the scene to regenerate (e.g. "scene_2").
+        guidance: Optional direction to fold into the scene's visual prompt
+            (e.g. "shoot it at night"). Leave empty to re-render as-is.
+    """
+    storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
+    if not isinstance(storyboard, dict):
+        return tool_failure("No storyboard found in session state.")
+
+    index = storyboard_merge.find_scene_index(storyboard, scene_id)
+    if index is None:
+        available = [s.get("scene_id") for s in storyboard.get("scenes") or []]
+        return tool_failure(f"Unknown scene_id '{scene_id}'. Available: {available}")
+
+    scene = storyboard["scenes"][index]
+
+    if guidance.strip():
+        for prompt_key in ("first_frame_prompt", "video_prompt"):
+            prompt = scene.get(prompt_key)
+            if isinstance(prompt, dict) and prompt.get("description"):
+                prompt["description"] = (
+                    f"{prompt['description'].strip()}\n\n"
+                    f"**REVISION DIRECTION:** {guidance.strip()}"
+                )
+
+    storyboard_merge.clear_scene_assets(scene)
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+
+    return await generate_single_scene(tool_context, index)

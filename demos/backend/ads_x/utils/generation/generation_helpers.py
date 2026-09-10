@@ -20,12 +20,63 @@ from typing import Any
 
 import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
+from mediagent_kit.utils.retry import ContentBlockedError
 
 from ..common import enrichment_utils
 
 logger = logging.getLogger(__name__)
 
 MAX_VOICEOVER_ATTEMPTS = 3
+
+
+# Applied here because every music prompt passes through this function.
+# Constraining the presets alone is insufficient: the storyboard agent copies
+# the sonic landscape into the music brief and may rephrase it.
+_INSTRUMENTAL = (
+    "Instrumental only: no vocals, no singing, no spoken word, no lyrics. "
+    "This is a background bed beneath a separate voiceover."
+)
+
+
+def _as_instrumental(description: str) -> str:
+    """Adds the no-vocals constraint to a music brief.
+
+    Lyria 3 renders vocals when a prompt invites them. Background music plays
+    beneath a separate voiceover, so vocals compete with the narration. The
+    stored brief is left unchanged, as it is shown to the reviewer at the
+    storyboard checkpoint.
+    """
+    brief = (description or "").strip()
+    if "instrumental only" in brief.lower():
+        return brief
+    return f"{brief} {_INSTRUMENTAL}".strip()
+
+
+def _simplified_music_brief(description: str) -> str:
+    """Reduces a music brief to its opening style phrase.
+
+    Lyria 3 intermittently refuses an elaborate sonic description on policy
+    grounds while accepting a plainer statement of the same style. The phrase
+    kept here names the style; the imagery that draws the refusal is discarded,
+    and it carries least weight for a bed playing under a voiceover.
+
+    Returns an empty string when no usable phrase remains.
+    """
+    head = re.split(r"[:,.]", (description or "").strip(), maxsplit=1)[0]
+    # These words introduce the imagery rather than the style, so the phrase
+    # ends immediately before the first of them.
+    head = re.split(
+        r"\b(?:featuring|with|that|which|evoking|layered|transitioning)\b",
+        head,
+        maxsplit=1,
+    )[0]
+    head = " ".join(head.split()[:6]).strip()
+    if not head:
+        return ""
+    return (
+        f"{head} instrumental background bed for a commercial, "
+        f"moderate tempo, clean and unobtrusive. {_INSTRUMENTAL}"
+    )
 
 
 async def generate_background_music(
@@ -52,17 +103,33 @@ async def generate_background_music(
 
     logger.info(f"Generating background music for workspace {workspace_id}")
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-    music_prompt = background_music_prompt["description"]
+    music_prompt = _as_instrumental(background_music_prompt["description"])
     filename = f"background_music_{uid}.mp3" if uid else "background_music.mp3"
 
-    try:
-        music_asset = await mediagen_service.generate_music(
+    async def render(prompt: str) -> Asset:
+        return await mediagen_service.generate_music(
             workspace_id=workspace_id,
-            prompt=music_prompt,
-            model="lyria-002",
+            prompt=prompt,
             duration_seconds=30,
             file_name=filename,
         )
+
+    try:
+        try:
+            music_asset = await render(music_prompt)
+        except ContentBlockedError:
+            # The refusal depends on the wording, so the retry rewords rather
+            # than repeats. With no usable phrase left the error propagates and
+            # the campaign proceeds without music.
+            simplified = _simplified_music_brief(background_music_prompt["description"])
+            if not simplified:
+                raise
+            logger.warning(
+                "Lyria 3 refused the music brief on policy grounds. "
+                "Retrying with the opening style phrase alone."
+            )
+            music_asset = await render(simplified)
+
         background_music_prompt["asset_id"] = music_asset.id
         background_music_prompt["asset_ref"] = {
             "id": music_asset.id,
@@ -220,8 +287,18 @@ def build_global_context_string(storyboard: dict, scene: dict) -> str:
     return context_string
 
 
-def clamp_duration(seconds: int | float) -> int:
-    """Clamps duration to the next HIGHER Veo-supported value to avoid static frames."""
+def clamp_duration(seconds: int | float, model: str | None = None) -> int:
+    """Fits a scene's duration to what the video model can actually render.
+
+    Veo offers 4, 6 and 8 seconds only, so anything else rounds up - a three
+    second beat is rendered as four and the extra second trimmed later.
+    Rounding up rather than down avoids a static tail frame.
+
+    Omni renders any whole number of seconds from 3 to 10, so the requested
+    duration is kept and no trimming is needed.
+    """
+    if model and model.startswith("gemini-omni"):
+        return max(3, min(10, round(seconds)))
     if seconds <= 4:
         return 4
     elif seconds <= 6:

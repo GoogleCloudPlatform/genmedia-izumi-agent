@@ -38,7 +38,7 @@ from mediagent_kit.services.types.common import (
     GeneratedAsset,
     GenerationMetadata,
 )
-from mediagent_kit.utils.auth import get_google_id_token
+from mediagent_kit.utils.auth import bearer, get_google_id_token
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +60,11 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         from mediagent_kit.utils.context import get_request_context
 
         ctx = get_request_context() or {}
-        ws_id = explicit or ctx.get("workspace_id") or self._workspace_id
+        ws_id = (
+            explicit
+            if explicit is not None
+            else (ctx.get("workspace_id") or self._workspace_id)
+        )
         if not ws_id or not str(ws_id).isdigit():
             raise ValidationError(
                 f"Invalid workspace_id: '{ws_id}'. Workspace ID must be a non-empty numeric string."
@@ -85,7 +89,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
 
     def _get_headers(self, user_auth_token: str, url: str) -> dict[str, str]:
         headers = {
-            "X-User-Authorization": f"Bearer {user_auth_token}",
+            "X-User-Authorization": bearer(user_auth_token),
             "Content-Type": "application/json",
         }
         id_token_str = get_google_id_token(url)
@@ -160,14 +164,49 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         # responses; callers treat that as a generation failure).
         return getattr(response, "text", "") or ""
 
+    async def _reference_parts(self, reference_assets: list[AssetRef]) -> list[Any]:
+        """Loads referenced images so the model can see what it is asked about.
+
+        A reference the caller supplied and the model never received is worse
+        than none: the prompt speaks of an attached image, and the model
+        answers about one it has had to imagine. A reference that cannot be
+        loaded is therefore dropped loudly rather than in silence.
+        """
+        import mediagent_kit
+
+        asset_service = mediagent_kit.services.aio.get_asset_service()
+        parts: list[Any] = []
+        for ref in reference_assets:
+            try:
+                data = await asset_service.download_asset_bytes(ref)
+            except (
+                Exception
+            ) as e:  # noqa: BLE001 - one reference must not fail the call
+                logger.warning(
+                    "CSMediaGenerationService: reference asset %s could not be "
+                    "loaded and will not be shown to the model: %s",
+                    getattr(ref, "id", ref),
+                    e,
+                )
+                continue
+            if data:
+                parts.append(
+                    genai.types.Part.from_bytes(data=data, mime_type="image/png")
+                )
+        return parts
+
     async def generate_text(
         self,
         workspace_id: str,
         prompt: str,
         reference_assets: Optional[list[AssetRef]] = None,
         idempotency_key: Optional[str] = None,
+        purpose: Optional[str] = None,
     ) -> str:
         """Generates text inline using Gemini model (Vertex AI).
+
+        ``purpose`` is accepted for interface parity and unused: nothing is
+        persisted on this path, so there is no asset to name.
 
         Retries a few times on transient failures and empty responses.
         Without this, a single flaky/empty Vertex response would bubble up
@@ -184,6 +223,14 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
             location=self._config.model_target_location or "global",
         )
 
+        # Images the caller attached are sent alongside the prompt. Accepting
+        # them and generating from the text alone answers a different question
+        # than the one that was asked.
+        contents: Any = prompt
+        if reference_assets:
+            if parts := await self._reference_parts(reference_assets):
+                contents = [*parts, prompt]
+
         max_attempts = 3
         last_error: Optional[Exception] = None
         for attempt in range(max_attempts):
@@ -191,7 +238,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
                 response = await asyncio.to_thread(
                     client.models.generate_content,
                     model=model,
-                    contents=prompt,
+                    contents=contents,
                 )
                 text = self._extract_response_text(response)
                 if text.strip():
@@ -309,10 +356,10 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         self,
         workspace_id: str,
         prompt: str,
-        generation_model: str,
         aspect_ratio: str,
         duration_seconds: int,
         file_name: str,
+        generation_model: Optional[str] = None,
         start_image: Optional[AssetRef] = None,
         end_image: Optional[AssetRef] = None,
         reference_videos: Optional[list[AssetRef]] = None,
@@ -332,10 +379,13 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         url = f"{backend_url}/api/videos/generate-videos"
         headers = self._get_headers(token, url)
 
+        video_model = generation_model or self._config.models.get("video", {}).get(
+            "default"
+        )
         payload: dict[str, Any] = {
             "workspaceId": int(ws_id),
             "prompt": prompt,
-            "generationModel": generation_model,
+            "generationModel": video_model,
             "aspectRatio": aspect_ratio,
             "durationSeconds": duration_seconds,
             "fileName": file_name,
@@ -375,7 +425,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
                 raise BackendError("No item ID returned from CS video generation")
 
             final_item = await self._wait_for_media_completion(
-                client, item_id, headers, timeout=600, poll_interval=3.0
+                client, item_id, headers, timeout=900, poll_interval=3.0
             )
 
             status = final_item.get("status", "completed")
@@ -397,7 +447,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
                 error_message=error_msg,
                 generation_metadata=GenerationMetadata(
                     source="creative_studio",
-                    model=generation_model,
+                    model=video_model,
                     prompt=prompt,
                     raw=final_item,
                 ),
@@ -420,7 +470,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         url = f"{backend_url}/api/audios/generate"
         headers = self._get_headers(token, url)
 
-        model = self._config.models.get("tts", {}).get("default", "gemini-2.5-pro-tts")
+        model = self._config.models.get("tts", {}).get("default")
         payload = {
             "workspaceId": int(ws_id),
             "prompt": text,
@@ -470,9 +520,9 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         self,
         workspace_id: str,
         prompt: str,
-        model: str,
         duration_seconds: int,
         file_name: str,
+        model: Optional[str] = None,
         idempotency_key: Optional[str] = None,
     ) -> GeneratedAsset:
         """Generates music via CS POST /api/audios/generate and polls for completion."""
@@ -483,7 +533,7 @@ class CSMediaGenerationService(MediaGenerationServiceInterface):
         url = f"{backend_url}/api/audios/generate"
         headers = self._get_headers(token, url)
 
-        music_model = model or "lyria-002"
+        music_model = model or self._config.models.get("music", {}).get("default")
         if music_model == "lyria":
             music_model = "lyria-002"
         payload = {

@@ -33,9 +33,19 @@ def test_ads_x_agent_definitions():
     assert storyboard_agent_templated.name == "storyboard_agent_templated"
     assert len(storyboard_agent_templated.tools) == 2
 
-    # Verify Strategy Agent
+    # Verify Strategy Agent. It owns the Look choice: the recipe is injected
+    # into every scene, so it is settled here rather than per-storyboard.
     assert strategy_agent.name == "strategy_agent"
-    assert len(strategy_agent.tools) == 1
+    assert {t.name for t in strategy_agent.tools} == {
+        "map_strategy_to_metadata",
+        "recommend_production_recipe",
+        # The Look is chosen here, so it is inspected and adjusted here too.
+        "list_looks",
+        "set_look",
+        "list_look_options",
+        "edit_look_field",
+        "edit_character",
+    }
 
     # Verify Storyboard Router
     from google.adk.tools import AgentTool
@@ -44,7 +54,15 @@ def test_ads_x_agent_definitions():
 
     # Verify Generation Agent
     assert generation_agent.name == "generation_agent"
-    assert len(generation_agent.tools) == 3
+    generation_tool_names = {t.name for t in generation_agent.tools}
+    assert generation_tool_names == {
+        "generate_all_media",
+        "stitch_final_video",
+        "create_campaign_summary",
+        # Per-scene HITL entry points.
+        "regenerate_scene",
+        "clear_scene_assets_for_regeneration",
+    }
 
     # Verify Planning Sequential Agent
     assert planning_agent_text.name == "planning_agent_text"

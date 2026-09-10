@@ -18,63 +18,79 @@ from typing import List, Dict
 
 # Standard Pacing Presets (durations in seconds)
 # These ensure a modern, punchy feel for social ads.
+#
+# Every scene length is a whole number of seconds between 3 and 5, which is
+# what the video model renders natively. A scene is therefore generated at
+# exactly its planned length and reaches the cut without trimming; a fractional
+# length would be rendered at the nearest whole second and cut back. The
+# upper bound is five seconds: a single generated clip degrades as it runs
+# longer, so a beat that needs more screen time is split across two scenes.
+#
+# Every pattern closes on a three-second beat. The last scene resolves the
+# brand rather than carrying action, and it is the shot most exposed to a
+# generated logo drifting, so it is held to the shortest renderable length.
 
 PACING_PRESETS: Dict[str, Dict[int, List[List[float]]]] = {
     "12s": {
         4: [
-            [2.5, 3.5, 3.5, 2.5],  # Balanced Pacing
-            [2.0, 3.0, 4.0, 3.0],  # Progressive Build
-            [3.0, 3.0, 3.0, 3.0],  # Stable Rhythm
-        ]
+            [3.0, 3.0, 3.0, 3.0],
+        ],
     },
     "15s": {
         4: [
-            [3.5, 4.0, 4.0, 3.5],
-            [3.0, 4.0, 4.0, 4.0],
+            [4.0, 4.0, 4.0, 3.0],
+            [5.0, 4.0, 3.0, 3.0],
         ],
         5: [
             [3.0, 3.0, 3.0, 3.0, 3.0],
-            [2.0, 3.5, 4.0, 3.5, 2.0],
-        ],
-        6: [
-            [2.5, 2.5, 2.5, 2.5, 2.5, 2.5],
         ],
     },
     "18s": {
+        4: [
+            [5.0, 5.0, 5.0, 3.0],
+        ],
         5: [
-            [3.5, 3.5, 4.0, 3.5, 3.5],
-            [3.0, 4.0, 4.0, 4.0, 3.0],
+            [4.0, 4.0, 4.0, 3.0, 3.0],
+            [3.0, 4.0, 5.0, 3.0, 3.0],
+            [5.0, 4.0, 3.0, 3.0, 3.0],
+            [3.0, 3.0, 4.0, 5.0, 3.0],
         ],
         6: [
             [3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-            [2.5, 3.5, 3.0, 3.5, 3.0, 2.5],
         ],
     },
     "24s": {
         6: [
-            [4.0, 4.0, 4.0, 4.0, 4.0, 4.0],
-            [3.5, 4.5, 4.0, 4.5, 4.0, 3.5],
+            [5.0, 4.0, 4.0, 4.0, 4.0, 3.0],
+            [4.0, 4.0, 5.0, 4.0, 4.0, 3.0],
+            [5.0, 5.0, 4.0, 4.0, 3.0, 3.0],
+            [3.0, 5.0, 5.0, 4.0, 4.0, 3.0],
+        ],
+        7: [
+            [3.0, 3.0, 4.0, 4.0, 4.0, 3.0, 3.0],
+            [4.0, 3.0, 3.0, 4.0, 4.0, 3.0, 3.0],
+            [3.0, 4.0, 5.0, 3.0, 3.0, 3.0, 3.0],
         ],
         8: [
             [3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0, 3.0],
-            [2.5, 3.5, 3.5, 2.5, 3.5, 3.5, 2.5, 2.5],
         ],
     },
     "30s": {
-        6: [
-            [5.0, 5.0, 5.0, 5.0, 5.0, 5.0],
+        7: [
+            [5.0, 5.0, 5.0, 4.0, 4.0, 4.0, 3.0],
+            [4.0, 5.0, 5.0, 5.0, 4.0, 4.0, 3.0],
+            [5.0, 4.0, 4.0, 5.0, 5.0, 4.0, 3.0],
         ],
         8: [
-            [3.5, 4.0, 4.0, 4.0, 4.0, 4.0, 3.5, 3.0],
+            [4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 3.0, 3.0],
+            [3.0, 4.0, 4.0, 4.0, 4.0, 4.0, 4.0, 3.0],
+            [5.0, 4.0, 4.0, 4.0, 4.0, 3.0, 3.0, 3.0],
         ],
     },
     "10s": {
         3: [
             [3.0, 4.0, 3.0],
-        ],
-        4: [
-            [2.5, 2.5, 2.5, 2.5],
-            [2.0, 3.0, 3.0, 2.0],
+            [4.0, 3.0, 3.0],
         ],
     },
 }
@@ -170,7 +186,7 @@ def get_valid_scene_counts_for_duration(total_duration: float) -> List[int]:
 def get_random_blueprint_for_duration(total_duration: float) -> List[float]:
     """Resolves a target duration to a single, mathematically rigorous array of scene lengths for the LLM to follow natively."""
     if total_duration <= 0:
-        return [2.0, 3.0, 4.0, 3.0]  # Default fallback
+        return [3.0, 3.0, 3.0, 3.0]  # Default fallback
 
     available_presets = sorted([int(k.replace("s", "")) for k in PACING_PRESETS.keys()])
     effective_duration = float(available_presets[0])

@@ -52,7 +52,7 @@ def initialize_from_env() -> None:
     # Prefer GOOGLE_CLOUD_LOCATION (where the Gemini text models are served,
     # e.g. "global") over IZUMI_LOCATION (the Agent Engine *deployment* region,
     # e.g. "us-central1"). Using the deploy region for model calls 404s whenever a
-    # model such as gemini-3.5-flash is only served from "global".
+    # model such as gemini-3.7-flash is only served from "global".
     location = (
         os.getenv("GOOGLE_CLOUD_LOCATION") or os.getenv("IZUMI_LOCATION") or "global"
     )

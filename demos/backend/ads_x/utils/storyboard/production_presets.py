@@ -12,9 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-A comprehensive Media Excellence Encyclopedia for the Storyboard Agent.
-Provides high-end professional technical ingredients for high-budget commercial advertising.
+"""Art direction presets for the storyboard agent.
+
+This module holds two structures with distinct roles.
+
+PRODUCTION_ENCYCLOPEDIA catalogues the available options, keyed by style mode
+and then by axis (brand aesthetics, character, product macro, environment,
+cinematography, illumination, sonic landscape, fidelity guards). It is never
+sent to a model in full. It provides the set of valid values offered when a
+reviewer edits a Look through `set_look`, and its FIDELITY_GUARDS entries are
+copied into every recipe.
+
+PRODUCTION_LOOKS defines curated combinations drawn from those axes. Each
+Look's `recipe` selects one value per axis so that a campaign renders with a
+consistent visual identity rather than an arbitrary mix of lens, lighting and
+wardrobe. `tones` and `keywords` are used for matching only; `description` is
+the text shown to the selector model.
+
+A Look is applied as follows:
+
+    recommend_production_recipe selects one Look per campaign
+      -> its recipe is stored in state as `master_production_recipe`
+      -> _build_art_direction_block appends the recipe's anchors to each
+         scene's first-frame and video description
+      -> enrichment renders those anchors as prose for Imagen and Veo
+
+`sonic_landscape` is excluded from the art-direction block and supplies the
+background music brief instead.
+
+`product_mode` provides substitute styling for campaigns without a person on
+screen. Omitting the character block alone is insufficient, because the
+general styling may also assume a subject (butterfly lighting, catchlights,
+sweat), which directs the renderer towards a face that is not in frame.
 """
 
 from typing import Dict, Any
@@ -283,13 +312,6 @@ PRODUCTION_ENCYCLOPEDIA: Dict[str, Any] = {
 }
 
 
-def get_production_encyclopedia_json() -> str:
-    """Returns a JSON string of the production encyclopedia for LLM injection."""
-    import json
-
-    return json.dumps(PRODUCTION_ENCYCLOPEDIA, indent=2)
-
-
 # --- CURATED "LOOKS" ---
 # A Look is a single, internally-coherent art-direction bundle: every field is
 # chosen to reinforce the others. This is the opposite of sampling each field
@@ -299,6 +321,10 @@ def get_production_encyclopedia_json() -> str:
 # selection metadata (tier / tones / keywords / description) used by the LLM
 # selector, plus a `recipe` payload in the exact shape the storyboard and
 # generation pipeline already consume.
+#
+# Tones are selection signal and are kept disjoint within a tier. A tone listed
+# by several Looks does not discriminate between them and biases the selector
+# toward whichever carries the most of them, irrespective of category.
 
 PRODUCTION_LOOKS: list[Dict[str, Any]] = [
     # ---------------- COMMERCIAL (premium, produced) ----------------
@@ -345,13 +371,19 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Rembrandt Lighting: classic 'triangle' cheek highlight",
                 "highlights": "Soft edge-glow rim lighting separating subject from dark background",
             },
+            # Substituted when the ad has no on-screen person. Portrait optics
+            # ask the renderer for a face that is not in the shot; macro optics
+            # deliver the same shallow-depth look aimed at the product.
+            "product_mode": {
+                "optics": "T2.8 Macro Prime: soft background separation, dreamy bokeh, warm tones",
+            },
             "sonic_landscape": "Modern Orchestral: soaring staccato strings, cinematic brass swells, hybrid synth",
         },
     },
     {
         "name": "Clean Tech Minimalism",
         "tier": "commercial",
-        "tones": ["modern", "clean", "precise", "innovative", "premium", "cool"],
+        "tones": ["modern", "precise", "innovative", "cool", "minimal", "technical"],
         "keywords": [
             "tech",
             "gadget",
@@ -391,6 +423,9 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "chromatic_scheme": "Cool monochrome whites with blue-tinted shadow",
                 "key_lighting": "Butterfly Lighting: even, flattering, high-clarity",
                 "highlights": "Metallic specular highlights (sparkling micro-points)",
+            },
+            "product_mode": {
+                "key_lighting": "Even Overhead Key: shadow-less, high-clarity across the surface",
             },
             "sonic_landscape": "Industrial Minimalist: rhythmic metallic pings, deep sub-bass pulses, clean silence",
         },
@@ -439,7 +474,7 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Motivated Candle-light: flickering warm tones, soft shadows, intimate feel",
                 "highlights": "Volumetric dust-motes in a window beam",
             },
-            "sonic_landscape": "Nostalgic Folk: acoustic guitar, natural environment sounds, warm vocals",
+            "sonic_landscape": "Nostalgic Folk: instrumental acoustic guitar, natural environment sounds, warm and unhurried",
         },
     },
     {
@@ -485,6 +520,9 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "chromatic_scheme": "Bold saturated primary color-block palette",
                 "key_lighting": "Butterfly Lighting: bright, even, poppy",
                 "highlights": "Soft-box pearlescent sheen on surfaces",
+            },
+            "product_mode": {
+                "key_lighting": "Even Overhead Key: bright, punchy, shadow-less",
             },
             "sonic_landscape": "Upbeat Pop-Electronic: bright synths, punchy claps, playful bassline, high-energy hooks",
         },
@@ -532,13 +570,17 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Neon Cyber-Noir: dual-tone rim lighting (magenta/cyan), high-gloss",
                 "highlights": "Metallic specular highlights and edge-glow rim",
             },
+            "product_mode": {
+                "brand_archetype": "High contrast, grit, condensation sheen, aggressive motion blur, anamorphic flares.",
+                "motion_texture": "Master Prime 100mm Macro: razor-sharp texture on material grain and edges",
+            },
             "sonic_landscape": "Aggressive Trap-Hybrid: heavy 808s, distorted textures, fast-paced hi-hats",
         },
     },
     {
         "name": "Organic Wellness",
         "tier": "commercial",
-        "tones": ["calm", "natural", "serene", "clean", "soothing", "premium"],
+        "tones": ["calm", "natural", "serene", "soothing", "wholesome", "pure"],
         "keywords": [
             "wellness",
             "beauty",
@@ -578,7 +620,254 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "key_lighting": "Soft window key with gentle wraparound",
                 "highlights": "Caustic light reflections through water",
             },
+            # Substituted when the ad has no on-screen person: the wellness
+            # aesthetic survives, but skin and make-up references do not.
+            "product_mode": {
+                "brand_archetype": "Earthy linens, diffused sunlight, botanical greens, raw wood, natural matte finishes.",
+                "optics": "T2.8 Macro Prime: soft separation, dreamy bokeh, warm natural tones",
+            },
             "sonic_landscape": "Ethereal Ambient: slow-moving pads, shimmering chimes, vast reverb tails",
+        },
+    },
+    {
+        "name": "Home & Interior",
+        "tier": "commercial",
+        "tones": ["inviting", "restful", "homely", "textural", "spacious"],
+        "keywords": [
+            "furniture",
+            "sofa",
+            "mattress",
+            "bedding",
+            "interior",
+            "decor",
+            "rug",
+            "lawn",
+            "garden",
+            "homeware",
+        ],
+        "description": (
+            "Lived-in interiors — oak, linen and wool under soft window light, "
+            "unhurried dolly moves. Inviting, restful, textural."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "Warm neutral palette, oiled oak, stonewashed linen, boucle wool, brushed brass, layered textiles.",
+            "character": {
+                "actor_vibe": "The 'Homemaker': unhurried, settling into the space as if it were their own",
+                "attire": "Soft Domestic: oversized knitwear, relaxed cotton, bare feet",
+                "grooming": "Effortless and undone, as at home on a slow morning",
+                "motion": "Unhurried, settling, weight sinking into furniture",
+            },
+            "environment": {
+                "spatial_context": "Sunlit Apartment: sheer curtains, plastered walls, potted greenery, mid-century furniture",
+                "temporal": "Late Morning Window Light: soft, directional, slowly drifting",
+            },
+            "cinematography": {
+                "optics": "T2.0 Spherical Prime: gentle falloff, honest geometry, no distortion",
+                "movement": "Slow Lateral Dolly: a patient glide past furniture at seated height",
+                "motion_texture": "Master Prime 100mm Macro: weave of linen, grain of oak, pile of wool",
+            },
+            "illumination": {
+                "vibe": "Soft Window Daylight: broad, wrapping, gently directional",
+                "chromatic_scheme": "Warm neutrals, oatmeal and clay against muted green",
+                "key_lighting": "Large north-facing window key with bounced fill",
+                "highlights": "Soft sheen along brass edges and polished wood",
+            },
+            "sonic_landscape": "Warm Acoustic Minimal: felted piano, soft upright bass, unhurried brushed percussion",
+        },
+    },
+    {
+        "name": "Culinary Appetite",
+        "tier": "commercial",
+        "tones": ["appetizing", "hearty", "indulgent", "savory", "abundant"],
+        "keywords": [
+            "food",
+            "meal",
+            "recipe",
+            "kitchen",
+            "snack",
+            "frozen",
+            "sauce",
+            "blender",
+            "ingredients",
+            "grocery",
+        ],
+        "description": (
+            "Appetite-forward food commercial — steam, gloss and sizzle, hard "
+            "raking light, macro cross-sections. Hearty, indulgent, abundant."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "Saturated food colour, glossy sauces, rising steam, cast iron and butcher block, scattered raw ingredients.",
+            "character": {
+                "actor_vibe": "The 'Home Cook': confident hands working the pan, absorbed in the task",
+                "attire": "Working Kitchen: rolled sleeves, linen apron, simple dark cotton",
+                "grooming": "Unfussed and practical, sleeves pushed back",
+                "motion": "Purposeful, tactile, hands leading the frame",
+            },
+            "environment": {
+                "spatial_context": "Warm Working Kitchen: butcher block, cast iron, hanging copper, flour dust in the air",
+                "temporal": "Low Raking Sidelight: hard, warm, carving texture out of shadow",
+            },
+            "cinematography": {
+                "optics": "T2.8 Macro Prime: shallow plane on a single glistening detail",
+                "movement": "Fast Push-In on the Pour: an accelerating move onto the moment of contact",
+                "motion_texture": "Probe Lens Macro: syrup thread, cheese pull, crumb structure at 240fps",
+            },
+            "illumination": {
+                "vibe": "Hard Raking Sidelight: strong single source skimming the surface",
+                "chromatic_scheme": "Deep caramel, burnt orange and cream against dark wood",
+                "key_lighting": "Hard backlight through rising steam with a warm bounce return",
+                "highlights": "Wet specular glints on sauce, glaze and rendered fat",
+            },
+            "sonic_landscape": "Rhythmic Kitchen Percussion: warm marimba, plucked upright bass, brushed snare, playful woodblock",
+        },
+    },
+    {
+        "name": "Pet Companion",
+        "tier": "commercial",
+        "tones": ["affectionate", "loyal", "spirited", "tender", "joyful"],
+        "keywords": [
+            "pet",
+            "dog",
+            "cat",
+            "puppy",
+            "kitten",
+            "kibble",
+            "treats",
+            "veterinary",
+            "leash",
+            "companion",
+        ],
+        "description": (
+            "The bond with an animal — golden domestic light, camera at paw "
+            "height, unposed motion. Affectionate, loyal, spirited."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "Golden domestic warmth, worn rugs and sunlit floorboards, soft blankets, scattered toys, honest household clutter.",
+            "character": {
+                "actor_vibe": "The 'Devoted Owner': crouching to the animal's level, laughing without performing",
+                "attire": "Weekend Domestic: soft flannel, worn denim, thick socks",
+                "grooming": "Casual and unstyled, as on an ordinary Saturday",
+                "motion": "Kneeling, reaching, playful and reactive",
+            },
+            "environment": {
+                "spatial_context": "Sunlit Living Room: worn rug, low couch, scattered toys, garden visible through glass",
+                "temporal": "Late Afternoon Sun: long warm shafts across the floor",
+            },
+            "cinematography": {
+                "optics": "T2.0 Spherical Prime: low at paw height, generous depth, honest perspective",
+                "movement": "Handheld Follow: a low tracking chase keeping pace with the animal",
+                "motion_texture": "Master Prime 100mm Macro: individual guard coat strands, wet nose, paw pads at 120fps",
+            },
+            "illumination": {
+                "vibe": "Warm Domestic Afternoon: low golden sun through a window",
+                "chromatic_scheme": "Honeyed golds and soft greens against warm neutrals",
+                "key_lighting": "Low sun raking across the floor with soft ambient fill",
+                "highlights": "Backlit rim glow through a raised ear and coat edge",
+            },
+            "sonic_landscape": "Playful Acoustic Folk: fingerpicked guitar, hand claps, glockenspiel, light shaker",
+        },
+    },
+    {
+        "name": "Fashion Editorial",
+        "tier": "commercial",
+        "tones": ["stylish", "editorial", "sculpted", "urbane", "poised"],
+        "keywords": [
+            "fashion",
+            "apparel",
+            "knitwear",
+            "eyewear",
+            "sunglasses",
+            "accessories",
+            "clothing",
+            "footwear",
+            "boutique",
+            "jewellery",
+        ],
+        "description": (
+            "Editorial fashion — seamless backdrops, hard sculpted light, "
+            "garment drape in motion. Stylish, sculpted, poised."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "Seamless paper backdrops, sculptural silhouettes, restrained palette, matte and sheen played against each other.",
+            "character": {
+                "actor_vibe": "The 'Editorial Model': composed, still, weight held on one hip",
+                "attire": "Directional Tailoring: sharp shoulders, fluid drape, considered proportion",
+                "grooming": "Sculpted and deliberate, styled to the garment",
+                "motion": "Deliberate, held poses breaking into a single fluid turn",
+            },
+            "environment": {
+                "spatial_context": "Seamless Studio Cyclorama: infinite backdrop, polished concrete, a single sculptural plinth",
+                "temporal": "Controlled Studio Time: no exterior reference, light entirely built",
+            },
+            "cinematography": {
+                "optics": "T2.8 Anamorphic: oval bokeh, horizontal flare, sculpted separation",
+                "movement": "Orbiting Arc: a slow circular track around the subject",
+                "motion_texture": "Master Prime 100mm Macro: knit loops, weave slub and stitch at 120fps",
+            },
+            "illumination": {
+                "vibe": "Hard Sculpted Key: single crisp source with deep controlled shadow",
+                "chromatic_scheme": "Monochrome base with one saturated accent",
+                "key_lighting": "Hard fresnel key at 45 degrees with black negative fill",
+                "highlights": "Crisp edge separation along shoulder and hem",
+            },
+            # The general styling is built around a worn garment; a product-only
+            # cut swaps to the garment itself as the sculptural subject.
+            "product_mode": {
+                "brand_archetype": "Seamless paper backdrops, sculptural garment forms on invisible support, restrained palette, matte against sheen.",
+                "motion_texture": "Probe Lens Macro: knit loops, weave slub and stitched seams in raking light",
+            },
+            "sonic_landscape": "Minimal Electronic Runway: sparse four-on-the-floor kick, filtered synth stabs, tape hiss",
+        },
+    },
+    {
+        "name": "Outdoor Adventure",
+        "tier": "commercial",
+        "tones": ["rugged", "expansive", "adventurous", "sunlit", "freewheeling"],
+        "keywords": [
+            "camping",
+            "hiking",
+            "trail",
+            "backyard",
+            "grill",
+            "campsite",
+            "cooler",
+            "portable",
+            "gear",
+            "ridgeline",
+        ],
+        "description": (
+            "Open air and open road — wide vistas, hard sun, dust and flare, "
+            "gear in real use. Rugged, expansive, adventurous."
+        ),
+        "recipe": {
+            "style_mode": "COMMERCIAL_PREMIUM",
+            "brand_archetype": "Sun-bleached landscape, anodised metal and ripstop nylon, dust in the air, honest wear and scuffs.",
+            "character": {
+                "actor_vibe": "The 'Explorer': weathered, capable, scanning the horizon",
+                "attire": "Technical Outdoor: ripstop shells, worn boots, layered fleece",
+                "grooming": "Windblown and unstyled, earned rather than arranged",
+                "motion": "Purposeful stride, loading gear, riding through frame",
+            },
+            "environment": {
+                "spatial_context": "Open Trailhead: scrub grass, gravel, distant ridgeline, wide unbroken sky",
+                "temporal": "Hard Midday Sun: bright, high contrast, short crisp shadows",
+            },
+            "cinematography": {
+                "optics": "T2.8 Wide Spherical: deep focus, expansive field, natural perspective",
+                "movement": "Tracking Vehicle Follow: a low fast parallel move alongside the action",
+                "motion_texture": "Probe Lens Macro: grit on tread, dust plume and knurled metal at 120fps",
+            },
+            "illumination": {
+                "vibe": "Hard Natural Sun: unmodified daylight, deep contrast",
+                "chromatic_scheme": "Sun-bleached ochre and dust against deep sky blue",
+                "key_lighting": "Direct overhead sun with a large silver bounce return",
+                "highlights": "Anamorphic sun flare across the lens and hot metal glints",
+            },
+            "sonic_landscape": "Driving Indie Rock: gritty baritone guitar, four-on-the-floor drums, handclap stomps",
         },
     },
     # ---------------- SOCIAL NATIVE / UGC (authentic, handheld) ----------------
@@ -625,6 +914,11 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "highlights": "Soft glow on the creator's face from the window",
             },
             "sonic_landscape": "Upbeat Lo-Fi: chill, modern, non-distracting background",
+            # Substituted when the ad has no on-screen person: a key light aimed
+            # at a face that is not in the shot just confuses the renderer.
+            "product_mode": {
+                "key_lighting": "Soft window key across the product",
+            },
         },
     },
     {
@@ -668,6 +962,10 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "chromatic_scheme": "Bright clean trending palette",
                 "key_lighting": "Soft ring key with even wraparound",
                 "highlights": "Glitter or shimmering product details catching the light",
+            },
+            "product_mode": {
+                "brand_archetype": "Clean aesthetics, trending color palettes, high-energy editing cues, crisp product staging.",
+                "vibe": "Soft Ring Light: even wraparound illumination, clean highlights on the product",
             },
             "sonic_landscape": "Trending Audio Bed: high-energy, familiar beats",
         },
@@ -758,6 +1056,9 @@ PRODUCTION_LOOKS: list[Dict[str, Any]] = [
                 "chromatic_scheme": "Neon-lit urban palette with warm sodium glow",
                 "key_lighting": "Available city light with neon accents",
                 "highlights": "Neon reflections and incidental street shadows",
+            },
+            "product_mode": {
+                "brand_archetype": "Raw handheld movement, urban sidewalk sounds, casual street-level product framing.",
             },
             "sonic_landscape": "Synth-Pop: energetic, colorful, youthful",
         },

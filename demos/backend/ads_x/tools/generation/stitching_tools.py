@@ -27,9 +27,22 @@ from utils.adk import get_session_id_from_context
 from utils.adk import resolve_workspace_id
 
 from ...utils.common import common_utils
+from ...utils.storyboard import storyboard_persistence
 from ...utils.storyboard import template_library
 
 logger = logging.getLogger(__name__)
+
+# Background music is mixed below the narration. Generated music is mastered
+# at full scale and shares the midrange with speech, so equal gain masks the
+# voiceover. Approximately -14 dB, a conventional level for a bed under
+# dialogue.
+BACKGROUND_MUSIC_VOLUME: float = 0.2
+
+# Ceiling on the rate a voiceover is compressed to fit its scene. Matches the
+# tolerance voiceover generation accepts a take at, so a longer take is capped
+# here instead of played at whatever ratio the arithmetic yields. Speech is
+# audibly hurried above this.
+MAX_VOICEOVER_SPEEDUP: float = 1.20
 
 
 def _clip_carries_audio(video_asset: Any) -> bool:
@@ -85,43 +98,12 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
     if ws_error:
         return tool_failure(ws_error)
 
-    current_sb_id = storyboard.get("storyboard_id") or storyboard.get("id")
-
-    if isinstance(storyboard, dict):
-        storyboard["session_id"] = session_id
-        storyboard["workspace_id"] = workspace_id
-    else:
-        try:
-            setattr(storyboard, "session_id", session_id)
-            setattr(storyboard, "workspace_id", workspace_id)
-        except Exception as attr_err:
-            logger.warning(
-                f"Could not directly set session_id/workspace_id on storyboard object: {attr_err}"
-            )
-
-    # Explicitly save latest storyboard to Creative Studio before timeline render
-    try:
-        storyboard_service = mediagent_kit.services.aio.get_storyboard_service()
-        saved_sb = await storyboard_service.save_storyboard(storyboard)
-
-        if hasattr(saved_sb, "storyboard_id") and saved_sb.storyboard_id:
-            current_sb_id = str(saved_sb.storyboard_id)
-        elif isinstance(saved_sb, dict) and (
-            sb_id := saved_sb.get("storyboard_id") or saved_sb.get("id")
-        ):
-            current_sb_id = str(sb_id)
-
-        if current_sb_id:
-            tool_context.state["current_storyboard_id"] = current_sb_id
-            # Save correct integer ID back into the session storyboard object for later updates
-            if isinstance(storyboard, dict):
-                storyboard["storyboard_id"] = current_sb_id
-                tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
-            elif hasattr(storyboard, "storyboard_id"):
-                setattr(storyboard, "storyboard_id", current_sb_id)
-                tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
-    except Exception as sb_err:
-        logger.warning(f"Explicit pre-stitch storyboard save bypassed/failed: {sb_err}")
+    # Save before the timeline is rendered, so the timeline has a storyboard
+    # record to point back at. The review checkpoint has usually saved it
+    # already; this revises that record with what generation has since added.
+    current_sb_id = await storyboard_persistence.save_to_creative_studio(
+        tool_context, storyboard
+    )
 
     from mediagent_kit.services.types.common import AssetRef
 
@@ -313,7 +295,9 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                     speed = 1.0
                     vo_duration = _get_asset_duration(voiceover_asset)
                     if vo_duration and vo_duration > target_duration:
-                        speed = vo_duration / target_duration
+                        speed = min(
+                            vo_duration / target_duration, MAX_VOICEOVER_SPEEDUP
+                        )
 
                     # Look up this scene's clip position by stable scene_id
                     # (scene_id_to_clip_index is populated during video-track
@@ -364,9 +348,19 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                             )
 
     # 3. Build Audio Track (Background Music)
-    music_ref = _resolve_asset_ref(
-        storyboard.get("background_music_prompt", {}), workspace_id
-    )
+    music_prompt = storyboard.get("background_music_prompt") or {}
+    music_ref = _resolve_asset_ref(music_prompt, workspace_id)
+    if music_prompt.get("description") and not music_ref:
+        # The storyboard declares music the campaign no longer has, which
+        # occurs when a track is released for re-rendering and the cut is
+        # stitched before it is rebuilt. Reported at error level because the
+        # result is a silent soundtrack rather than a failed render.
+        logger.error(
+            "Storyboard declares background music but no rendered track was "
+            "found, so the cut will have none. Re-render the music before "
+            "stitching. Prompt: %s",
+            str(music_prompt.get("description"))[:160],
+        )
     if music_ref:
         # NOTE: Unified AssetServiceInterface adaptation.
         # This would break legacy version due to function signature and method name mismatch.
@@ -380,6 +374,7 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
                         start_at=types.AudioPlacement(video_clip_index=0),
                         trim=types.Trim(duration_seconds=total_duration_seconds),
                         fade_out_duration_seconds=1,
+                        volume=BACKGROUND_MUSIC_VOLUME,
                     )
                 )
 

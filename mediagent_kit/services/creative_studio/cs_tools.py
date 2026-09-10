@@ -21,7 +21,7 @@ import httpx
 from google.adk.tools import FunctionTool
 from google.adk.tools.tool_context import ToolContext
 
-from mediagent_kit.utils.auth import get_google_id_token
+from mediagent_kit.utils.auth import bearer, get_google_id_token
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ async def list_workspaces(tool_context: ToolContext) -> str:
     workspaces_url = f"{backend_base_url}/api/workspaces"
 
     headers = {
-        "X-User-Authorization": f"Bearer {auth_token}",
+        "X-User-Authorization": bearer(auth_token),
         "Content-Type": "application/json",
     }
 

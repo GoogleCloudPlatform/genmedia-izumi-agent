@@ -15,13 +15,15 @@
 import json
 import logging
 import uuid
+from typing import Any
+
 import pydantic
 from google.adk.tools.tool_context import ToolContext
 import mediagent_kit
 from utils.adk import get_session_id_from_context
 
 from ...utils.common import common_utils
-from ...utils.storyboard import storyboard_model
+from ...utils.storyboard import storyboard_merge, storyboard_model
 
 logger = logging.getLogger(__name__)
 
@@ -65,19 +67,28 @@ def _build_art_direction_block(
     cine = recipe.get("cinematography", {}) or {}
     illum = recipe.get("illumination", {}) or {}
     char = recipe.get("character", {}) or {}
+
+    # Suppressing the Cast block is not enough on its own: a few Looks carry
+    # person-oriented wording in their general styling too ("portrait optics",
+    # "flattering skin", "'no-makeup' makeup look"). Left in a product-only ad
+    # that asks the renderer to flatter a face which is not in the shot. Looks
+    # that need it therefore ship product-mode substitutes.
+    product_mode = (recipe.get("product_mode") or {}) if not include_character else {}
+
+    def styling(key: str, fallback: Any) -> Any:
+        return product_mode.get(key) or fallback
+
     fields = [
         ("Mode", recipe.get("style_mode")),
-        ("Aesthetic", recipe.get("brand_archetype")),
+        ("Aesthetic", styling("brand_archetype", recipe.get("brand_archetype"))),
     ]
     if include_character:
         fields.append(("Cast", cast_override or char.get("actor_vibe")))
         fields.append(("Wardrobe", char.get("attire")))
         fields.append(("Grooming", char.get("grooming")))
     fields += [
-        ("Lighting", illum.get("vibe")),
-        ("Key Light", illum.get("key_lighting")),
-        ("Optics", cine.get("optics")),
-        ("Texture", cine.get("motion_texture")),
+        ("Lighting", styling("vibe", illum.get("vibe"))),
+        ("Optics", styling("optics", cine.get("optics"))),
     ]
     rendered = "; ".join(f"{label}: {value}" for label, value in fields if value)
     return f" [ART DIRECTION (NON-NEGOTIABLE) -> {rendered}]"
@@ -122,6 +133,7 @@ async def finalize_and_persist_storyboard(
             or tool_context.state.get("user_id", "default_user")
         )
         repaired_json = await mediagen_service.generate_text(
+            purpose="storyboard_repair",
             workspace_id=workspace_id,
             prompt=REPAIR_PROMPT.format(raw_json=clean_json[-5000:]),
         )
@@ -266,6 +278,14 @@ async def finalize_and_persist_storyboard(
                 template_name,
             )
 
+        # Close the gaps left where the storyboard dropped a word as it
+        # wrote - a brand name a video prompt may not carry. Done here, the
+        # review checkpoint shows the same text the renderer is handed.
+        for scene in storyboard.scenes:
+            for prompt in (scene.first_frame_prompt, scene.video_prompt):
+                if prompt and prompt.description:
+                    prompt.description = common_utils.tidy_spacing(prompt.description)
+
         # 5. Persist to State & Explicitly save to Creative Studio
         storyboard.storyboard_id = None
         sb_dump = storyboard.model_dump()
@@ -278,7 +298,17 @@ async def finalize_and_persist_storyboard(
         )
         sb_dump["session_id"] = session_id
         sb_dump["workspace_id"] = workspace_id
+
+        # Merge over the persisted storyboard rather than replacing it. The dump
+        # above is parsed from the LLM's JSON and therefore carries no asset ids,
+        # so a plain assignment would discard every already-rendered frame, clip
+        # and voiceover on any storyboard re-run. The merge assigns stable
+        # scene ids and carries forward assets whose prompts are unchanged.
+        sb_dump = storyboard_merge.merge_storyboard(
+            tool_context.state.get(common_utils.STORYBOARD_KEY), sb_dump
+        )
         tool_context.state[common_utils.STORYBOARD_KEY] = sb_dump
+        common_utils.mark_stage_completed(tool_context, "storyboard")
 
         # 6. Beautify for UI
         table_rows = []

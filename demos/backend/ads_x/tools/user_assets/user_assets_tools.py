@@ -157,6 +157,7 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
         try:
             logger.info("Starting Casting for virtual creator...")
             demographics = await mediagen_service.generate_text(
+                purpose="creator_demographics",
                 workspace_id=workspace_id,
                 prompt=casting_prompt,
             )
@@ -177,9 +178,11 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
             creator_filename = f"virtual_creator_{uid}.png"
 
             logger.info(f"Executing Image Generation for: {creator_filename}")
-            # NOTE: Unified MediaGenerationServiceInterface adaptation.
-            # This would break legacy version due to function signature and method name mismatch.
-            workspace_id = str(tool_context.state.get("workspace_id") or "")
+            # The workspace resolved at the top of this tool is the one the rest
+            # of the campaign reads from. Re-reading it from state here would
+            # yield an empty string whenever that key is unset, saving the
+            # headshot into a workspace nothing else queries and leaving every
+            # scene that references the creator unable to find it.
             creator_asset = await mediagen_service.generate_image(
                 workspace_id=workspace_id,
                 prompt=creator_prompt,
@@ -196,8 +199,11 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
             # Safety delay to ensure GCS consistency before next agent/tool looks for it.
             await asyncio.sleep(5)
 
-            # Define creator filename key using its database ID
-            creator_key = f"virtual_creator_{creator_asset.id}.png"
+            # The key is the name the asset was saved under. Deriving a second
+            # name from the database id would advertise a filename that
+            # resolves to nothing, and every scene referencing the creator
+            # would then fail to find its reference image.
+            creator_key = creator_filename
 
             # Add to the assets list exposed to the Storyboard Agent
             # ONLY if successful.
@@ -213,6 +219,7 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
                     "asset_type": "generated",
                     "workspace_id": workspace_id,
                 },
+                "file_name": creator_key,
                 "prompt": creator_prompt,
                 "demographics": demographics,
                 "generated_at": (
@@ -240,4 +247,5 @@ async def ingest_assets(tool_context: ToolContext) -> ToolResult:
     )
     existing_user_assets.update(user_assets)
     tool_context.state[common_utils.USER_ASSETS_KEY] = existing_user_assets
+    common_utils.mark_stage_completed(tool_context, "user_assets")
     return tool_success(f"Ingested {len(existing_user_assets)} user assets.")

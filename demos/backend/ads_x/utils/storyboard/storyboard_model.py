@@ -163,6 +163,14 @@ class Scene(pydantic.BaseModel):
         default=None,
         description="A description of the opening context for the scene (e.g. 'EXT. PARK - DAY').",
     )
+    on_screen_text_hint: str | None = pydantic.Field(
+        default=None,
+        description=(
+            "The exact text the frame must render, spelled character for"
+            " character as it should appear. Set this on the closing brand"
+            " scene to the brand wordmark."
+        ),
+    )
 
 
 class VoiceoverGroup(pydantic.BaseModel):

@@ -577,7 +577,19 @@ class VideoStitchingService:
                         )
                         current_stream = trimmed_stream
 
-                    # 2. Speed (atempo)
+                    # 2. Level
+                    #
+                    # Applies AudioClip.volume. Without it every track mixes at
+                    # the level it was generated at, and a music bed masks
+                    # speech occupying the same midrange.
+                    if audio_clip.volume != 1.0:
+                        volume_stream = f"[a{i}_volume]"
+                        chain.append(
+                            f"{current_stream}volume={audio_clip.volume}{volume_stream}"
+                        )
+                        current_stream = volume_stream
+
+                    # 3. Speed (atempo)
                     if audio_clip.speed != 1.0:
                         tempo_stream = f"[a{i}_tempo]"
                         chain.append(
@@ -585,7 +597,7 @@ class VideoStitchingService:
                         )
                         current_stream = tempo_stream
 
-                    # 3. Fade in
+                    # 4. Fade in
                     if audio_clip.fade_in_duration_seconds > 0:
                         fadein_stream = f"[a{i}_fadein]"
                         chain.append(
@@ -593,7 +605,7 @@ class VideoStitchingService:
                         )
                         current_stream = fadein_stream
 
-                    # 3. Fade out
+                    # 5. Fade out
                     if (
                         audio_clip.fade_out_duration_seconds > 0
                         and audio_clip.trim
@@ -610,7 +622,7 @@ class VideoStitchingService:
                             )
                             current_stream = fadeout_stream
 
-                    # 4. Delay
+                    # 6. Delay
                     delayed_stream = f"[a{i}_delayed]"
                     delay_ms = int(start_time * 1000)
                     chain.append(

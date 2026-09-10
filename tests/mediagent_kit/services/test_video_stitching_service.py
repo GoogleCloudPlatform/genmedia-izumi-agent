@@ -329,3 +329,51 @@ def test_stitch_video_with_audio_clip(
     assert result == mock_asset
     mock_asset_service.save_asset_from_file.assert_called_once()
     mock_subprocess_run.assert_called()
+
+
+# ---------------------------------------------------------------------------
+# Track levels
+#
+# AudioClip.volume is declared on the type and set by callers, so the filter
+# graph must apply it. Otherwise every track mixes at the level it was
+# generated at and a music bed masks the narration it plays beneath.
+# ---------------------------------------------------------------------------
+
+
+def _audio_filter_for(volume, mock_asset_service, mock_config):
+    from mediagent_kit.services.video_stitching_service import VideoStitchingService
+
+    service = VideoStitchingService(
+        asset_service=mock_asset_service, config=mock_config
+    )
+    timeline = VideoTimeline(
+        title="Level Test",
+        video_clips=[VideoClip(asset=MagicMock(spec=Asset))],
+        transitions=[],
+        audio_clips=[
+            AudioClip(
+                asset=MagicMock(spec=Asset),
+                start_at=AudioPlacement(video_clip_index=0),
+                trim=Trim(duration_seconds=4),
+                volume=volume,
+            )
+        ],
+    )
+    filter_complex, _, _ = service._build_filter_complex(
+        timeline, ["v.mp4"], [4.0], 1, [(4.0, 1280, 720, 24.0)]
+    )
+    return filter_complex
+
+
+def test_a_quieter_track_is_actually_attenuated(mock_asset_service, mock_config):
+    assert "volume=0.2" in _audio_filter_for(0.2, mock_asset_service, mock_config)
+
+
+def test_a_full_level_track_adds_no_gain_stage(mock_asset_service, mock_config):
+    assert "volume=" not in _audio_filter_for(1.0, mock_asset_service, mock_config)
+
+
+def test_background_music_is_mixed_under_the_narration():
+    from demos.backend.ads_x.tools.generation import stitching_tools
+
+    assert 0 < stitching_tools.BACKGROUND_MUSIC_VOLUME < 1.0

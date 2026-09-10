@@ -321,6 +321,7 @@ class MediaGenerationServiceInterface(ABC):
         prompt: str,
         reference_assets: Optional[list[AssetRef]] = None,
         idempotency_key: Optional[str] = None,
+        purpose: Optional[str] = None,
     ) -> str:
         """Generates text and returns it inline.
 
@@ -355,10 +356,10 @@ class MediaGenerationServiceInterface(ABC):
         self,
         workspace_id: str,
         prompt: str,
-        generation_model: str,
         aspect_ratio: str,
         duration_seconds: int,
         file_name: str,
+        generation_model: Optional[str] = None,
         start_image: Optional[AssetRef] = None,
         end_image: Optional[AssetRef] = None,
         reference_videos: Optional[list[AssetRef]] = None,
@@ -391,12 +392,15 @@ class MediaGenerationServiceInterface(ABC):
         self,
         workspace_id: str,
         prompt: str,
-        model: str,
         duration_seconds: int,
         file_name: str,
+        model: Optional[str] = None,
         idempotency_key: Optional[str] = None,
     ) -> GeneratedAsset:
-        """Generates background music."""
+        """Generates background music.
+
+        Leave ``model`` unset to use the configured music model.
+        """
 
 
 # ---------------------------------------------------------------------------

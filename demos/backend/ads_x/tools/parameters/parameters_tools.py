@@ -51,6 +51,7 @@ async def extract_campaign_parameters(
     # agent (which has the tool); here there is no tool, so append the
     # text-output override or Gemini 3.x returns a MALFORMED_FUNCTION_CALL.
     raw_json = await mediagen_service.generate_text(
+        purpose="campaign_parameters",
         workspace_id=workspace_id,
         prompt=parameters_instruction.INSTRUCTION
         + f"\n\n**USER BRIEF:**\n{user_brief}"
@@ -79,6 +80,7 @@ async def extract_campaign_parameters(
         # Hardened state persistence for downstream agents
         dumped = params.model_dump()
         tool_context.state[common_utils.PARAMETERS_KEY] = dumped
+        common_utils.mark_stage_completed(tool_context, "parameters")
         logger.warning(
             f"🚨 [DEEP DEBUG UPSTREAM] Persisting to state type: {type(dumped)}"
         )
@@ -99,6 +101,7 @@ async def extract_campaign_parameters(
     # 2. Repair Turn (Self-Correction)
     try:
         repaired_raw = await mediagen_service.generate_text(
+            purpose="campaign_parameters_repair",
             workspace_id=workspace_id,
             prompt=parameters_repair_instruction.REPAIR_PROMPT.format(
                 user_brief=user_brief, raw_json=clean_json, error=str(first_error)
@@ -111,6 +114,7 @@ async def extract_campaign_parameters(
 
         # Hardened state persistence for downstream agents
         tool_context.state[common_utils.PARAMETERS_KEY] = params.model_dump()
+        common_utils.mark_stage_completed(tool_context, "parameters")
         logger.info(
             f"Successfully persisted repaired parameters to state: {params.campaign_name}"
         )
@@ -167,6 +171,7 @@ async def extract_campaign_parameters(
 
         # Persist to state so following agents have a baseline
         tool_context.state[common_utils.PARAMETERS_KEY] = fallback_params.model_dump()
+        common_utils.mark_stage_completed(tool_context, "parameters")
         logger.info(
             f"Successfully persisted fallback parameters to state: {fallback_params.campaign_name}"
         )

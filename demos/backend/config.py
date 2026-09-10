@@ -36,6 +36,11 @@ class Config:
     CREATIVE_STUDIO_FRONTEND_URL: str = ""
     CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY: str = "user_auth_token"
     MODEL_TARGET_LOCATION: str | None = None
+    # Human-in-the-loop review gates. Off by default and deliberately so: a gate
+    # suspends the run until a client answers it, so any frontend that cannot
+    # render an approval control would hang forever. Enable only for clients
+    # that implement the gate response.
+    ENABLE_HITL_GATES: bool = False
 
 
 def check_firestore_emulator():
@@ -96,6 +101,8 @@ def load_config() -> Config:
             "CREATIVE_STUDIO_USER_AUTH_TOKEN_KEY", "user_auth_token"
         ),
         MODEL_TARGET_LOCATION=os.environ.get("MODEL_TARGET_LOCATION"),
+        ENABLE_HITL_GATES=os.environ.get("ENABLE_HITL_GATES", "False").lower()
+        in ["true", "1"],
     )
 
 
