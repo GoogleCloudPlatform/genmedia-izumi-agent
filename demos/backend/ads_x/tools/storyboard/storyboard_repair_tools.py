@@ -88,9 +88,7 @@ def _build_art_direction_block(
         fields.append(("Grooming", char.get("grooming")))
     fields += [
         ("Lighting", styling("vibe", illum.get("vibe"))),
-        ("Key Light", styling("key_lighting", illum.get("key_lighting"))),
         ("Optics", styling("optics", cine.get("optics"))),
-        ("Texture", styling("motion_texture", cine.get("motion_texture"))),
     ]
     rendered = "; ".join(f"{label}: {value}" for label, value in fields if value)
     return f" [ART DIRECTION (NON-NEGOTIABLE) -> {rendered}]"

@@ -15,14 +15,78 @@
 """Tools for providing curated production recommendations."""
 
 import hashlib
+import copy
 import logging
 from typing import Dict, Any, List, Optional
+from ...utils.common import common_utils
 from ...utils.storyboard import production_presets
 from google.adk.tools.tool_context import ToolContext
 import mediagent_kit.services.aio
 from utils.adk import get_user_id_from_context
 
 logger = logging.getLogger(__name__)
+
+# Recipe fields the storyboard is expected to reinterpret per campaign, rather
+# than reproduce. Everything else is the Look's identity and is applied as
+# written.
+ADAPTABLE_FIELDS = (
+    "environment",
+    "cinematography.movement",
+    "cinematography.motion_texture",
+    "illumination.key_lighting",
+    "sonic_landscape",
+)
+
+# What the storyboard is asked to decide for itself, in place of the recipe's
+# own wording. A field offered with a value is reproduced verbatim, so these
+# are offered as questions.
+_STAGING_QUESTIONS = {
+    "environment": "Where is this product really used? Describe that setting.",
+    "camera_movement": (
+        "How would a film about this product move? Name one camera movement."
+    ),
+    "motion_texture": ("What optical technique suits this subject? Name one."),
+    "key_lighting": "How is this product really lit? Name one lighting setup.",
+    "sonic_landscape": (
+        "What would this product sound like? Describe the music in one line."
+    ),
+}
+
+
+def _recipe_for_director(
+    recipe: Dict[str, Any], tool_context: Optional[ToolContext]
+) -> Dict[str, Any]:
+    """The recipe as the storyboard sees it.
+
+    The Look's identity is passed through. Staging is withheld and replaced by
+    the question it answers: a field supplied with a value is reproduced word
+    for word, which puts every campaign in one Look on the same set.
+
+    Character styling is withheld from a campaign with nobody on screen. The
+    art-direction block already omits it there, and a described cast that
+    reaches the storyboard puts a person into a product-only ad.
+    """
+    view = copy.deepcopy(recipe)
+
+    view.pop("sonic_landscape", None)
+    view.pop("environment", None)
+    for group, key in (
+        ("cinematography", "movement"),
+        ("cinematography", "motion_texture"),
+        ("illumination", "key_lighting"),
+    ):
+        if isinstance(view.get(group), dict):
+            view[group].pop(key, None)
+
+    parameters = {}
+    if tool_context is not None:
+        parameters = tool_context.state.get(common_utils.PARAMETERS_KEY) or {}
+    if not (hasattr(parameters, "get") and parameters.get("generate_virtual_creator")):
+        view.pop("character", None)
+        view.pop("product_mode", None)
+
+    view["decide_for_this_campaign"] = _STAGING_QUESTIONS
+    return view
 
 
 async def recommend_production_recipe(
@@ -77,7 +141,7 @@ async def select_recipe_for_campaign(
         cached = tool_context.state.get("master_production_recipe")
         if cached:
             logger.info("🎨 [RECIPE] Reusing cached Look '%s'", cached.get("look_name"))
-            return cached
+            return _recipe_for_director(cached, tool_context)
 
     logger.info(
         f"🎬 [ADS-X PRODUCTION TOOL FIRED] Recommending Recipe for Vertical: "
@@ -105,7 +169,7 @@ async def select_recipe_for_campaign(
     if tool_context is not None:
         tool_context.state["master_production_recipe"] = recipe
 
-    return recipe
+    return _recipe_for_director(recipe, tool_context)
 
 
 async def _select_look(
