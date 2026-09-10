@@ -190,6 +190,14 @@ async def enrich_prompt_with_llm(
             "have to be painted into the picture before the clip could start, "
             "it does not belong in the action."
         )
+        mission_commands.append(
+            "TEXT DOES NOT VANISH. Readable text in the frame - a logo "
+            "lockup, a product name, a label, a sign - is still accounted for "
+            "when the shot ends. It may hold, drift out of frame with the "
+            "camera, or fade. It may not be present in one moment and gone "
+            "the next. This is one continuous shot: do not change framing "
+            "part way through."
+        )
 
     # Composition rules for a still frame. A video call is anchored by the
     # first frame it is handed, so sending these there would spend the
@@ -203,11 +211,15 @@ async def enrich_prompt_with_llm(
                 "otherwise apply it to the product. A supplied logo is a separate "
                 "brand asset and the marking it carries is frequently not the "
                 "marking the product carries, so applying it invents branding the "
-                "product reference does not show. The product wears only what its "
-                "own reference image shows: count the marks in that image and "
-                "reproduce exactly those. If it carries an icon and no words, NO "
-                "words appear on the product anywhere in the frame. If it carries "
-                "no mark at all, the product surface stays bare."
+                "product reference does not show. The product wears exactly what "
+                "its own reference image shows, no more and no less. Count the "
+                "marks in that image and reproduce those: a wordmark, a product "
+                "name or printed text on the reference must appear on the "
+                "product, in the same place and proportion. If it carries an icon "
+                "and no words, NO words appear on the product anywhere in the "
+                "frame. If it carries no mark at all, the product surface stays "
+                "bare. A branded product rendered blank is as wrong as an "
+                "unbranded one covered in text."
             ),
             (
                 "PRODUCT FIDELITY: a supplied product image is the authority on how "
@@ -217,7 +229,8 @@ async def enrich_prompt_with_llm(
                 "engraving, embossing, pattern, texture or markings, and do NOT "
                 "enrich them with adjectives such as ornate, intricate, filigreed, "
                 "finely detailed or hand-tooled. Decoration the reference does not "
-                "show must not appear. The art direction governs the scene around "
+                "show must not appear, and branding it does show must not be "
+                "dropped. The art direction governs the scene around "
                 "the product - the surface it rests on, the light, the lens, the "
                 "depth of field - never the product itself."
             ),

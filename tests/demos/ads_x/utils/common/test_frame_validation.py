@@ -194,3 +194,45 @@ def test_the_inspector_is_told_where_the_bar_sits():
     assert "implausible_product" in prompt
     assert "generously" in prompt, "a tight bar here spends regenerations"
     assert "hero close-up" in prompt, "name what is not a fault"
+
+
+# --------------------------------------------------------------------------
+# Markings, in both directions
+#
+# The check began as a one-way ratchet: it reported markings the reference did
+# not have, and its remedy said to remove text. A wordmark rendered slightly
+# imperfectly read as "added", and the regeneration stripped the branding, so
+# a Dior bottle came back blank.
+# --------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_asset_service")
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+async def test_a_blank_product_is_reported(mock_mediagen, mock_assets):
+    mediagen, assets = _service_returning(
+        '{"added_markings": false, "missing_markings": true, '
+        '"logo_on_product": false, "studio_cutout": false}'
+    )
+    mock_mediagen.return_value, mock_assets.return_value = mediagen, assets
+
+    faults = await frame_validation.inspect_first_frame("ws", FRAME, PRODUCT, LOGO)
+
+    assert len(faults) == 1
+    assert "missing branding" in faults[0]
+
+
+def test_removing_a_stray_marking_does_not_mean_removing_all_text():
+    note = frame_validation.corrective_note([frame_validation.FAULT_ADDED_MARKINGS])
+
+    assert "Remove only that marking" in note
+    assert "stays exactly as it has it" in note
+
+
+def test_the_inspector_separates_absent_from_badly_drawn():
+    prompt = " ".join(frame_validation._INSPECTION_PROMPT.split())
+
+    assert "missing_markings" in prompt
+    # The false positive that stripped a real wordmark.
+    assert "NOT about how well an existing marking is drawn" in prompt
+    assert "rendered imperfectly" in prompt

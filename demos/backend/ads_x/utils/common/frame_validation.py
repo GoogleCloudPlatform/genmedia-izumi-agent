@@ -38,8 +38,14 @@ logger = logging.getLogger(__name__)
 
 # Faults the inspector reports, in the wording fed back to a regeneration.
 FAULT_ADDED_MARKINGS = (
-    "The product carries a marking its reference does not show. Reproduce the "
-    "reference exactly: no added text, wordmark, emblem, engraving or pattern."
+    "The product carries a marking its reference does not show. Remove only "
+    "that marking. Every marking the reference does show stays exactly as it "
+    "has it: the wordmark, the product name, any text printed on the product."
+)
+FAULT_MISSING_MARKINGS = (
+    "The product is missing branding its reference shows. Reproduce the "
+    "wordmark, product name and any text the reference has, in the same "
+    "position and proportion. An unbranded product is not the product."
 )
 FAULT_LOGO_ON_PRODUCT = (
     "The brand logo is applied to the product. Place it on its own surface, "
@@ -64,14 +70,23 @@ Compare them and answer only about what is visible. Reply with JSON and
 nothing else:
 
 {{"added_markings": <true|false>,
+  "missing_markings": <true|false>,
   "logo_on_product": <true|false>,
   "studio_cutout": <true|false>,
   "implausible_product": <true|false>}}
 
-added_markings: true if the product in the generated frame carries any text,
-wordmark, emblem, engraving, embossing or surface pattern that the product
-reference does not show. A product whose reference carries an icon and no
-words has added markings if any words appear on it.
+added_markings: true only if the product in the generated frame carries a
+marking that is ABSENT from the reference - different words, an emblem the
+reference does not have, a pattern it does not have. A product whose reference
+carries an icon and no words has added markings if words appear on it. This is
+NOT about how well an existing marking is drawn: the same wordmark rendered
+imperfectly, at a slightly different size, or partly obscured by angle is
+false. Judge which markings are present, not how cleanly they are printed.
+
+missing_markings: true if the product reference shows a wordmark, product name
+or other printed text and the generated product does not carry it. A branded
+product rendered blank is this fault. False when the reference product is
+itself unmarked.
 
 logo_on_product: true if a brand logo or wordmark appears printed, embossed,
 engraved, stitched or otherwise applied to the product itself. False when the
@@ -152,6 +167,8 @@ async def inspect_first_frame(
     faults = []
     if verdict.get("added_markings"):
         faults.append(FAULT_ADDED_MARKINGS)
+    if verdict.get("missing_markings"):
+        faults.append(FAULT_MISSING_MARKINGS)
     if logo is not None and verdict.get("logo_on_product"):
         faults.append(FAULT_LOGO_ON_PRODUCT)
     if verdict.get("studio_cutout"):
