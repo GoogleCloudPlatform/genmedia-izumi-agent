@@ -153,6 +153,54 @@ def test_generate_single_scene_success(mock_tool_context):
         mock_gen_scene.assert_called_once()
 
 
+def test_generate_single_scene_uses_the_session_workspace():
+    """Redoing one scene must render into the workspace holding its assets.
+
+    Native mode leaves ``workspace_id`` out of session state and carries the id
+    on the ADK context instead. Reading state alone yields "", and the frame
+    the scene starts from is then looked up in a workspace that has none of it:
+    "Could not find asset with file name: scene_1_first_frame.png".
+    """
+    from types import SimpleNamespace
+    import asyncio
+
+    from demos.backend.ads_x.tools.generation.generation_tools import (
+        generate_single_scene,
+    )
+    from demos.backend.ads_x.utils.common.common_utils import (
+        STORYBOARD_KEY,
+        PARAMETERS_KEY,
+    )
+
+    context = MagicMock()
+    context.state = {
+        STORYBOARD_KEY: {
+            "scenes": [
+                {
+                    "topic": "Scene 1",
+                    "first_frame_prompt": {"description": "F1"},
+                    "video_prompt": {"description": "V1", "duration_seconds": 3.0},
+                    "voiceover_prompt": {"text": "Hi", "gender": "female"},
+                }
+            ]
+        },
+        PARAMETERS_KEY: {"template_name": "Custom"},
+    }
+    context._invocation_context = SimpleNamespace(
+        session=SimpleNamespace(user_id="project_1789168370652", id="s-1")
+    )
+
+    with patch(
+        "demos.backend.ads_x.tools.generation.generation_tools.generate_scene",
+        new_callable=AsyncMock,
+    ) as mock_gen_scene:
+        mock_gen_scene.return_value = [MagicMock()]
+        result = asyncio.run(generate_single_scene(context, scene_index=0))
+
+    assert result["status"] == "succeeded"
+    assert mock_gen_scene.call_args.kwargs["workspace_id"] == "project_1789168370652"
+
+
 @pytest.mark.asyncio
 @patch(
     "demos.backend.ads_x.tools.generation.generation_tools.scene_generation_utils.generate_scene_video"

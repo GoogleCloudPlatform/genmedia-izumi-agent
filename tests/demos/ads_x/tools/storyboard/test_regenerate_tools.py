@@ -118,6 +118,24 @@ async def test_a_failed_music_render_is_reported(rendered_music):
     assert "no background track" in result["error_message"]
 
 
+async def test_music_renders_into_the_session_workspace(rendered_music):
+    """The workspace is on the ADK context, not in state.
+
+    Native mode never puts ``workspace_id`` in session state, so deriving it
+    from state alone yields an empty string and the track is written to a
+    workspace nobody can read back.
+    """
+    ctx = _ctx()
+    ctx._invocation_context = SimpleNamespace(
+        session=SimpleNamespace(user_id="project_1789168370652", id="s-1")
+    )
+
+    result = await regenerate_tools.regenerate_music(ctx)
+
+    assert result["status"] == "succeeded"
+    assert rendered_music.await_args.args[0] == "project_1789168370652"
+
+
 async def test_music_brief_can_be_replaced(rendered_music):
     ctx = _ctx()
     await regenerate_tools.regenerate_music(ctx, "driving percussion")

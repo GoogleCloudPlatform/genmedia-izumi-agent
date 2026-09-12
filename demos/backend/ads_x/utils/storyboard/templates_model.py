@@ -42,7 +42,12 @@ class CinematographyHints(pydantic.BaseModel):
     )
     velocity_hint: str = pydantic.Field(
         default="Standard",
-        description="Guidance on the speed of motion (e.g. 'Fast', 'Slow', 'Ramp').",
+        description=(
+            "The pace of this scene's motion, written as a phrase describing how"
+            " the action moves rather than a single speed word: 'a slow reverent"
+            " drift', 'real-time pour', 'snaps to a dead stop', 'frozen, nothing"
+            " moves', 'ramps from still into a fast whip', 'brisk and rhythmic'."
+        ),
     )
 
 

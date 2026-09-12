@@ -21,6 +21,7 @@ import pydantic
 from google.adk.tools.tool_context import ToolContext
 import mediagent_kit
 from utils.adk import get_session_id_from_context
+from utils.adk import resolve_workspace_id
 
 from ...utils.common import common_utils
 from ...utils.storyboard import storyboard_merge, storyboard_model
@@ -128,10 +129,7 @@ async def finalize_and_persist_storyboard(
 
         # 3. Trigger Repair Turn using mediagent_kit
         mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-        workspace_id = str(
-            tool_context.state.get("workspace_id")
-            or tool_context.state.get("user_id", "default_user")
-        )
+        workspace_id, _ = resolve_workspace_id(tool_context)
         repaired_json = await mediagen_service.generate_text(
             purpose="storyboard_repair",
             workspace_id=workspace_id,
@@ -292,10 +290,7 @@ async def finalize_and_persist_storyboard(
         for id_key in ("storyboard_id", "id", "current_storyboard_id"):
             sb_dump.pop(id_key, None)
         session_id = get_session_id_from_context(tool_context)
-        workspace_id = str(
-            tool_context.state.get("workspace_id")
-            or tool_context.state.get("user_id", "")
-        )
+        workspace_id, _ = resolve_workspace_id(tool_context)
         sb_dump["session_id"] = session_id
         sb_dump["workspace_id"] = workspace_id
 

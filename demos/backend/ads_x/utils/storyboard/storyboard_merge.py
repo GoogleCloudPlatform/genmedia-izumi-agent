@@ -49,12 +49,14 @@ SCENE_ID_LENGTH = 12
 
 # (prompt field, asset-bearing keys to carry when that prompt is unchanged)
 #
-# Voiceover is keyed on `asset_ref` (a dict), not `asset_id`: that is what
-# generate_scene_voiceover checks for idempotency. Dropping it would force an
-# expensive TTS re-render and produce a different take of identical text.
+# All three are keyed on `asset_ref` (a dict), not `asset_id`: that is what
+# generate_scene_first_frame_step, generate_scene_video and
+# generate_scene_voiceover each check for idempotency. Keys listed here are
+# carried when the prompt is unchanged and dropped when the scene is cleared,
+# so omitting `asset_ref` leaves a cleared scene still looking rendered.
 _PROMPT_ASSET_KEYS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("first_frame_prompt", ("asset_id",)),
-    ("video_prompt", ("asset_id", "enrichment_asset_id")),
+    ("first_frame_prompt", ("asset_ref", "asset_id")),
+    ("video_prompt", ("asset_ref", "asset_id", "enrichment_asset_id")),
     ("voiceover_prompt", ("asset_ref", "asset_id")),
 )
 

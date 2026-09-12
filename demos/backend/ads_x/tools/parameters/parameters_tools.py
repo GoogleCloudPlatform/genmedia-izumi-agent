@@ -18,6 +18,8 @@ import uuid
 from google.adk.tools.tool_context import ToolContext
 import mediagent_kit
 
+from utils.adk import resolve_workspace_id
+
 from ...utils.common import common_utils
 from ...utils.parameters import parameters_model
 from ...instructions.parameters import (
@@ -42,10 +44,7 @@ async def extract_campaign_parameters(
     logger.info("Extracting campaign parameters via background tool...")
 
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
-    workspace_id = str(
-        tool_context.state.get("workspace_id")
-        or tool_context.state.get("user_id", "default_user")
-    )
+    workspace_id, _ = resolve_workspace_id(tool_context)
 
     # Call Gemini to get the JSON. INSTRUCTION is shared with the parameters
     # agent (which has the tool); here there is no tool, so append the

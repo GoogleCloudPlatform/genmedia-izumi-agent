@@ -798,10 +798,9 @@ async def _generate_media(tool_context: ToolContext, phase: str) -> ToolResult:
     # Re-sync updated storyboard with generated asset_refs back into context state
     tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
 
+    # workspace_id is the one resolved at the top of this function; deriving it
+    # again from state alone yields "" in native mode.
     session_id = get_session_id_from_context(tool_context)
-    workspace_id = str(
-        tool_context.state.get("workspace_id") or tool_context.state.get("user_id", "")
-    )
     if isinstance(storyboard, dict):
         storyboard["session_id"] = session_id
         storyboard["workspace_id"] = workspace_id
@@ -840,9 +839,9 @@ async def generate_single_scene(
 
     scene = storyboard["scenes"][scene_index]
 
-    workspace_id = str(
-        tool_context.state.get("workspace_id") or tool_context.state.get("user_id", "")
-    )
+    workspace_id, ws_error = resolve_workspace_id(tool_context)
+    if ws_error:
+        return tool_failure(ws_error)
     session_id = get_session_id_from_context(tool_context)
 
     # Simple Binding refresh

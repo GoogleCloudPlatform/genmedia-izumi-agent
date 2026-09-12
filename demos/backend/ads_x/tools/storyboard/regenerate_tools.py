@@ -31,6 +31,8 @@ from typing import Any, Dict, Optional
 
 from google.adk.tools.tool_context import ToolContext
 
+from utils.adk import resolve_workspace_id
+
 from ...utils.common import common_utils
 from ...utils.generation import generation_helpers
 from ...utils.storyboard import storyboard_merge
@@ -129,9 +131,9 @@ async def regenerate_music(
     # Render here rather than only releasing the reference, matching
     # regenerate_scene. A released track leaves the storyboard declaring music
     # that no longer exists, and the next stitch produces a silent cut.
-    workspace_id = str(
-        tool_context.state.get("workspace_id") or tool_context.state.get("user_id", "")
-    )
+    workspace_id, ws_error = resolve_workspace_id(tool_context)
+    if ws_error:
+        return tool_failure(ws_error)
     logger.info(
         "Re-rendering background music %s: %s",
         "with a new brief" if description.strip() else "for a different take",

@@ -63,8 +63,10 @@ steps:
     - '${_LOCATION}'
     - '--timeout'
     - '3600'
+    # --set-env-vars replaces the whole set, so a variable omitted here is
+    # dropped from the service on every deploy.
     - '--set-env-vars'
-    - 'FIRESTORE_DATABASE_ID=${_FIRESTORE_DATABASE_ID},GOOGLE_CLOUD_PROJECT=${_PROJECT_ID},ASSET_SERVICE_GCS_BUCKET=${_ASSET_SERVICE_GCS_BUCKET},ARTIFACT_SERVICE_GCS_BUCKET=${_ARTIFACT_SERVICE_GCS_BUCKET},GOOGLE_CLOUD_LOCATION=global,GOOGLE_GENAI_USE_VERTEXAI=True'
+    - 'FIRESTORE_DATABASE_ID=${_FIRESTORE_DATABASE_ID},GOOGLE_CLOUD_PROJECT=${_PROJECT_ID},ASSET_SERVICE_GCS_BUCKET=${_ASSET_SERVICE_GCS_BUCKET},ARTIFACT_SERVICE_GCS_BUCKET=${_ARTIFACT_SERVICE_GCS_BUCKET},GOOGLE_CLOUD_LOCATION=global,GOOGLE_GENAI_USE_VERTEXAI=True,ENABLE_HITL_GATES=${_ENABLE_HITL_GATES}'
 
 # Frontend deploy removed
 
@@ -84,6 +86,9 @@ substitutions:
   _PROJECT_ID: ''
   _SERVICE_NAME: ''
   _CLOUD_BUILD_SA_RESOURCE_NAME: ''
+  # Matches the ENABLE_HITL_GATES default in demos/backend/config.py, so an
+  # environment that does not ask for the checkpoints does not get them.
+  _ENABLE_HITL_GATES: 'false'
 
 # Specify the service account for the build
 serviceAccount: '${_CLOUD_BUILD_SA_RESOURCE_NAME}'

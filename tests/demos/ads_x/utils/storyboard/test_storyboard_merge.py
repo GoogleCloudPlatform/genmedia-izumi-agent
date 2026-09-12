@@ -302,6 +302,27 @@ def test_clear_scene_assets_removes_every_reference():
     assert scene["video_prompt"]["description"] == "v"
 
 
+def test_clear_scene_assets_drops_the_ref_the_render_guard_reads():
+    """Every idempotency check reads ``asset_ref``, so clearing must drop it.
+
+    generate_scene_first_frame_step, generate_scene_video and
+    generate_scene_voiceover each skip a prompt that still carries an
+    ``asset_ref``. A clear that removed only ``asset_id`` left the guard
+    satisfied, so asking to redo a frame or a clip returned the previous render
+    and reported success.
+    """
+    scene = _rendered_scene("a", "f", "v", 1)
+    scene["first_frame_prompt"]["asset_ref"] = {"id": "img-1"}
+    scene["video_prompt"]["asset_ref"] = {"id": "vid-1"}
+    scene["voiceover_prompt"]["asset_ref"] = {"id": "vo-1"}
+
+    clear_scene_assets(scene)
+
+    assert "asset_ref" not in scene["first_frame_prompt"]
+    assert "asset_ref" not in scene["video_prompt"]
+    assert "asset_ref" not in scene["voiceover_prompt"]
+
+
 def test_clear_scene_assets_is_safe_on_ungenerated_scene():
     scene = _scene("a", "f", "v")
     assert clear_scene_assets(scene) == 0
