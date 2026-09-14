@@ -658,6 +658,44 @@ async def test_the_frame_gate_refuses_before_anything_is_rendered():
     assert result["status"] == "failed"
 
 
+async def test_the_frame_gate_saves_the_rendered_frames_before_it_suspends():
+    """The client renders the storyboard it holds, not the session's.
+
+    The storyboard reaches Creative Studio at the storyboard checkpoint
+    carrying descriptions, and again at stitching carrying video. Without a
+    push here the scenes it holds while the reviewer is being asked about the
+    frames still have no frames on them.
+    """
+    ctx = _ctx({"storyboard": _rendered_frames()})
+
+    with _save_patch() as saved:
+        await gate_tools.await_frame_approval(ctx)
+
+    saved.assert_awaited_once()
+    pushed = saved.await_args.args[1]
+    assert [s["first_frame_prompt"]["asset_id"] for s in pushed["scenes"]] == [
+        "img-1",
+        "img-2",
+    ]
+
+
+async def test_the_frame_review_still_goes_ahead_when_the_save_fails():
+    ctx = _ctx({"storyboard": _rendered_frames()})
+
+    with _save_patch(returns=None):
+        payload = (await gate_tools.await_frame_approval(ctx))["result"]
+
+    assert payload["status"] == "awaiting_human_review"
+    assert len(payload["frames"]) == 2
+
+
+async def test_nothing_is_pushed_when_no_frame_has_been_rendered():
+    with _save_patch() as saved:
+        await gate_tools.await_frame_approval(_ctx({"storyboard": _storyboard()}))
+
+    saved.assert_not_awaited()
+
+
 async def test_the_frame_gate_clears_a_previous_verdict():
     ctx = _ctx(
         {

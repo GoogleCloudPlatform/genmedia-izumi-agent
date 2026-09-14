@@ -474,6 +474,10 @@ async def await_frame_approval(tool_context: ToolContext) -> ToolResult:
 
     tool_context.state[FRAME_DECISION_KEY] = None
 
+    # The reviewer sees Creative Studio's copy, and nothing pushes once the run
+    # suspends. Without this the frames reach the client only at stitching.
+    await storyboard_persistence.save_to_creative_studio(tool_context, storyboard)
+
     rendered = sum(1 for f in frames if f.get("asset_id"))
     message = (
         f"{rendered} of {len(frames)} opening frames are ready. Each one is "
