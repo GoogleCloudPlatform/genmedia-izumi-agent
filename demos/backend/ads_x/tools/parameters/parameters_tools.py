@@ -17,6 +17,7 @@ import logging
 import uuid
 from google.adk.tools.tool_context import ToolContext
 import mediagent_kit
+from mediagent_kit.services.aio.firestore_session_service import SESSION_TITLE_KEY
 
 from utils.adk import resolve_workspace_id
 
@@ -28,6 +29,15 @@ from ...instructions.parameters import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _name_session(tool_context: ToolContext, campaign_name: str) -> None:
+    """Lists the chat under the campaign's name unless it already has a title.
+
+    A title the user gave in a rename is kept.
+    """
+    if campaign_name and not tool_context.state.get(SESSION_TITLE_KEY):
+        tool_context.state[SESSION_TITLE_KEY] = campaign_name
 
 
 async def extract_campaign_parameters(
@@ -79,6 +89,7 @@ async def extract_campaign_parameters(
         # Hardened state persistence for downstream agents
         dumped = params.model_dump()
         tool_context.state[common_utils.PARAMETERS_KEY] = dumped
+        _name_session(tool_context, params.campaign_name)
         common_utils.mark_stage_completed(tool_context, "parameters")
         logger.warning(
             f"🚨 [DEEP DEBUG UPSTREAM] Persisting to state type: {type(dumped)}"
@@ -113,6 +124,7 @@ async def extract_campaign_parameters(
 
         # Hardened state persistence for downstream agents
         tool_context.state[common_utils.PARAMETERS_KEY] = params.model_dump()
+        _name_session(tool_context, params.campaign_name)
         common_utils.mark_stage_completed(tool_context, "parameters")
         logger.info(
             f"Successfully persisted repaired parameters to state: {params.campaign_name}"

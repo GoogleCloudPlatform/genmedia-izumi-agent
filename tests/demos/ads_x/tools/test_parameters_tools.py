@@ -73,6 +73,45 @@ def test_extract_campaign_parameters_success(
             )
 
 
+def _extract_with_state(state, mock_media_gen_service):
+    from demos.backend.ads_x.tools.parameters.parameters_tools import (
+        extract_campaign_parameters,
+    )
+    import asyncio
+
+    context = MagicMock()
+    context.state = state
+    mock_media_gen_service.generate_text = AsyncMock(
+        return_value=json.dumps(
+            {
+                "campaign_brief": "Brief",
+                "campaign_name": "Globoplay Shorts",
+                "target_audience": "Audience",
+            }
+        )
+    )
+    with patch(
+        "mediagent_kit.services.aio.get_media_generation_service",
+        return_value=mock_media_gen_service,
+    ):
+        asyncio.run(extract_campaign_parameters(context, "Brief"))
+    return context.state
+
+
+def test_the_chat_is_named_after_the_campaign(mock_media_gen_service):
+    state = _extract_with_state({}, mock_media_gen_service)
+
+    assert state["session_title"] == "Globoplay Shorts"
+
+
+def test_a_chat_the_user_renamed_keeps_its_name(mock_media_gen_service):
+    state = _extract_with_state(
+        {"session_title": "My launch ad"}, mock_media_gen_service
+    )
+
+    assert state["session_title"] == "My launch ad"
+
+
 def test_extract_campaign_parameters_json_cleaning(
     mock_tool_context, mock_media_gen_service, mock_asset_service
 ):
