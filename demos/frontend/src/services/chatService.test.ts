@@ -18,6 +18,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import chatService, {
   collectReviewedGates,
   findPendingGate,
+  rewriteLegacyReport,
 } from './chatService';
 import { api } from './api';
 import type { ChatApiResponse, ChatMessage, PendingGate } from '../data/types';
@@ -87,6 +88,76 @@ describe('chatService', () => {
     vi.clearAllMocks();
     // Assuming chatService has a way to clear its cache for tests
     chatService['_clearCache']();
+  });
+
+  describe('reports written by earlier builds', () => {
+    const chat =
+      'project/project_1792673070181/chat/46412a59-dd72-4340-baec-8a8161cafe25';
+    const legacy = [
+      '🎬 **Production Complete!** Cinematic magic assembled, rendered, and stitched.',
+      '',
+      '🚀 Deliverables Ready! Access your results in the Creative Studio:',
+      '',
+      `* [View Video in Creative Studio](http://localhost:5173/studio/#/${chat}?contentTab=canvas&canvasId=c1)`,
+      `* [View Storyboard and timeline in Creative Studio](http://localhost:5173/studio/#/${chat}?contentTab=canvas&canvasId=c2)`,
+    ].join('\n');
+
+    const links = (text: string) => text.match(/\]\(/g)?.length ?? 0;
+
+    it('link to the timeline and to the campaign summary canvas', () => {
+      const text = rewriteLegacyReport(legacy, 'summary-1');
+
+      expect(text).not.toContain('Creative Studio');
+      expect(text).not.toContain('localhost');
+      expect(text).toContain('🚀 Deliverables Ready!\n');
+      expect(links(text)).toBe(2);
+      expect(text).toContain(
+        `* [View Video Timeline in Izumi Studio](#/${chat}?contentTab=canvas&canvasId=c1)\n` +
+          `* [View Campaign Summary in Izumi Studio](#/${chat}?contentTab=canvas&canvasId=summary-1)`,
+      );
+    });
+
+    it('give one link to the timeline when no summary is recorded', () => {
+      const text = rewriteLegacyReport(legacy);
+
+      expect(links(text)).toBe(1);
+      expect(text).toContain(
+        `[View Video Timeline in Izumi Studio](#/${chat}?contentTab=canvas&canvasId=c1)`,
+      );
+      expect(text).not.toContain('Creative Studio');
+    });
+
+    it('leaves other text and links alone', () => {
+      const text =
+        'Open the [timeline](https://cs.example.com/workbench?timelineId=1) ' +
+        'in Creative Studio.';
+
+      expect(rewriteLegacyReport(text)).toBe(text);
+    });
+
+    it('are rewritten in the agent messages of a loaded chat only', async () => {
+      (api.getChatMessages as vi.Mock).mockResolvedValue({
+        state: { summary_canvas_id: 'summary-1' },
+        events: [
+          {
+            author: 'user',
+            content: { parts: [{ text: 'View Video in Creative Studio' }] },
+          },
+          { author: 'videos_agent', content: { parts: [{ text: legacy }] } },
+        ],
+      });
+
+      const [user, report] = await chatService.getChatSessionMessages(
+        'proj-1',
+        'ads_x',
+        's-legacy',
+        true,
+      );
+
+      expect(user.text).toBe('View Video in Creative Studio');
+      expect(report.text).not.toContain('Creative Studio');
+      expect(report.text).toContain('canvasId=summary-1');
+    });
   });
 
   describe('renaming and deleting sessions', () => {

@@ -174,6 +174,39 @@ const fixBase64 = (str: string) => {
   return str.replace(/-/g, '+').replace(/_/g, '/');
 };
 
+// The two links in the final report written by earlier builds. Both opened the
+// video's timeline, never the campaign summary.
+const LEGACY_REPORT_LINKS =
+  /\* \[View Video in Creative Studio\]\(https?:\/\/[^)\s]+?\/studio\/#\/(project\/[^/\s]+\/chat\/[^?)\s]+)(\?[^)\s]*)?\)\s*\n\* \[View Storyboard and timeline in Creative Studio\]\([^)\s]*\)/g;
+
+/**
+ * Rewrites the final report written by builds before links pointed into this
+ * app. Those reports named Creative Studio, which this app does not use, and
+ * gave two copies of a link to a localhost /studio path that nothing serves.
+ * Only those exact phrases and that link shape are changed. The pair becomes
+ * one link to the timeline it already opened and, when the session records
+ * one, a link to the campaign summary canvas.
+ */
+export function rewriteLegacyReport(
+  text: string,
+  summaryCanvasId?: string,
+): string {
+  return text
+    .replace(LEGACY_REPORT_LINKS, (_match, route: string, query = '') => {
+      const timeline = `* [View Video Timeline in Izumi Studio](#/${route}${query})`;
+      return summaryCanvasId
+        ? `${timeline}\n* [View Campaign Summary in Izumi Studio](#/${route}?contentTab=canvas&canvasId=${summaryCanvasId})`
+        : timeline;
+    })
+    .replace(/\]\(https?:\/\/[^)\s]+?\/studio\/#\//g, '](#/')
+    .replace(/ Access your results in the Creative Studio:/g, '')
+    .replace(/View Video in Creative Studio/g, 'View Video in Izumi Studio')
+    .replace(
+      /View Storyboard and timeline in Creative Studio/g,
+      'View Storyboard and Timeline in Izumi Studio',
+    );
+}
+
 function updateCache(cacheKey: string, msg: ChatMessage) {
   const currentCache = messageCache.get(cacheKey) || [];
   const existingMsgIndex = currentCache.findIndex((m) => m.id === msg.id);
@@ -297,6 +330,8 @@ const chatService = {
     }
 
     const response = await api.getChatMessages(projectId, app, chatSessionId);
+    const summaryCanvasId: string | undefined =
+      response.state?.summary_canvas_id;
 
     // Checkpoints answered earlier, so the reviewer can look back at what
     // they approved rather than only at the verdict they gave.
@@ -348,7 +383,10 @@ const chatService = {
         return {
           id: `msg-${index}`,
           sender: event.author === 'user' ? 'user' : 'gemini',
-          text: text,
+          text:
+            event.author === 'user'
+              ? text
+              : rewriteLegacyReport(text, summaryCanvasId),
           timestamp: new Date().toISOString(),
           attachments: attachments.length > 0 ? attachments : undefined,
           reviewedGate: reviewedGates.get(index),
