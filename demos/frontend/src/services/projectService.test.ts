@@ -236,6 +236,7 @@ describe('projectService', () => {
           id: 'session-1',
           appName: 'app1',
           lastUpdateTime: 1672531200,
+          state: { session_title: 'Dior launch' },
         },
       ];
 
@@ -256,7 +257,48 @@ describe('projectService', () => {
       expect(result.canvases).toBeDefined();
       expect(result.chatSessions).toBeDefined();
       expect(result.chatSessions[0].appName).toBe('app1');
-      expect(result.chatSessions[0].title).toBe('session-1');
+      expect(result.chatSessions[0].title).toBe('Dior launch');
+    });
+
+    it('shows a derived title only when there is no chosen one', async () => {
+      (api.getAllChatSessions as vi.Mock).mockResolvedValue([
+        {
+          id: 's-derived',
+          appName: 'ads_x',
+          state: { session_title_derived: 'Make an ad for Dior' },
+        },
+        {
+          id: 's-chosen',
+          appName: 'ads_x',
+          state: {
+            session_title: 'Dior launch',
+            session_title_derived: 'Make an ad for Dior',
+          },
+        },
+      ]);
+
+      const sessions = await projectService.getAllChatSessions(
+        'proj-derived',
+        true,
+      );
+
+      expect(sessions.map((s) => s.title)).toEqual([
+        'Make an ad for Dior',
+        'Dior launch',
+      ]);
+    });
+
+    it('lists a session with no title as untitled, not by its id', async () => {
+      (api.getAllChatSessions as vi.Mock).mockResolvedValue([
+        { id: 'c985c541-b406', appName: 'ads_x', lastUpdateTime: 1672531200 },
+      ]);
+
+      const sessions = await projectService.getAllChatSessions(
+        'proj-untitled',
+        true,
+      );
+
+      expect(sessions[0].title).toBe('Untitled chat');
     });
 
     it('should use cached data if forceRefresh is false', async () => {

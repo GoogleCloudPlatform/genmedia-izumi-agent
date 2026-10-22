@@ -24,6 +24,7 @@ import type {
   PendingGate,
   ReviewedGate,
 } from '../data/types';
+import { UNTITLED_CHAT_TITLE } from '../data/types';
 import type { SSECallbacks } from './api/client';
 import { api } from './api';
 import projectService from './projectService';
@@ -392,11 +393,43 @@ const chatService = {
 
     return {
       id: backendSession.id,
-      title: backendSession.name,
+      title: UNTITLED_CHAT_TITLE,
       messages: [],
       lastUpdated: new Date().toISOString(),
       appName: app,
     };
+  },
+
+  /** Renames a session and returns the title as stored. */
+  renameSession: async (
+    projectId: string,
+    appName: string | undefined,
+    chatSessionId: string,
+    title: string,
+  ): Promise<string> => {
+    const app = appName || DEFAULT_APP_NAME;
+    const saved = await api.renameChatSession(
+      projectId,
+      app,
+      chatSessionId,
+      title,
+    );
+    projectService.invalidateChatSessionsCache(projectId);
+    return saved.title;
+  },
+
+  /** Deletes a session and its messages. Its generated assets are kept. */
+  deleteSession: async (
+    projectId: string,
+    appName: string | undefined,
+    chatSessionId: string,
+  ): Promise<void> => {
+    const app = appName || DEFAULT_APP_NAME;
+    await api.deleteChatSession(projectId, app, chatSessionId);
+    const cacheKey = `${projectId}:${app}:${chatSessionId}`;
+    messageCache.delete(cacheKey);
+    gateCache.delete(cacheKey);
+    projectService.invalidateChatSessionsCache(projectId);
   },
 
   sendMessage: async (

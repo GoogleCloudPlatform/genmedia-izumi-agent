@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import { useState } from 'react';
+import type { KeyboardEvent, MouseEvent } from 'react';
 import {
   Box,
   Typography,
@@ -22,13 +24,28 @@ import {
   ListItem,
   ListItemText,
   ListItemButton,
+  ListItemIcon,
   Divider,
   IconButton,
+  Menu,
+  MenuItem,
+  TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogContentText,
+  DialogActions,
+  Snackbar,
 } from '@mui/material';
 import AddCommentIcon from '@mui/icons-material/AddComment';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import MoreVertIcon from '@mui/icons-material/MoreVert';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { ChatSession } from '../../../data/types';
+
+const TITLE_MAX_LENGTH = 120;
 
 interface ChatSessionListProps {
   sessions: ChatSession[];
@@ -38,7 +55,11 @@ interface ChatSessionListProps {
   availableApps: string[];
   onAgentSelect: (appName: string) => void;
   onCancelSelection: () => void;
+  onRenameSession: (session: ChatSession, title: string) => Promise<void>;
+  onDeleteSession: (session: ChatSession) => Promise<void>;
 }
+
+const sessionKey = (session: ChatSession) => `${session.appName}-${session.id}`;
 
 export default function ChatSessionList({
   sessions,
@@ -48,7 +69,75 @@ export default function ChatSessionList({
   availableApps,
   onAgentSelect,
   onCancelSelection,
+  onRenameSession,
+  onDeleteSession,
 }: ChatSessionListProps) {
+  const [menu, setMenu] = useState<{
+    anchor: HTMLElement;
+    session: ChatSession;
+  } | null>(null);
+  const [renaming, setRenaming] = useState<ChatSession | null>(null);
+  const [draftTitle, setDraftTitle] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [pendingDelete, setPendingDelete] = useState<ChatSession | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const openMenu = (event: MouseEvent<HTMLElement>, session: ChatSession) => {
+    setMenu({ anchor: event.currentTarget, session });
+  };
+
+  const startRename = () => {
+    if (!menu) return;
+    setDraftTitle(menu.session.title);
+    setRenaming(menu.session);
+    setMenu(null);
+  };
+
+  const saveRename = async () => {
+    const title = draftTitle.trim();
+    if (!renaming || !title) return;
+    if (title === renaming.title) {
+      setRenaming(null);
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await onRenameSession(renaming, title);
+    } catch {
+      setError("Couldn't rename the chat. Please try again.");
+    } finally {
+      setIsSaving(false);
+      setRenaming(null);
+    }
+  };
+
+  const handleRenameKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      void saveRename();
+    }
+  };
+
+  const askDelete = () => {
+    if (!menu) return;
+    setPendingDelete(menu.session);
+    setMenu(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!pendingDelete) return;
+    setIsDeleting(true);
+    try {
+      await onDeleteSession(pendingDelete);
+    } catch {
+      setError("Couldn't delete the chat. Please try again.");
+    } finally {
+      setIsDeleting(false);
+      setPendingDelete(null);
+    }
+  };
+
   if (isSelectingAgent) {
     return (
       <Box sx={{ p: 2 }}>
@@ -163,7 +252,19 @@ export default function ChatSessionList({
               return dateB - dateA; // Sort in descending order
             })
             .map((session) => (
-              <ListItem disablePadding key={session.appName + '-' + session.id}>
+              <ListItem
+                disablePadding
+                key={sessionKey(session)}
+                secondaryAction={
+                  <IconButton
+                    edge="end"
+                    aria-label={`Chat options for ${session.title}`}
+                    onClick={(event) => openMenu(event, session)}
+                  >
+                    <MoreVertIcon fontSize="small" />
+                  </IconButton>
+                }
+              >
                 <ListItemButton onClick={() => onSelectSession(session)}>
                   <ListItemText
                     primary={session.title}
@@ -176,12 +277,109 @@ export default function ChatSessionList({
                       hour: '2-digit',
                       minute: '2-digit',
                     })}`}
+                    slotProps={{ primary: { noWrap: true } }}
                   />
                 </ListItemButton>
               </ListItem>
             ))}
         </List>
       </Box>
+
+      {/* Focus is not handed back to the row on close, so the dialog opened
+          from the menu keeps it. */}
+      <Menu
+        anchorEl={menu?.anchor}
+        open={menu !== null}
+        onClose={() => setMenu(null)}
+        disableRestoreFocus
+      >
+        <MenuItem onClick={startRename}>
+          <ListItemIcon>
+            <EditOutlinedIcon fontSize="small" />
+          </ListItemIcon>
+          Rename
+        </MenuItem>
+        <MenuItem onClick={askDelete} sx={{ color: 'error.main' }}>
+          <ListItemIcon>
+            <DeleteOutlineIcon fontSize="small" color="error" />
+          </ListItemIcon>
+          Delete
+        </MenuItem>
+      </Menu>
+
+      <Dialog
+        open={renaming !== null}
+        onClose={() => setRenaming(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Rename chat</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            margin="dense"
+            value={draftTitle}
+            onChange={(event) => setDraftTitle(event.target.value)}
+            slotProps={{
+              htmlInput: {
+                maxLength: TITLE_MAX_LENGTH,
+                'aria-label': 'Chat name',
+                onKeyDown: handleRenameKeyDown,
+              },
+            }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRenaming(null)} disabled={isSaving}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              void saveRename();
+            }}
+            disabled={isSaving || !draftTitle.trim()}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+      >
+        <DialogTitle>Delete this chat?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            &ldquo;{pendingDelete?.title}&rdquo; and its messages will be
+            removed. Assets it generated stay in the Assets panel.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPendingDelete(null)} disabled={isDeleting}>
+            Cancel
+          </Button>
+          <Button
+            color="error"
+            variant="contained"
+            onClick={() => {
+              void confirmDelete();
+            }}
+            disabled={isDeleting}
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={error !== null}
+        autoHideDuration={4000}
+        onClose={() => setError(null)}
+        message={error}
+      />
     </>
   );
 }

@@ -46,7 +46,11 @@ export interface APIChatSession {
   id: string;
   appName: string;
   lastUpdateTime?: number; // Unix timestamp
+  state?: { session_title?: string; session_title_derived?: string };
 }
+
+/** Shown for a session that has no title yet. */
+export const UNTITLED_CHAT_TITLE = 'Untitled chat';
 
 // --- API Response Types (Moved from src/services/api/chat-types.ts) ---
 

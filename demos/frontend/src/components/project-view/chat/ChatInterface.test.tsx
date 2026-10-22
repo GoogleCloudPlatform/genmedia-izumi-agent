@@ -50,7 +50,7 @@ vi.mock('./ChatSessionList', () => ({
 }));
 
 vi.mock('./ActiveConversation', () => {
-  const ActiveConversation = ({ sessionId, onNewChat }) => {
+  const ActiveConversation = ({ sessionId, onNewChat, onBack }) => {
     const location = useLocation();
     return (
       <div>
@@ -58,6 +58,7 @@ vi.mock('./ActiveConversation', () => {
         <p>Session ID: {sessionId}</p>
         {location.state?.isNewSession && <p>New Session Greeting</p>}
         <button onClick={onNewChat}>New Chat</button>
+        <button onClick={onBack}>Back</button>
       </div>
     );
   };
@@ -120,6 +121,29 @@ describe('ChatInterface', () => {
 
     expect(screen.getByText('Session ID: session-123')).toBeInTheDocument();
     expect(screen.queryByText('ChatSessionList Mock')).not.toBeInTheDocument();
+  });
+
+  it('fetches the list again on returning to it', async () => {
+    // A chat is named on the server after its first request, so the cached
+    // list would still show it untitled.
+    (projectService.getAllChatSessions as vi.Mock).mockResolvedValue([
+      { id: 'session-123', title: 'Untitled chat', appName: 'test-agent' },
+    ]);
+    renderWithRouter(['/project/test-project/chat/session-123']);
+    await screen.findByText('ActiveConversation Mock');
+    const fetchesBefore = (projectService.getAllChatSessions as vi.Mock).mock
+      .calls.length;
+
+    await userEvent.click(screen.getByRole('button', { name: 'Back' }));
+
+    expect(projectService.invalidateChatSessionsCache).toHaveBeenCalledWith(
+      'test-project',
+    );
+    await waitFor(() =>
+      expect(
+        (projectService.getAllChatSessions as vi.Mock).mock.calls.length,
+      ).toBeGreaterThan(fetchesBefore),
+    );
   });
 
   it('should handle creation of a new chat session', async () => {

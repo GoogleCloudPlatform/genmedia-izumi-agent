@@ -144,8 +144,32 @@ export default function ChatInterface({
     }
   }, [chatSessionId, isCreatingSession]);
 
+  const isSameSession = (a: ChatSession, b: ChatSession) =>
+    a.id === b.id && a.appName === b.appName;
+
+  const handleRenameSession = async (session: ChatSession, title: string) => {
+    const saved = await chatService.renameSession(
+      projectId,
+      session.appName,
+      session.id,
+      title,
+    );
+    setAllChatSessions((prev) =>
+      prev.map((s) => (isSameSession(s, session) ? { ...s, title: saved } : s)),
+    );
+  };
+
+  const handleDeleteSession = async (session: ChatSession) => {
+    await chatService.deleteSession(projectId, session.appName, session.id);
+    setAllChatSessions((prev) => prev.filter((s) => !isSameSession(s, session)));
+  };
+
   const handleBackToList = () => {
     navigate(`/project/${projectId}/chat`);
+    // The server names a chat after its first request, so fetch the list
+    // again rather than show the cached one.
+    projectService.invalidateChatSessionsCache(projectId);
+    void fetchAllSessions();
   };
 
   return (
@@ -178,6 +202,8 @@ export default function ChatInterface({
           availableApps={availableApps}
           onAgentSelect={handleAgentSelect}
           onCancelSelection={handleCancelSelection}
+          onRenameSession={handleRenameSession}
+          onDeleteSession={handleDeleteSession}
         />
       ) : (
         <ActiveConversation

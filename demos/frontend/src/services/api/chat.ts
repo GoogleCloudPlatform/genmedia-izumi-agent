@@ -179,4 +179,26 @@ export const chatApi = {
     console.log(`[API] Listing available apps`);
     return request('/list-apps');
   },
+
+  async renameChatSession(
+    projectId: string,
+    appName: string,
+    sessionId: string,
+    title: string,
+  ): Promise<{ id: string; title: string }> {
+    return request(`/workspaces/${projectId}/sessions/${sessionId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ appName, title }),
+    });
+  },
+
+  async deleteChatSession(
+    projectId: string,
+    appName: string,
+    sessionId: string,
+  ) {
+    return request(`/apps/${appName}/users/${projectId}/sessions/${sessionId}`, {
+      method: 'DELETE',
+    });
+  },
 };

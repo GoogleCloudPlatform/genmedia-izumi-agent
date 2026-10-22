@@ -26,6 +26,7 @@ import type {
   APIChatSession,
   AssetGenerateConfig,
 } from '../data/types';
+import { UNTITLED_CHAT_TITLE } from '../data/types';
 import { dbService } from './db';
 import { api } from './api';
 import { API_BASE_URL } from './api/client';
@@ -276,7 +277,10 @@ const projectService = {
 
       const mappedSessions = sessions.map((session: APIChatSession) => ({
         id: session.id,
-        title: session.id || 'Untitled Chat',
+        title:
+          session.state?.session_title ||
+          session.state?.session_title_derived ||
+          UNTITLED_CHAT_TITLE,
         messages: [],
         lastUpdated: session.lastUpdateTime
           ? new Date(session.lastUpdateTime * 1000).toISOString()

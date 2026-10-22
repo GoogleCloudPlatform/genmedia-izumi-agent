@@ -28,6 +28,8 @@ vi.mock('./api', () => ({
     createChatSession: vi.fn(),
     sendMessage: vi.fn(),
     sendFunctionResponse: vi.fn(),
+    renameChatSession: vi.fn(),
+    deleteChatSession: vi.fn(),
   },
 }));
 
@@ -85,6 +87,46 @@ describe('chatService', () => {
     vi.clearAllMocks();
     // Assuming chatService has a way to clear its cache for tests
     chatService['_clearCache']();
+  });
+
+  describe('renaming and deleting sessions', () => {
+    it('returns the title as the server stored it', async () => {
+      (api.renameChatSession as vi.Mock).mockResolvedValue({
+        id: 's-1',
+        title: 'Dior launch',
+      });
+
+      const title = await chatService.renameSession(
+        'proj-1',
+        'ads_x',
+        's-1',
+        '  Dior   launch ',
+      );
+
+      expect(api.renameChatSession).toHaveBeenCalledWith(
+        'proj-1',
+        'ads_x',
+        's-1',
+        '  Dior   launch ',
+      );
+      expect(title).toBe('Dior launch');
+    });
+
+    it('drops the cached messages of a deleted session', async () => {
+      (api.getChatMessages as vi.Mock).mockResolvedValue({ events: [] });
+      (api.deleteChatSession as vi.Mock).mockResolvedValue(null);
+      await chatService.getChatSessionMessages('proj-1', 'ads_x', 's-del');
+
+      await chatService.deleteSession('proj-1', 'ads_x', 's-del');
+      await chatService.getChatSessionMessages('proj-1', 'ads_x', 's-del');
+
+      expect(api.deleteChatSession).toHaveBeenCalledWith(
+        'proj-1',
+        'ads_x',
+        's-del',
+      );
+      expect(api.getChatMessages).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe('getChatSessionMessages', () => {
