@@ -195,3 +195,75 @@ def test_no_checkpoints_at_all_when_disabled():
         ]
 
     assert not [n for n in names if "gate" in n or "review" in n]
+
+
+def test_a_finished_campaign_can_be_revised_without_the_pipeline():
+    """A change to a finished video must not rebuild it from the brief."""
+    from ads_x.agent import _build_root_sub_agents, settings
+
+    with patch.object(settings, "ENABLE_HITL_GATES", True):
+        names = [a.name for a in _build_root_sub_agents()]
+    with patch.object(settings, "ENABLE_HITL_GATES", False):
+        names_without_gates = [a.name for a in _build_root_sub_agents()]
+
+    assert names == ["full_pipeline_agent", "revision_loop"]
+    # The revision loop ends on the final-cut checkpoint, which needs the gates.
+    assert names_without_gates == ["full_pipeline_agent"]
+
+
+def test_the_revision_loop_changes_only_what_is_named_then_asks_again():
+    from ads_x.agent import revision_agent, revision_loop
+
+    tools = {getattr(t, "name", None) or t.func.__name__ for t in revision_agent.tools}
+
+    assert [a.name for a in revision_loop.sub_agents] == ["revision_agent"]
+    assert {
+        "regenerate_scene",
+        "revise_voiceover",
+        "regenerate_music",
+        "stitch_final_video",
+        "await_final_cut_approval",
+        "record_final_cut_decision",
+    } == tools
+    # Nothing that rebuilds every scene or the storyboard.
+    assert "generate_all_media" not in tools
+    assert revision_loop.max_iterations
+
+
+def test_narration_can_be_changed_at_the_final_cut():
+    from ads_x.agent import final_cut_gate_agent
+
+    tools = {
+        getattr(t, "name", None) or t.func.__name__ for t in final_cut_gate_agent.tools
+    }
+
+    assert "revise_voiceover" in tools
+
+
+def _root_instruction(state, gates):
+    from types import SimpleNamespace
+    from config import settings
+    from ads_x.instructions import root_instruction
+
+    ctx = SimpleNamespace(session=SimpleNamespace(state=state))
+    with patch.object(settings, "ENABLE_HITL_GATES", gates):
+        return root_instruction.get_instruction(ctx)
+
+
+def test_the_root_sends_changes_to_a_finished_video_to_the_revision_loop():
+    text = _root_instruction({"final_video_asset_id": "v-1"}, gates=True)
+
+    assert "transfer to `revision_loop`" in text
+    assert "This campaign HAS a finished video" in text
+
+
+def test_the_root_knows_when_there_is_no_finished_video_yet():
+    text = _root_instruction({}, gates=True)
+
+    assert "This campaign does NOT have a finished video" in text
+
+
+def test_no_revision_route_without_the_gates():
+    assert "revision_loop" not in _root_instruction(
+        {"final_video_asset_id": "v-1"}, gates=False
+    )

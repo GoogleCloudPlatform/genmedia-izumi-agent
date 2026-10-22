@@ -19,6 +19,7 @@ import mediagent_kit
 from mediagent_kit import MediagentKitConfig
 from google.adk.agents import llm_agent
 from google.adk.agents import loop_agent
+from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.agents import sequential_agent
 from google.adk.apps.app import App, ResumabilityConfig
 from google.adk.tools import AgentTool, FunctionTool
@@ -429,9 +430,12 @@ When their response arrives, call `record_final_cut_decision` with the decision
 verbatim ("accept", "modify" or "regenerate") and any guidance they gave.
 
 If they want changes, re-render only the clips they called out, using
-`regenerate_scene` with that scene's `scene_id` and their direction. Then call
-`stitch_final_video` to rebuild the cut, and `await_final_cut_approval` again so
-they can watch the new version. Keep going until they accept.
+`regenerate_scene` with that scene's `scene_id` and their direction. If they
+want different narration over a scene, call `revise_voiceover` with that
+scene's `scene_id`, and the new line if they gave the words; `regenerate_scene`
+does not change what is heard. Then call `stitch_final_video` to rebuild the
+cut, and `await_final_cut_approval` again so they can watch the new version.
+Keep going until they accept.
 
 Re-render only what was called out. Every clip costs real money and minutes to
 produce, and the ones they did not mention are ones they were happy with.
@@ -453,8 +457,9 @@ final_cut_gate_agent = llm_agent.LlmAgent(
     tools=[
         LongRunningFunctionTool(func=gate_tools.await_final_cut_approval),
         FunctionTool(gate_tools.record_final_cut_decision),
-        # Fix a clip, then rebuild the cut around it.
+        # Fix a clip or its narration, then rebuild the cut around it.
         FunctionTool(generation_tools.regenerate_scene),
+        FunctionTool(generation_tools.revise_voiceover),
         FunctionTool(stitching_tools.stitch_final_video),
         # For a wholesale rejection rather than a note about specific clips.
         FunctionTool(regenerate_tools.regenerate_all_media),
@@ -469,6 +474,76 @@ final_cut_review_loop = loop_agent.LoopAgent(
     description="Reviews the finished video with a human until they accept it.",
     sub_agents=[final_cut_gate_agent],
     max_iterations=MAX_REVIEW_ROUNDS,
+)
+
+REVISION_INSTRUCTION = """You revise a campaign whose video is already finished.
+The reviewer has asked for a change to it.
+
+Change only what they asked for. Everything they did not mention was accepted
+and stays as it is, and every re-render costs real money and minutes.
+
+- A clip that looks wrong: call `regenerate_scene` with that scene's `scene_id`
+  and their direction.
+- The narration over a scene: call `revise_voiceover` with that scene's
+  `scene_id`, and the new line if they gave the words. It re-records only the
+  take that scene belongs to. `regenerate_scene` does not change what is heard.
+- The music: call `regenerate_music` with their direction as the description.
+
+Then call `stitch_final_video` to rebuild the cut, say one short sentence
+telling the reviewer what changed, and call `await_final_cut_approval` so they
+can watch it. Calling it suspends the run until they respond.
+
+When their response arrives, call `record_final_cut_decision` with the decision
+verbatim ("accept", "modify" or "regenerate") and any guidance they gave. If they
+want further changes, make them the same way, stitch, and ask again. Keep going
+until they accept.
+
+Do not stop to ask which scene they mean. Choose the most likely one from the
+list below; they see the result at the checkpoint and can ask again.
+
+The campaign's scenes, in order:
+{scenes}
+"""
+
+
+def _revision_instruction(ctx: ReadonlyContext) -> str:
+    storyboard = ctx.session.state.get(common_utils.STORYBOARD_KEY) or {}
+    scenes = [s for s in storyboard.get("scenes") or [] if isinstance(s, dict)]
+    lines = [
+        f'- {s.get("scene_id")}: {s.get("topic") or "untitled"}. Narration: '
+        f'"{(s.get("voiceover_prompt") or {}).get("text") or ""}"'
+        for s in scenes
+    ]
+    return REVISION_INSTRUCTION.format(scenes="\n".join(lines) or "(none)")
+
+
+revision_agent = llm_agent.LlmAgent(
+    name="revision_agent",
+    description=(
+        "Changes a finished campaign: re-renders only what the reviewer names, "
+        "then shows them the new cut."
+    ),
+    model="gemini-3.7-flash",
+    instruction=_revision_instruction,
+    tools=[
+        FunctionTool(generation_tools.regenerate_scene),
+        FunctionTool(generation_tools.revise_voiceover),
+        FunctionTool(regenerate_tools.regenerate_music),
+        FunctionTool(stitching_tools.stitch_final_video),
+        LongRunningFunctionTool(func=gate_tools.await_final_cut_approval),
+        FunctionTool(gate_tools.record_final_cut_decision),
+    ],
+    before_model_callback=instrument_agent("revision_agent"),
+)
+
+revision_loop = loop_agent.LoopAgent(
+    name="revision_loop",
+    description="Revises a finished campaign with a human until they accept it.",
+    sub_agents=[revision_agent],
+    max_iterations=MAX_REVIEW_ROUNDS,
+    # Resumed after the checkpoint like the pipeline is, so it needs the
+    # caller's credentials put back the same way.
+    before_agent_callback=sync_request_context,
 )
 
 
@@ -508,6 +583,19 @@ full_pipeline_agent = sequential_agent.SequentialAgent(
     before_agent_callback=sync_request_context,
 )
 
+
+def _build_root_sub_agents() -> list:
+    """What the root can hand a request to.
+
+    The revision loop changes a finished campaign in place. It ends on the
+    final-cut checkpoint, so it exists only alongside the review gates.
+    """
+    sub_agents: list = [full_pipeline_agent]
+    if settings.ENABLE_HITL_GATES:
+        sub_agents.append(revision_loop)
+    return sub_agents
+
+
 # ResumableLlmAgent, not LlmAgent: a transferring root can only be resumed once
 # in stock ADK, which would cap a run at a single review. See resumable_agent.
 root_agent = ResumableLlmAgent(
@@ -515,7 +603,7 @@ root_agent = ResumableLlmAgent(
     name="ads_x_agent",
     instruction=root_instruction.get_instruction,
     tools=get_cs_tools(),
-    sub_agents=[full_pipeline_agent],
+    sub_agents=_build_root_sub_agents(),
     before_model_callback=blob_interceptor_callback,
 )
 

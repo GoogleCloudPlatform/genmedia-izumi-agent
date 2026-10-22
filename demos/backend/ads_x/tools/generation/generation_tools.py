@@ -989,3 +989,114 @@ async def regenerate_scene(
     tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
 
     return await generate_single_scene(tool_context, index)
+
+
+async def revise_voiceover(
+    tool_context: ToolContext, scene_id: str, line: str = ""
+) -> ToolResult:
+    """Re-records the narration heard over one scene.
+
+    Scenes are usually narrated in groups, each recorded as one take, and the
+    stitched video plays the group's take rather than a per-scene recording.
+    This sets the scene's new line, if one is given, and re-records only the
+    take that scene belongs to. Call `stitch_final_video` afterwards to put the
+    new take in the cut.
+
+    Args:
+        scene_id: Stable id of the scene whose narration changes.
+        line: The new spoken line for this scene. A scene narrated on its own,
+            such as the closing one, speaks it as written. Leave empty to
+            record the current line again, for a different delivery.
+    """
+    workspace_id, ws_error = resolve_workspace_id(tool_context)
+    if ws_error:
+        return tool_failure(ws_error)
+
+    storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
+    if not isinstance(storyboard, dict):
+        return tool_failure("No storyboard found in session state.")
+
+    index = storyboard_merge.find_scene_index(storyboard, scene_id)
+    if index is None:
+        available = [s.get("scene_id") for s in storyboard.get("scenes") or []]
+        return tool_failure(f"Unknown scene_id '{scene_id}'. Available: {available}")
+
+    scene = storyboard["scenes"][index]
+    voiceover_prompt = scene.setdefault("voiceover_prompt", {})
+    previous_line = voiceover_prompt.get("text", "")
+    if line.strip():
+        voiceover_prompt["text"] = line.strip()
+
+    groups = storyboard.get("voiceover_groups") or []
+    position = next(
+        (
+            i
+            for i, group in enumerate(groups)
+            if scene.get("scene_id") in (group.get("scene_ids") or [])
+        ),
+        None,
+    )
+
+    if position is None:
+        # Narrated scene by scene: the stitch plays this scene's own recording.
+        previous_take = {
+            key: voiceover_prompt.pop(key)
+            for key in ("asset_ref", "asset_id")
+            if key in voiceover_prompt
+        }
+        asset = await generation_helpers.generate_scene_voiceover(
+            workspace_id,
+            voiceover_prompt,
+            index,
+            uid=uuid.uuid4().hex[:4],
+            target_duration=float(
+                (scene.get("video_prompt") or {}).get("duration_seconds") or 4.0
+            ),
+        )
+        if asset is None:
+            voiceover_prompt["text"] = previous_line
+            voiceover_prompt.update(previous_take)
+            return tool_failure(
+                "The narration could not be recorded, so the previous take is kept."
+            )
+        tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+        return tool_success(
+            f"Re-recorded the narration for {scene_id}. Call "
+            "stitch_final_video to put it in the cut."
+        )
+
+    scenes_by_id = {
+        s.get("scene_id"): s for s in storyboard["scenes"] if isinstance(s, dict)
+    }
+    group = storyboard_model.VoiceoverGroup(**groups[position])
+    group.original_scripts = [
+        ((scenes_by_id.get(sid) or {}).get("voiceover_prompt") or {}).get("text", "")
+        for sid in group.scene_ids
+    ]
+    first_scene = scenes_by_id.get(group.scene_ids[0]) or scene
+    asset = await voiceover_tools.generate_group_voiceover(
+        group=group,
+        workspace_id=workspace_id,
+        style_prompt=(first_scene.get("voiceover_prompt") or {}).get(
+            "description", "A professional commercial voiceover."
+        ),
+        group_index=position,
+        # Words the reviewer gave for a scene narrated on its own are spoken as
+        # written. In a longer take the line is rewritten into the narration
+        # around it.
+        rewrite=not (line.strip() and len(group.scene_ids) == 1),
+    )
+    if asset is None:
+        voiceover_prompt["text"] = previous_line
+        return tool_failure(
+            "The narration could not be recorded, so the previous take is kept."
+        )
+
+    groups[position] = group.model_dump()
+    storyboard["voiceover_groups"] = groups
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+    return tool_success(
+        f"Re-recorded the narration for {', '.join(group.scene_ids)}: "
+        f'"{group.rewritten_script}". Call stitch_final_video to put it in '
+        "the cut."
+    )

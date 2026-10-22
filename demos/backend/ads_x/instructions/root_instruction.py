@@ -58,6 +58,34 @@ Do NOT proceed to any campaign creation steps until `select_workspace` has been 
     # reviewer answers, which suspends the run until they do. Asking here as
     # well means the same question twice in a row, the second time in free text
     # that cannot resume anything. State the blueprint, then get on with it.
+    # A finished campaign is changed in place by the revision loop. Sent through
+    # the pipeline instead, a request to fix one scene rebuilds the campaign
+    # from the brief and replaces the one being fixed.
+    revision_routing = ""
+    brief_detection_scope = ""
+    if settings.ENABLE_HITL_GATES:
+        finished = bool(
+            ctx.session.state.get("final_video_asset_id")
+            or ctx.session.state.get("final_video_asset_ref")
+        )
+        revision_routing = (
+            "    - **Step 1R: Changes to a Finished Campaign (CRITICAL)**:\n"
+            f"      - This campaign {'HAS' if finished else 'does NOT have'} a "
+            "finished video.\n"
+            "      - If it has one and the user asks to change something about "
+            "it (a scene, the narration, the music, the cut), transfer to "
+            "`revision_loop` immediately. It re-renders only what they name and "
+            "shows them the new cut.\n"
+            "      - Do NOT transfer to `full_pipeline_agent` for such a change. "
+            "It rebuilds the campaign from the brief, discarding the one they "
+            "are asking about. Start the pipeline again only if they ask for a "
+            "new campaign or explicitly ask to start over.\n"
+        )
+        brief_detection_scope = (
+            " A change to a finished campaign is not new campaign input; "
+            "follow Step 1R."
+        )
+
     if settings.ENABLE_HITL_GATES:
         blueprint_confirmation = ""
         pipeline_transfer = (
@@ -91,6 +119,7 @@ You are the orchestrator for a video creation pipeline.
     - **Step 1A: Workspace Selection (If Required)**:
       - If Creative Studio is enabled and `workspace_id` is missing in the state below, execute workspace selection first.
 
+{revision_routing}
     - **Step 1B: Initial Greeting (Generic Input)**:
       - ONLY if the user sends a simple greeting (e.g. "Hi", "Hello") with NO campaign details, invite a brief:
 
@@ -107,7 +136,7 @@ You are the orchestrator for a video creation pipeline.
       *   "I want a custom cinematic ad for [Your Product], **using a trendy virtual creator.** Here is my brief... [Followed by the template info]"
 
     - **Step 1C: Brief Detection (CRITICAL)**:
-      - As soon as the user provides ANY campaign input (e.g. "I want to make a coffee ad", "Car in the mountains", or a brief template):
+      - As soon as the user provides ANY campaign input (e.g. "I want to make a coffee ad", "Car in the mountains", or a brief template):{brief_detection_scope}
         1. DO NOT re-display the brief template or the greeting options.
         2. Summarize the understanding in a warm, professional manner using exact newlines (`\\n`) for this format:
         

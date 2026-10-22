@@ -161,14 +161,24 @@ async def generate_group_voiceover(
     voice_name: str = "Aoede",
     style_prompt: str = "Narrate in a warm, professional, and engaging tone for a high-end commercial. Ensure natural pauses and prosody.",
     group_index: int = 0,
+    rewrite: bool = True,
 ) -> Optional[Asset]:
-    """Generates the audio asset for a voiceover group with duration optimization."""
+    """Generates the audio asset for a voiceover group with duration optimization.
+
+    Args:
+        rewrite: Rewrite the group's lines into one flowing script first. Off
+            when the words were given by the reviewer and must be spoken as
+            written; they are still shortened if the take does not fit.
+    """
     mediagen_service = mediagent_kit.services.aio.get_media_generation_service()
 
     # 1. Initial Rewrite
-    current_text = await rewrite_group_script(
-        workspace_id, group, group_index=group_index
-    )
+    if rewrite:
+        current_text = await rewrite_group_script(
+            workspace_id, group, group_index=group_index
+        )
+    else:
+        current_text = " ".join(group.original_scripts)
 
     # 2. Generation Loop (Max 3 attempts)
     MAX_ATTEMPTS = 4
