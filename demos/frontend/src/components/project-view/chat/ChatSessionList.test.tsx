@@ -51,6 +51,16 @@ const openMenu = async (user: ReturnType<typeof userEvent.setup>) =>
   user.click(screen.getByRole('button', { name: /chat options for/i }));
 
 describe('ChatSessionList', () => {
+  it('describes when to use each agent', () => {
+    renderList({
+      isSelectingAgent: true,
+      availableApps: ['ads_x', 'unlisted_agent'],
+    });
+
+    expect(screen.getByText(/want a finished video ad/i)).toBeInTheDocument();
+    expect(screen.getByText('unlisted_agent')).toBeInTheDocument();
+  });
+
   it('lists a chat by its title, not its id', () => {
     renderList({ sessions: [{ ...session, title: 'Dior launch' }] });
 

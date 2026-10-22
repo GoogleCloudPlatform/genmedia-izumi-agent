@@ -44,6 +44,7 @@ import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import type { ChatSession } from '../../../data/types';
+import { AGENT_DESCRIPTIONS } from '../../../data/agents';
 
 const TITLE_MAX_LENGTH = 120;
 
@@ -151,8 +152,18 @@ export default function ChatSessionList({
           {availableApps.length > 0 ? (
             availableApps.map((appName) => (
               <ListItem key={appName} disablePadding>
-                <ListItemButton onClick={() => onAgentSelect(appName)}>
-                  <ListItemText primary={appName} />
+                <ListItemButton
+                  onClick={() => onAgentSelect(appName)}
+                  sx={{ borderRadius: 1, alignItems: 'flex-start' }}
+                >
+                  <ListItemText
+                    primary={appName}
+                    secondary={AGENT_DESCRIPTIONS[appName]}
+                    slotProps={{
+                      primary: { sx: { fontWeight: 600 } },
+                      secondary: { sx: { mt: 0.5, lineHeight: 1.5 } },
+                    }}
+                  />
                 </ListItemButton>
               </ListItem>
             ))
