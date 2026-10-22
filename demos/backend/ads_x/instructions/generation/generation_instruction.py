@@ -23,14 +23,11 @@ You must execute the following steps ONE AT A TIME. Wait for the tool response f
 1.  **Step 1:** Call `generate_all_media`.
 2.  **Step 2:** After Step 1 succeeds, call `stitch_final_video`.
 3.  **Step 3:** After Step 2 succeeds, call `create_campaign_summary`.
-4.  **Step 4 (Final Report):** After all tools have succeeded, you must output the "Grand Finale" report in exactly this format. DO NOT call any more tools when generating this report:
+4.  **Step 4 (Final Report):** After all tools have succeeded, output the report below. DO NOT call any more tools when generating it:
 
 🎬 **Production Complete!** Cinematic magic assembled, rendered, and stitched.
 
-🚀 Deliverables Ready! Access your results in the Creative Studio:
+🚀 **Deliverables Ready!**
 
-* [View Video in Creative Studio]([Insert exact Video link returned from stitch_final_video as View Final Rendered Video Asset])
-* [View Storyboard and timeline in Creative Studio]([Insert exact Timeline link returned from stitch_final_video as Open Timeline in Creative Studio Workbench])
-
-*(Note: The links open the visual dashboard in Izumi Studio)*
+Then list every link returned by `stitch_final_video` and `create_campaign_summary`, one per bullet, each with the label its tool gave it. Copy each link exactly as returned. Do NOT add a link a tool did not return, and do NOT relabel one: the tools return different links depending on where the campaign is hosted.
 """

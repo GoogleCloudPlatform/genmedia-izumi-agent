@@ -35,3 +35,27 @@ def test_tidy_spacing_leaves_ordinary_prose_alone():
 def test_tidy_spacing_keeps_paragraph_breaks():
     # Prompts carry deliberate line structure; only runs of spaces close up.
     assert common_utils.tidy_spacing("line one\n\nline  two") == "line one\n\nline two"
+
+
+def test_studio_link_is_relative_to_the_app(monkeypatch):
+    """The frontend is served by the backend, so a relative link works on any
+    host. An absolute fallback to localhost broke every deployed link."""
+    monkeypatch.delenv("IZUMI_STUDIO_URL", raising=False)
+
+    link = common_utils.studio_link("ws-1", "s-1", "c-1")
+
+    assert link == "#/project/ws-1/chat/s-1?contentTab=canvas&canvasId=c-1"
+
+
+def test_studio_link_without_a_canvas_opens_the_chat(monkeypatch):
+    monkeypatch.delenv("IZUMI_STUDIO_URL", raising=False)
+
+    assert common_utils.studio_link("ws-1", "s-1") == "#/project/ws-1/chat/s-1"
+
+
+def test_studio_link_can_point_at_a_frontend_hosted_elsewhere(monkeypatch):
+    monkeypatch.setenv("IZUMI_STUDIO_URL", "https://studio.example.com/")
+
+    assert common_utils.studio_link("ws-1", "s-1") == (
+        "https://studio.example.com/#/project/ws-1/chat/s-1"
+    )

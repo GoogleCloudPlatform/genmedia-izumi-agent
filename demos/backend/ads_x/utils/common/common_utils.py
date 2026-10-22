@@ -15,6 +15,7 @@
 """Utils shared among agents and tools."""
 
 import json
+import os
 import re
 import pydantic
 from typing import Any, get_args, get_origin
@@ -84,6 +85,22 @@ def tool_success(result: Any = "") -> ToolResult:
 def tool_failure(error_message: str) -> ToolResult:
     """Returns a tool failure result with the given error message."""
     return {"status": "failed", "error_message": error_message}
+
+
+def studio_link(
+    workspace_id: str, session_id: str, canvas_id: str | None = None
+) -> str:
+    """Returns a link to a chat in Izumi Studio, opened on a canvas if given.
+
+    The frontend is served by this backend and routes on the URL hash, so the
+    link is relative and works on any host. Set IZUMI_STUDIO_URL to make it
+    absolute, for a frontend hosted elsewhere.
+    """
+    route = f"#/project/{workspace_id}/chat/{session_id}"
+    if canvas_id:
+        route += f"?contentTab=canvas&canvasId={canvas_id}"
+    base = os.environ.get("IZUMI_STUDIO_URL", "").rstrip("/")
+    return f"{base}/{route}" if base else route
 
 
 def json_for_pydantic_model(model: type[pydantic.BaseModel]) -> dict[str, Any]:

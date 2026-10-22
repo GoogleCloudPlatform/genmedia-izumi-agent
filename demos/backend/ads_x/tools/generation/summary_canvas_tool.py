@@ -564,19 +564,7 @@ async def create_campaign_summary(tool_context: ToolContext) -> ToolResult:
         logger.warning(
             "HTML Canvas not supported by the current backend. Skipping canvas creation."
         )
-        canvas_id = "unsupported"
+        canvas_id = None
 
-    # TODO: Replace with the actual deployment URL of your Izumi UI
-    import os
-
-    IZUMI_BASE_URL = os.environ.get("IZUMI_STUDIO_URL")
-    if not IZUMI_BASE_URL:
-        # Fallback to backend service URL if in Cloud Run, otherwise Local
-        IZUMI_BASE_URL = os.environ.get(
-            "CLOUD_RUN_SERVICE_URL", "http://localhost:5173"
-        )
-
-    izumi_deep_link = f"{IZUMI_BASE_URL}/studio/#/project/{workspace_id}/chat/{session_id}?contentTab=canvas&canvasId={canvas_id}"
-
-    # Return ONLY the link for cleaner composition
-    return tool_success(f"[View Campaign Summary in Izumi Studio]({izumi_deep_link})")
+    link = common_utils.studio_link(workspace_id, session_id, canvas_id)
+    return tool_success(f"[View Campaign Summary in Izumi Studio]({link})")

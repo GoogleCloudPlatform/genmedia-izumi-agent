@@ -573,8 +573,6 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
     if display_result.startswith("Error"):
         return tool_failure(display_result)
 
-    import os
-
     if config.use_creative_studio:
         cs_frontend_url = (config.cs_frontend_url or "http://localhost:4200").rstrip(
             "/"
@@ -590,13 +588,5 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
         )
         return tool_success(success_message)
 
-    IZUMI_BASE_URL = os.environ.get("IZUMI_STUDIO_URL")
-    if not IZUMI_BASE_URL:
-        # Fallback to backend service URL if in Cloud Run, otherwise Local
-        IZUMI_BASE_URL = os.environ.get(
-            "CLOUD_RUN_SERVICE_URL", "http://localhost:5173"
-        )
-    izumi_deep_link = f"{IZUMI_BASE_URL}/studio/#/project/{workspace_id}/chat/{session_id}?contentTab=canvas&canvasId={canvas.id}"
-    success_message = f"[View Video Timeline in Izumi Studio]({izumi_deep_link})"
-
-    return tool_success(success_message)
+    link = common_utils.studio_link(workspace_id, session_id, canvas.id)
+    return tool_success(f"[View Video Timeline in Izumi Studio]({link})")
