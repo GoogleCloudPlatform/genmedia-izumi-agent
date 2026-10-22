@@ -37,6 +37,12 @@ from mediagent_kit.config import MediagentKitConfig
 if TYPE_CHECKING:
     from mediagent_kit.services.aio.async_services import AsyncAssetService
 
+# Session state keys for the name a session is listed under. The chosen title
+# is set by a rename or by the agent. The derived title is taken from the
+# first user message and shown only when there is no chosen title.
+SESSION_TITLE_KEY = "session_title"
+DERIVED_SESSION_TITLE_KEY = "session_title_derived"
+
 
 def _event_to_dict(event: Event) -> dict[str, Any]:
     """Converts an Event object to a dictionary."""
@@ -352,6 +358,78 @@ class FirestoreSessionService(BaseSessionService):
             doc_id
         )
         await self._recursive_delete(session_ref)
+
+    async def set_session_title(
+        self,
+        *,
+        app_name: str,
+        user_id: str,
+        session_id: str,
+        title: str,
+        derived: bool = False,
+    ) -> None:
+        """Writes the name the session is listed under.
+
+        Only the title in session state is written. ``last_update_time`` is
+        left unchanged: append_event rejects a session whose stored time is
+        newer than its own, so changing it would fail a run in progress.
+
+        Args:
+            app_name: The app the session belongs to.
+            user_id: The user, or workspace, that owns the session.
+            session_id: The session to name.
+            title: The name to store.
+            derived: Store it as the derived title, shown only while the session
+                has no chosen title, rather than as the chosen title.
+
+        Raises:
+            google.api_core.exceptions.NotFound: The session does not exist.
+        """
+        doc_id = f"{app_name}_{user_id}_{session_id}"
+        session_ref = self._client.collection(self._sessions_collection).document(
+            doc_id
+        )
+        key = DERIVED_SESSION_TITLE_KEY if derived else SESSION_TITLE_KEY
+        await asyncio.to_thread(session_ref.update, {f"state.{key}": title})
+
+    async def list_opening_user_texts(
+        self,
+        *,
+        app_name: str,
+        user_id: str,
+        session_id: str,
+        max_events: int = 20,
+    ) -> list[str]:
+        """Returns the text of the user's messages among the earliest events.
+
+        Reads the first ``max_events`` events, oldest first, and keeps those
+        authored by the user that carry text. Function responses and uploads
+        without text are skipped.
+        """
+        doc_id = f"{app_name}_{user_id}_{session_id}"
+        events_query = (
+            self._client.collection(self._sessions_collection)
+            .document(doc_id)
+            .collection("events")
+            .order_by("timestamp")
+            .limit(max_events)
+        )
+        docs = await asyncio.to_thread(lambda: list(events_query.stream()))
+
+        texts = []
+        for doc in docs:
+            data = doc.to_dict() or {}
+            if data.get("author") != "user":
+                continue
+            parts = (data.get("content") or {}).get("parts") or []
+            text = " ".join(
+                part["text"]
+                for part in parts
+                if isinstance(part, dict) and part.get("text")
+            )
+            if text.strip():
+                texts.append(text)
+        return texts
 
     async def append_event(self, session: Session, event: Event) -> Event:
         """Add a new document to the `events` sub-collection and update session state."""
