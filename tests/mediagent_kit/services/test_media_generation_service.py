@@ -524,6 +524,43 @@ def test_lyria3_reports_an_unfinished_interaction_as_such(
         service._call_lyria3_api(model="lyria-3-clip-preview", prompt="strings")
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        '{"error":{"message":"Request blocked for an unspecified policy reason.",'
+        '"code":"content_blocked"}}',
+        # The answer to a prompt that names an artist or a song.
+        '{"error":{"message":"The prompt could not be submitted. The prompt '
+        "contains sensitive words that violate Google's Generative AI "
+        'Prohibited Use policy. Try rephrasing the prompt.",'
+        '"code":"prohibited_content"}}',
+    ],
+)
+@patch("mediagent_kit.services.media_generation_service.requests.post")
+@patch("mediagent_kit.services.media_generation_service.google.auth.default")
+def test_a_refused_lyria3_prompt_is_raised_as_a_refusal_and_not_sent_again(
+    mock_auth_default, mock_requests_post, error, mock_asset_service, lyria3_config
+):
+    from mediagent_kit.services.media_generation_service import MediaGenerationService
+    from mediagent_kit.utils.retry import ContentBlockedError
+
+    mock_creds = MagicMock()
+    mock_creds.token = "fake_token"
+    mock_auth_default.return_value = (mock_creds, "test-project")
+    refused = MagicMock()
+    refused.status_code = 400
+    refused.text = error
+    mock_requests_post.return_value = refused
+
+    service = MediaGenerationService(
+        asset_service=mock_asset_service, config=lyria3_config
+    )
+    with pytest.raises(ContentBlockedError):
+        service._call_lyria3_api(model="lyria-3-pro-preview", prompt="strings")
+
+    assert mock_requests_post.call_count == 1
+
+
 @patch(
     "mediagent_kit.services.media_generation_service.texttospeech.TextToSpeechClient"
 )

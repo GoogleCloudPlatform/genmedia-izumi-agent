@@ -280,7 +280,8 @@ class MediaGenerationService:
             raise ImmediateRetriableAPIError(
                 "Lyria 3 recitation error detected, triggering retry."
             )
-        if response.status_code == 400 and "content_blocked" in response.text:
+        # A prompt naming an artist or a song is refused as prohibited_content.
+        if response.status_code == 400 and _is_policy_refusal(response.text):
             raise ContentBlockedError(
                 "Lyria 3 refused the prompt on policy grounds. "
                 f"model={model}, prompt={prompt}"
