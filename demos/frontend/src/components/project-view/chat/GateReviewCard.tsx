@@ -428,23 +428,24 @@ function FrameTile({
         />
       ) : (
         <Box
+          title={asText(frame.render_failure) || undefined}
           sx={{
             width: '100%',
             aspectRatio: '9 / 16',
             borderRadius: 1,
             border: '1px dashed',
-            borderColor: 'divider',
+            borderColor: frame.refused ? 'warning.main' : 'divider',
             bgcolor: alpha(accent, 0.06),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            color: 'text.secondary',
+            color: frame.refused ? 'warning.main' : 'text.secondary',
             fontSize: '0.65rem',
             textAlign: 'center',
             px: 0.5,
           }}
         >
-          not rendered
+          {frame.refused ? 'refused' : 'not rendered'}
         </Box>
       )}
       <Typography
@@ -558,6 +559,14 @@ function ClipRow({
               Intended:{' '}
             </Box>
             {asText(clip.action)}
+          </Typography>
+        )}
+        {clip.render_failure && (
+          <Typography
+            variant="caption"
+            sx={{ display: 'block', mt: 0.25, color: 'warning.main' }}
+          >
+            {asText(clip.render_failure)}
           </Typography>
         )}
       </Box>

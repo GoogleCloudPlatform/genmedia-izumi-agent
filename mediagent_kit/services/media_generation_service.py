@@ -163,6 +163,9 @@ VEO_ASPECT_RATIO: Final = "16:9"
 # Veo's predict-and-poll, so it gets its own path. Its draw is duration: any
 # whole number of seconds from 3 to 10, where Veo offers only 4, 6 and 8.
 OMNI_VIDEO_MODEL: Final = "gemini-omni-1.2-flash"
+# Error codes the interactions API gives a request it refuses on policy
+# grounds: an unspecified reason, and named people it will not depict.
+_POLICY_REFUSAL_CODES: Final = frozenset({"content_blocked", "prohibited_content"})
 OMNI_PREFIX: Final = "gemini-omni"
 OMNI_MIN_DURATION: Final = 3
 OMNI_MAX_DURATION: Final = 10
@@ -172,6 +175,24 @@ VEO_RESOLUTIONS = Literal["720p", "1080p"]
 # Veo 3.1 charges the same per clip at 720p and 1080p, so the lower default
 # was giving away resolution for nothing.
 VEO_RESOLUTION: Final = "1080p"
+
+
+def _is_policy_refusal(response_text: str) -> bool:
+    """Whether an interactions error is a refusal of the request's content."""
+    try:
+        body = json.loads(response_text)
+    except ValueError:
+        return False
+    if isinstance(body, list):
+        body = body[0] if body else {}
+    error = body.get("error") if isinstance(body, dict) else None
+    if not isinstance(error, dict):
+        return False
+    return (
+        error.get("code") in _POLICY_REFUSAL_CODES
+        or "responsible ai" in str(error.get("message", "")).lower()
+    )
+
 
 try:
     VERSION = importlib.metadata.version("genmedia-izumi-agent")
@@ -375,6 +396,12 @@ class MediaGenerationService:
             logger.error(
                 f"Omni video request failed with status {response.status_code}. "
                 f"response_text={response.text}, model={model}"
+            )
+        if response.status_code == 400 and _is_policy_refusal(response.text):
+            # A refusal is decided by the request, so sending it again cannot
+            # succeed. It is raised as such, for a person to change the wording.
+            raise ContentBlockedError(
+                f"Omni refused the request on policy grounds: {response.text[:300]}"
             )
         response.raise_for_status()
         resp = response.json()

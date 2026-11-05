@@ -586,7 +586,31 @@ async def stitch_final_video(tool_context: ToolContext) -> ToolResult:
             f"- 🎬 [Open Timeline in Creative Studio Workbench]({cs_workbench_link})\n"
             f"- 🖼️ [View Final Rendered Video Asset]({cs_asset_link})"
         )
-        return tool_success(success_message)
+        return tool_success(success_message + _refusal_note(storyboard))
 
     link = common_utils.studio_link(workspace_id, session_id, canvas.id)
-    return tool_success(f"[View Video Timeline in Izumi Studio]({link})")
+    return tool_success(
+        f"[View Video Timeline in Izumi Studio]({link})" + _refusal_note(storyboard)
+    )
+
+
+def _refusal_note(storyboard: dict[str, Any]) -> str:
+    """Names the scenes the safety filter refused, for the reply to pass on.
+
+    A refused clip holds on its opening frame and a refused frame leaves its
+    scene out, and neither is obvious from the cut itself.
+    """
+    refused = []
+    for scene in storyboard.get("scenes") or []:
+        if not isinstance(scene, dict):
+            continue
+        for prompt_key in ("first_frame_prompt", "video_prompt"):
+            failure = (scene.get(prompt_key) or {}).get("render_failure") or {}
+            if failure.get("kind") == "blocked":
+                refused.append(f"{scene.get('scene_id')}: {failure.get('message')}")
+    if not refused:
+        return ""
+    return (
+        "\n\nThe safety filter refused part of the campaign, so it holds on a "
+        "still or is missing: " + " ".join(refused)
+    )

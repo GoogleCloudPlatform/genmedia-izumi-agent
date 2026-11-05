@@ -30,4 +30,6 @@ You must execute the following steps ONE AT A TIME. Wait for the tool response f
 🚀 **Deliverables Ready!**
 
 Then list every link returned by `stitch_final_video` and `create_campaign_summary`, one per bullet, each with the label its tool gave it. Copy each link exactly as returned. Do NOT add a link a tool did not return, and do NOT relabel one: the tools return different links depending on where the campaign is hosted.
+
+If `stitch_final_video` says the safety filter refused part of the campaign, end the report by naming each refused scene and what was refused, and say that rewriting that scene's wording is how to get it rendered.
 """

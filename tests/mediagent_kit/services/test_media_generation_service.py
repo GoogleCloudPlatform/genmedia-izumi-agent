@@ -845,6 +845,43 @@ def test_veo_never_touches_the_interactions_endpoint(
     mock_requests_post.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "error",
+    [
+        '{"error":{"message":"Request blocked for an unspecified policy reason.",'
+        '"code":"content_blocked"}}',
+        '{"error":{"message":"This input contains certain prominent individuals '
+        "that violate Google's Responsible AI practices.\","
+        '"code":"prohibited_content"}}',
+    ],
+)
+@patch("mediagent_kit.services.media_generation_service.requests.post")
+@patch("mediagent_kit.services.media_generation_service.google.auth.default")
+def test_a_refused_omni_request_is_raised_as_a_refusal_and_not_sent_again(
+    mock_auth_default, mock_requests_post, error, mock_asset_service, omni_config
+):
+    from mediagent_kit.services.media_generation_service import MediaGenerationService
+    from mediagent_kit.utils.retry import ContentBlockedError
+
+    mock_creds = MagicMock()
+    mock_creds.token = "fake_token"
+    mock_auth_default.return_value = (mock_creds, "test-project")
+    refused = MagicMock()
+    refused.status_code = 400
+    refused.text = error
+    mock_requests_post.return_value = refused
+
+    service = MediaGenerationService(
+        asset_service=mock_asset_service, config=omni_config
+    )
+    with pytest.raises(ContentBlockedError):
+        service.generate_video_with_veo(
+            user_id="user_1", file_name="scene.mp4", prompt="A bottle"
+        )
+
+    assert mock_requests_post.call_count == 1
+
+
 # ---------------------------------------------------------------------------
 # Lyria 3 Pro
 #
@@ -910,3 +947,12 @@ def test_clip_and_an_unknown_length_are_not_steered(mock_asset_service, mock_con
 
     prompts = [c.kwargs["prompt"] for c in call.call_args_list]
     assert prompts == ["Warm strings.", "Warm strings."]
+
+
+def test_a_bad_request_that_is_not_a_refusal_is_not_taken_for_one():
+    from mediagent_kit.services.media_generation_service import _is_policy_refusal
+
+    assert not _is_policy_refusal(
+        '{"error":{"message":"duration must be 3-15s","code":"invalid_request"}}'
+    )
+    assert not _is_policy_refusal("not json")

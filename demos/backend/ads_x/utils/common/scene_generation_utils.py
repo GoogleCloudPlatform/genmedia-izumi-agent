@@ -141,23 +141,16 @@ async def generate_scene_first_frame(
                     ),
                 )
             except ContentBlockedError as e:
-                if generated_asset is not None:
-                    logger.warning(
-                        f"Scene {index} regeneration was refused ({e}). Keeping "
-                        "the previous frame."
-                    )
-                    break
-                if attempt_prompt == original_prompt_desc:
+                # A refusal is not retried with other wording: the same scene
+                # would be refused again, and rewording it is the reviewer's
+                # call. Only a corrective attempt keeps the frame before it.
+                if generated_asset is None:
                     raise
-                # The refusal depends on the wording, and enrichment is what
-                # adds the elaborate language, so the retry falls back to the
-                # plain storyboard description rather than losing the scene.
                 logger.warning(
-                    f"Scene {index} first frame refused on policy grounds ({e}). "
-                    "Retrying with the un-enriched description."
+                    f"Scene {index} regeneration was refused ({e}). Keeping "
+                    "the previous frame."
                 )
-                attempt_prompt = original_prompt_desc
-                continue
+                break
             except Exception as e:
                 # A first attempt that fails leaves the scene with nothing and
                 # the error propagates. A regeneration that fails still has the
@@ -217,6 +210,8 @@ async def generate_scene_first_frame(
         first_frame_prompt["description"] = current_prompt_desc
         return generated_asset, current_prompt_desc
 
+    except ContentBlockedError:
+        raise
     except Exception as e:
         logger.error(f"Failed to generate valid first frame for scene {index}: {e}")
         raise Exception(f"Failed to generate valid first frame for scene {index}: {e}")
@@ -287,6 +282,8 @@ async def generate_scene_video(
                     "workspace_id": workspace_id,
                 }
             return video_asset
+        except ContentBlockedError:
+            raise
         except Exception as e:
             logger.error(f"Failed to generate valid video clip for scene {index}: {e}")
             raise Exception(

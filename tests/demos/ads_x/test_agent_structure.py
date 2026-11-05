@@ -219,6 +219,7 @@ def test_the_revision_loop_changes_only_what_is_named_then_asks_again():
     assert [a.name for a in revision_loop.sub_agents] == ["revision_agent"]
     assert {
         "regenerate_scene",
+        "rewrite_scene",
         "revise_voiceover",
         "regenerate_music",
         "stitch_final_video",
@@ -267,3 +268,11 @@ def test_no_revision_route_without_the_gates():
     assert "revision_loop" not in _root_instruction(
         {"final_video_asset_id": "v-1"}, gates=False
     )
+
+
+def test_a_refused_scene_can_be_reworded_where_it_is_reviewed():
+    from ads_x.agent import final_cut_gate_agent, frame_gate_agent
+
+    for agent in (frame_gate_agent, final_cut_gate_agent):
+        tools = {getattr(t, "name", None) or t.func.__name__ for t in agent.tools}
+        assert "rewrite_scene" in tools, agent.name

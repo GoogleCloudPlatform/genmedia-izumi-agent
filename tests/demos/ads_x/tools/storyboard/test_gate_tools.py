@@ -762,16 +762,33 @@ def _campaign_with_a_blocked_scene():
     return state
 
 
-async def test_a_blocked_scene_is_named_at_the_final_cut():
+async def test_a_refused_clip_leads_the_final_cut_and_asks_for_new_words():
     payload = (
         await gate_tools.await_final_cut_approval(
             _ctx(_campaign_with_a_blocked_scene())
         )
     )["result"]
 
+    message = payload["message"]
+    assert message.startswith("scene_2 holds on its opening frame"), "say it first"
+    assert "recognisable person" in message
+    assert 'Its action was: "a detail shot."' in message, "show what was refused"
+    assert "Rewrite what happens in it" in message, "another take is refused again"
+    assert payload["clips"][1]["refused"] is True
+
+
+async def test_a_clip_that_failed_otherwise_is_reported_as_a_failure():
+    state = _campaign_with_a_blocked_scene()
+    state["storyboard"]["scenes"][1]["video_prompt"]["render_failure"] = {
+        "kind": "error",
+        "message": "Video generation failed, so this scene holds on its opening frame.",
+    }
+
+    payload = (await gate_tools.await_final_cut_approval(_ctx(state)))["result"]
+
     assert "could not be rendered" in payload["message"]
-    assert "recognisable person" in payload["message"]
-    assert "scene_2" in payload["message"], "say which scene"
+    assert "Rewrite" not in payload["message"]
+    assert payload["clips"][1]["refused"] is False
 
 
 async def test_the_clip_carries_its_own_failure():
@@ -792,3 +809,27 @@ async def test_a_clean_cut_says_nothing_about_failures():
     ]
 
     assert "could not be rendered" not in payload["message"]
+    assert "Rewrite" not in payload["message"]
+
+
+async def test_a_refused_frame_leads_the_frame_gate_and_asks_for_new_words():
+    storyboard = _rendered_frames()
+    frame = storyboard["scenes"][1]["first_frame_prompt"]
+    frame.pop("asset_id")
+    frame.pop("asset_ref")
+    frame["render_failure"] = {
+        "kind": "blocked",
+        "message": "The opening frame was blocked: the safety filter refused "
+        "this scene's wording.",
+    }
+
+    payload = (await gate_tools.await_frame_approval(_ctx({"storyboard": storyboard})))[
+        "result"
+    ]
+
+    message = payload["message"]
+    assert message.startswith("scene_2: The opening frame was blocked"), "say it first"
+    assert 'It was to show: "frame 2"' in message, "show what was refused"
+    assert "Describe what the frame should show instead" in message
+    assert "1 of 2" in message
+    assert [f["refused"] for f in payload["frames"]] == [False, True]

@@ -97,6 +97,10 @@ export interface GateScene {
   asset_id?: string;
   /** Where the rendered image lives, at the frame checkpoint. */
   asset_ref?: { id?: string; asset_type?: string; workspace_id?: string };
+  /** Why the scene could not be rendered, when it could not. */
+  render_failure?: string;
+  /** The safety filter refused it, so new wording is what fixes it. */
+  refused?: boolean;
 }
 
 /** The payload a checkpoint returns while it waits for a verdict. */

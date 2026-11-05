@@ -166,3 +166,65 @@ async def test_generate_scene_video_reference_to_video(mock_get_media_gen_servic
 
     call_args = mock_media_gen_service.generate_video.call_args[1]
     assert call_args["start_image"].id == "first_frame_id"
+
+
+# A refusal is decided by the wording, so it is not retried with other words:
+# it goes to the reviewer, who rewrites the scene.
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+@patch(
+    "ads_x.utils.common.enrichment_utils.enrich_prompt_with_llm",
+    new_callable=AsyncMock,
+)
+async def test_a_refused_first_frame_is_not_retried_with_other_words(
+    mock_enrich_prompt, mock_get_media_gen_service
+):
+    from mediagent_kit.utils.retry import ContentBlockedError
+
+    mock_media_gen_service = MagicMock()
+    mock_media_gen_service.generate_image = AsyncMock(
+        side_effect=ContentBlockedError("blocked")
+    )
+    mock_get_media_gen_service.return_value = mock_media_gen_service
+    mock_enrich_prompt.return_value = ("Enriched prompt", None)
+
+    with pytest.raises(ContentBlockedError):
+        await generate_scene_first_frame(
+            workspace_id="workspace_1",
+            first_frame_prompt={"description": "Original"},
+            index=1,
+            aspect_ratio="16:9",
+        )
+    assert mock_media_gen_service.generate_image.await_count == 1
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+async def test_a_refused_clip_reaches_the_caller_as_a_refusal(
+    mock_get_media_gen_service,
+):
+    from mediagent_kit.utils.retry import ContentBlockedError
+
+    mock_media_gen_service = MagicMock()
+    mock_media_gen_service.generate_video = AsyncMock(
+        side_effect=ContentBlockedError("blocked")
+    )
+    mock_get_media_gen_service.return_value = mock_media_gen_service
+    first_frame_asset = MagicMock()
+    first_frame_asset.file_name = "scene_1_first_frame.png"
+
+    with pytest.raises(ContentBlockedError):
+        await generate_scene_video(
+            workspace_id="workspace_1",
+            scene={"first_frame_prompt": {"assets": []}},
+            index=1,
+            valid_duration=5.0,
+            aspect_ratio="16:9",
+            allow_veo_audio=False,
+            veo_method="image_to_video",
+            first_frame_asset=first_frame_asset,
+            final_video_prompt="Final prompt",
+        )
+    assert mock_media_gen_service.generate_video.await_count == 1

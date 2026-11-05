@@ -31,6 +31,7 @@ from utils.adk import (
 import mediagent_kit.services.aio
 from mediagent_kit.services.types import Asset
 from mediagent_kit.services.types.common import AssetRef
+from mediagent_kit.utils.retry import ContentBlockedError
 
 from ...utils.common import (
     common_utils,
@@ -198,6 +199,7 @@ async def generate_scene_video(
             "asset_type": "generated",
             "workspace_id": workspace_id,
         }
+        video_prompt_data.pop("render_failure", None)
         return [first_frame_asset, winner_asset]
 
     except Exception as e:
@@ -240,26 +242,31 @@ _BLOCK_GUIDANCE = (
 )
 
 
-def _describe_render_failure(error: Exception) -> dict[str, str]:
-    """Explains, in the reviewer's terms, why a scene has no video."""
+def _describe_render_failure(
+    error: Exception, subject: str = "video"
+) -> dict[str, str]:
+    """Explains, in the reviewer's terms, why a scene has no video or frame."""
     text = str(error)
     lowered = text.lower()
-    if "content_blocked" in lowered or "responsible ai" in lowered:
+    if (
+        isinstance(error, ContentBlockedError)
+        or "content_blocked" in lowered
+        or "responsible ai" in lowered
+    ):
         reason = next(
             (guidance for needle, guidance in _BLOCK_GUIDANCE if needle in lowered),
-            "the safety filter refused the generated clip.",
+            "the safety filter refused this scene's wording.",
         )
         return {
             "kind": "blocked",
-            "message": f"Video was blocked: {reason}",
+            "message": f"The {subject} was blocked: {reason}",
             "detail": text[:500],
         }
-    return {
-        "kind": "error",
-        "message": "Video generation failed, so this scene holds on its "
-        "opening frame.",
-        "detail": text[:500],
-    }
+    if subject == "video":
+        message = "Video generation failed, so this scene holds on its opening frame."
+    else:
+        message = f"The {subject} could not be rendered."
+    return {"kind": "error", "message": message, "detail": text[:500]}
 
 
 async def generate_scene_first_frame_step(
@@ -332,9 +339,15 @@ async def generate_scene_first_frame_step(
             # from. Frames and videos can be rendered in separate requests, so
             # the anchor is kept rather than held in memory between them.
             scene["first_frame_prompt"]["visual_anchor"] = first_frame_desc
+            scene["first_frame_prompt"].pop("render_failure", None)
         except Exception as e:
             logger.error(
                 f"Critical failure generating first frame for scene {index}: {e}"
+            )
+            # Recorded so the frame checkpoint can say why the scene has no
+            # frame, and ask for new wording when it was refused.
+            scene["first_frame_prompt"]["render_failure"] = _describe_render_failure(
+                e, subject="opening frame"
             )
             return None, ""
 
@@ -819,9 +832,13 @@ async def _generate_media(tool_context: ToolContext, phase: str) -> ToolResult:
 
 
 async def generate_single_scene(
-    tool_context: ToolContext, scene_index: int
+    tool_context: ToolContext, scene_index: int, frame_only: bool = False
 ) -> ToolResult:
-    """Regenerates a single specific scene. (HITL Tool)"""
+    """Regenerates a single specific scene. (HITL Tool)
+
+    ``frame_only`` stops after the opening frame, for a scene whose video is
+    not due yet.
+    """
     if (storyboard := tool_context.state.get(common_utils.STORYBOARD_KEY)) is None or (
         parameters := tool_context.state.get(common_utils.PARAMETERS_KEY)
     ) is None:
@@ -871,20 +888,31 @@ async def generate_single_scene(
     scene["first_frame_prompt"]["assets"] = assets
 
     asset_refs = tool_context.state.get("asset_refs", {})
-    await generate_scene(
-        scene=scene,
-        index=scene_index,
-        aspect_ratio=aspect_ratio,
-        workspace_id=workspace_id,
-        uid=uuid.uuid4().hex[:4],
-        use_voiceover=template_obj.use_voiceover,
-        veo_method=template_obj.veo_method,
-        allow_veo_audio=is_ugc,
-        global_context=generation_helpers.build_global_context_string(
-            storyboard, scene
-        ),
-        asset_refs=asset_refs,
-    )
+    global_context = generation_helpers.build_global_context_string(storyboard, scene)
+    if frame_only:
+        await generate_scene_first_frame_step(
+            scene=scene,
+            index=scene_index,
+            aspect_ratio=aspect_ratio,
+            workspace_id=workspace_id,
+            uid=uuid.uuid4().hex[:4],
+            allow_veo_audio=is_ugc,
+            global_context=global_context,
+            asset_refs=asset_refs,
+        )
+    else:
+        await generate_scene(
+            scene=scene,
+            index=scene_index,
+            aspect_ratio=aspect_ratio,
+            workspace_id=workspace_id,
+            uid=uuid.uuid4().hex[:4],
+            use_voiceover=template_obj.use_voiceover,
+            veo_method=template_obj.veo_method,
+            allow_veo_audio=is_ugc,
+            global_context=global_context,
+            asset_refs=asset_refs,
+        )
 
     tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
 
@@ -992,6 +1020,111 @@ async def regenerate_scene(
     tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
 
     return await generate_single_scene(tool_context, index)
+
+
+# What a prompt carries from its last render, released when its wording
+# changes so the scene renders again from the new words.
+_FRAME_RENDER_KEYS = (
+    "asset_id",
+    "asset_ref",
+    "visual_anchor",
+    "enrichment_asset_id",
+    "render_failure",
+)
+_VIDEO_RENDER_KEYS = (
+    "asset_id",
+    "asset_ref",
+    "enrichment_asset_id",
+    "enriched_description",
+    "reconciled_action",
+    "render_failure",
+)
+
+
+def _replace_wording(prompt: dict[str, Any], words: str) -> None:
+    """Swaps a prompt's words for new ones, keeping the Look's art direction."""
+    _, art_direction = gate_tools.split_art_direction(prompt.get("description") or "")
+    prompt["description"] = (
+        f"{words.strip()}\n\n{art_direction}" if art_direction else words.strip()
+    )
+
+
+async def rewrite_scene(
+    tool_context: ToolContext,
+    scene_id: str,
+    opening_frame: str = "",
+    action: str = "",
+) -> ToolResult:
+    """Puts the reviewer's own words into a scene and renders it again.
+
+    This is how a scene the safety filter refused gets fixed. The same words
+    are refused again, so they are replaced rather than added to, as
+    `regenerate_scene` does. Only what the new words affect is rendered: a
+    new opening frame needs a new clip as well, a new action keeps the frame.
+
+    Args:
+        scene_id: Stable id of the scene (e.g. "scene_2").
+        opening_frame: What the scene's first image shows, in the reviewer's
+            words. Leave empty to keep it.
+        action: What happens in the scene's clip, in the reviewer's words.
+            Leave empty to keep it.
+    """
+    if not (opening_frame.strip() or action.strip()):
+        return tool_failure(
+            "Give the new wording for the opening frame, the action, or both."
+        )
+
+    storyboard = tool_context.state.get(common_utils.STORYBOARD_KEY)
+    if not isinstance(storyboard, dict):
+        return tool_failure("No storyboard found in session state.")
+
+    index = storyboard_merge.find_scene_index(storyboard, scene_id)
+    if index is None:
+        available = [s.get("scene_id") for s in storyboard.get("scenes") or []]
+        return tool_failure(f"Unknown scene_id '{scene_id}'. Available: {available}")
+
+    scene = storyboard["scenes"][index]
+    frame = scene.setdefault("first_frame_prompt", {})
+    video = scene.setdefault("video_prompt", {})
+    if opening_frame.strip():
+        _replace_wording(frame, opening_frame)
+        for key in _FRAME_RENDER_KEYS:
+            frame.pop(key, None)
+    if action.strip():
+        _replace_wording(video, action)
+    # The clip starts from the frame, so a new frame needs a new clip too.
+    for key in _VIDEO_RENDER_KEYS:
+        video.pop(key, None)
+    tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
+
+    # Before the videos are rendered there is no clip to redo: a new frame is
+    # rendered on its own, and a new action waits for the video pass.
+    videos_rendered = (
+        tool_context.state.get(common_utils.STAGE_COMPLETED_KEY) == "generation"
+    )
+    if not videos_rendered and not opening_frame.strip():
+        return tool_success(
+            f"Scene '{scene_id}' has its new action and will be rendered from "
+            "it with the other videos."
+        )
+
+    result = await generate_single_scene(
+        tool_context, index, frame_only=not videos_rendered
+    )
+    if result.get("status") != "succeeded":
+        return result
+
+    refusals = [
+        prompt["render_failure"]["message"]
+        for prompt in (frame, video)
+        if isinstance(prompt.get("render_failure"), dict)
+    ]
+    if refusals:
+        return tool_failure(
+            f"Scene '{scene_id}' still could not be rendered: "
+            f"{' '.join(refusals)} Ask the reviewer for different wording."
+        )
+    return tool_success(f"Scene '{scene_id}' was rendered from the new wording.")
 
 
 async def revise_voiceover(

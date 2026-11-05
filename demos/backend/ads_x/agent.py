@@ -395,6 +395,13 @@ accept.
 Redo only the frames they named. Re-rendering a frame they did not mention
 discards work they had already accepted.
 
+A frame the safety filter refused is listed first in the checkpoint. When the
+reviewer gives new wording for it, call `rewrite_scene` with that scene's
+`scene_id` and their words as `opening_frame`, not `regenerate_scene`, which
+keeps the refused words. If they ask for it to be redone without new words,
+tell them the same words would be refused again and ask what the frame should
+show instead.
+
 Do not render any video from this agent. Video generation runs after this
 checkpoint records an acceptance.
 """
@@ -408,6 +415,7 @@ frame_gate_agent = llm_agent.LlmAgent(
         LongRunningFunctionTool(func=gate_tools.await_frame_approval),
         FunctionTool(gate_tools.record_frame_decision),
         FunctionTool(generation_tools.regenerate_scene),
+        FunctionTool(generation_tools.rewrite_scene),
     ],
     before_model_callback=instrument_agent("frame_gate_agent"),
 )
@@ -443,6 +451,13 @@ Keep going until they accept.
 Re-render only what was called out. Every clip costs real money and minutes to
 produce, and the ones they did not mention are ones they were happy with.
 
+A clip the safety filter refused holds on its opening frame and is listed first
+in the checkpoint. When the reviewer gives new wording for it, call
+`rewrite_scene` with that scene's `scene_id` and their words as `action`, not
+`regenerate_scene`, which keeps the refused words. Then stitch and ask again as
+above. If they ask for it to be redone without new words, tell them the same
+words would be refused again and ask what should happen in the scene instead.
+
 If the decision is "regenerate" and they are rejecting the whole video rather
 than naming clips, call `regenerate_all_media` with their direction, then
 `generate_all_media` and `stitch_final_video`. Reach for this only when they
@@ -462,6 +477,7 @@ final_cut_gate_agent = llm_agent.LlmAgent(
         FunctionTool(gate_tools.record_final_cut_decision),
         # Fix a clip or its narration, then rebuild the cut around it.
         FunctionTool(generation_tools.regenerate_scene),
+        FunctionTool(generation_tools.rewrite_scene),
         FunctionTool(generation_tools.revise_voiceover),
         FunctionTool(stitching_tools.stitch_final_video),
         # For a wholesale rejection rather than a note about specific clips.
@@ -487,6 +503,9 @@ and stays as it is, and every re-render costs real money and minutes.
 
 - A clip that looks wrong: call `regenerate_scene` with that scene's `scene_id`
   and their direction.
+- A clip the safety filter refused, which holds on its opening frame: call
+  `rewrite_scene` with that scene's `scene_id` and their words as `action`.
+  `regenerate_scene` keeps the refused words, and they are refused again.
 - The narration over a scene: call `revise_voiceover` with that scene's
   `scene_id`, and the new line if they gave the words. It re-records only the
   take that scene belongs to. `regenerate_scene` does not change what is heard.
@@ -530,6 +549,7 @@ revision_agent = llm_agent.LlmAgent(
     instruction=_revision_instruction,
     tools=[
         FunctionTool(generation_tools.regenerate_scene),
+        FunctionTool(generation_tools.rewrite_scene),
         FunctionTool(generation_tools.revise_voiceover),
         FunctionTool(regenerate_tools.regenerate_music),
         FunctionTool(stitching_tools.stitch_final_video),

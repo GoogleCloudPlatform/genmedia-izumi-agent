@@ -354,3 +354,35 @@ async def test_stitch_final_video_custom_object_storyboard(
     assert custom_sb.session_id == "session_obj_guarantee"
     assert custom_sb.workspace_id == "1"
     mock_sb_service_inst.save_storyboard.assert_called_once_with(custom_sb)
+
+
+def test_the_stitch_result_names_the_scenes_the_safety_filter_refused():
+    """A refused clip holds on a still, which the cut alone does not explain."""
+    from ads_x.tools.generation.stitching_tools import _refusal_note
+
+    storyboard = {
+        "scenes": [
+            {"scene_id": "scene_1", "video_prompt": {}},
+            {
+                "scene_id": "scene_2",
+                "video_prompt": {
+                    "render_failure": {
+                        "kind": "blocked",
+                        "message": "The video was blocked: refused.",
+                    }
+                },
+            },
+            {
+                "scene_id": "scene_3",
+                "video_prompt": {
+                    "render_failure": {"kind": "error", "message": "It failed."}
+                },
+            },
+        ]
+    }
+
+    note = _refusal_note(storyboard)
+
+    assert "scene_2: The video was blocked: refused." in note
+    assert "scene_3" not in note, "only refusals need new words"
+    assert _refusal_note({"scenes": [{"scene_id": "scene_1"}]}) == ""

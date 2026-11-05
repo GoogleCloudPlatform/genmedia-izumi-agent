@@ -455,6 +455,7 @@ async def await_frame_approval(tool_context: ToolContext) -> ToolResult:
         if not isinstance(scene, dict):
             continue
         first_frame = scene.get("first_frame_prompt") or {}
+        failure = first_frame.get("render_failure") or {}
         frames.append(
             {
                 "scene_id": digest.get("scene_id"),
@@ -464,6 +465,8 @@ async def await_frame_approval(tool_context: ToolContext) -> ToolResult:
                 "duration_seconds": digest.get("duration_seconds"),
                 "asset_id": first_frame.get("asset_id"),
                 "asset_ref": first_frame.get("asset_ref"),
+                "render_failure": failure.get("message"),
+                "refused": failure.get("kind") == "blocked",
             }
         )
 
@@ -479,9 +482,23 @@ async def await_frame_approval(tool_context: ToolContext) -> ToolResult:
     await storyboard_persistence.save_to_creative_studio(tool_context, storyboard)
 
     rendered = sum(1 for f in frames if f.get("asset_id"))
+    # A refused frame is the reviewer's to reword, and asking again with the
+    # same words is refused again, so it leads the message.
+    refused = " ".join(
+        f"{f.get('scene_id')}: {f['render_failure']} It was to show: "
+        f"\"{f.get('opening_frame')}\""
+        for f in frames
+        if f.get("refused")
+    )
+    lead = (
+        f"{refused} Describe what the frame should show instead and it will "
+        "be rendered from your words. "
+        if refused
+        else ""
+    )
     message = (
-        f"{rendered} of {len(frames)} opening frames are ready. Each one is "
-        f"the first frame of its scene. Accept to continue to video "
+        f"{lead}{rendered} of {len(frames)} opening frames are ready. Each one "
+        f"is the first frame of its scene. Accept to continue to video "
         f"generation, or name the frames to redo."
     )
 
@@ -592,25 +609,40 @@ async def await_final_cut_approval(tool_context: ToolContext) -> ToolResult:
                 **digest,
                 "asset_id": video.get("asset_id"),
                 "render_failure": failure.get("message"),
+                "refused": failure.get("kind") == "blocked",
             }
         )
 
     # A scene that could not be rendered holds on its opening frame. It looks
-    # like a deliberate still unless it is called out.
-    blocked = [c for c in clips if c.get("render_failure")]
+    # like a deliberate still unless it is called out. A refused one leads the
+    # message: another take of the same words is refused again, so it needs
+    # the reviewer's wording before anything else.
+    refused = [c for c in clips if c.get("refused")]
+    failed = [c for c in clips if c.get("render_failure") and not c.get("refused")]
+    lead = ""
+    if refused:
+        listed = " ".join(
+            f"{c.get('scene_id') or 'A scene'} holds on its opening frame. "
+            f"{c['render_failure']} Its action was: \"{c.get('action')}\""
+            for c in refused
+        )
+        lead = (
+            f"{listed} Rewrite what happens in it and it will be rendered from "
+            "your words, or keep the still. "
+        )
     note = ""
-    if blocked:
+    if failed:
         listed = "; ".join(
-            f"{c.get('scene_id') or 'a scene'}: {c['render_failure']}" for c in blocked
+            f"{c.get('scene_id') or 'a scene'}: {c['render_failure']}" for c in failed
         )
         note = (
-            f" {len(blocked)} of them could not be rendered and hold on a "
+            f" {len(failed)} of them could not be rendered and hold on a "
             f"still image instead. {listed}"
         )
 
     message = (
-        f"Your video is ready: {len(clips)} clips, stitched.{note} Accept to "
-        f"finish, or name the clips that need another take and they will be "
+        f"{lead}Your video is ready: {len(clips)} clips, stitched.{note} Accept "
+        f"to finish, or name the clips that need another take and they will be "
         f"re-rendered and the cut rebuilt."
     )
 
