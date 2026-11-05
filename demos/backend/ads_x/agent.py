@@ -22,8 +22,10 @@ from google.adk.agents import loop_agent
 from google.adk.agents.readonly_context import ReadonlyContext
 from google.adk.agents import sequential_agent
 from google.adk.apps.app import App, ResumabilityConfig
+from google.adk.models import Gemini
 from google.adk.tools import AgentTool, FunctionTool
 from google.adk.tools.long_running_tool import LongRunningFunctionTool
+from google.genai import types
 
 from config import settings
 from utils.adk import blob_interceptor_callback
@@ -57,7 +59,15 @@ from .tools.parameters import campaign_edit_tools, parameters_tools
 MAX_REVIEW_ROUNDS = 10
 
 # The model every agent here runs on, the storyboard writer included.
-AGENT_MODEL = "gemini-4-argon"
+AGENT_MODEL = Gemini(
+    model="gemini-4-argon",
+    # Vertex answers 429 when the model has no spare capacity at that moment,
+    # and a single such answer would otherwise end the turn. Only 408, 429 and
+    # 5xx answers are retried, so a call that succeeds takes no longer. The
+    # three retries wait about 1, 2 and 4 seconds, which covers a momentary
+    # shortage without holding the turn long when the shortage lasts.
+    retry_options=types.HttpRetryOptions(attempts=4, initial_delay=1, max_delay=4),
+)
 
 
 async def debug_parameters_callback(*args, **kwargs):
@@ -80,8 +90,6 @@ def instrument_agent(agent_name: str):
 
     return debug_cb
 
-
-from google.genai import types
 
 parameters_agent = llm_agent.LlmAgent(
     name="parameters_agent",

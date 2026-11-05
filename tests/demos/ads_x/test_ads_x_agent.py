@@ -18,7 +18,7 @@ def test_ads_x_agent_definitions():
 
     # Verify Parameters Agent
     assert parameters_agent.name == "parameters_agent"
-    assert "gemini" in parameters_agent.model
+    assert "gemini" in parameters_agent.canonical_model.model
     assert len(parameters_agent.tools) == 1
 
     # Verify User Assets Agent

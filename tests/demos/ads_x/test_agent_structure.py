@@ -3,6 +3,7 @@ from unittest.mock import patch
 import pytest
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.agents.sequential_agent import SequentialAgent
+from google.adk.models import Gemini
 
 # We need to ensure demos/backend is in PYTHONPATH when running this test.
 # This is handled in the verification command.
@@ -27,18 +28,18 @@ def test_agent_definitions():
     # Verify LlmAgents
     assert isinstance(parameters_agent, LlmAgent)
     assert parameters_agent.name == "parameters_agent"
-    assert parameters_agent.model == "gemini-4-argon"
+    assert parameters_agent.canonical_model.model == "gemini-4-argon"
 
     assert isinstance(user_assets_agent, LlmAgent)
     assert user_assets_agent.name == "user_assets_agent"
 
     assert isinstance(storyboard_agent_creative, LlmAgent)
     assert storyboard_agent_creative.name == "storyboard_agent_creative"
-    assert storyboard_agent_creative.model == "gemini-4-argon"
+    assert storyboard_agent_creative.canonical_model.model == "gemini-4-argon"
 
     assert isinstance(storyboard_agent_templated, LlmAgent)
     assert storyboard_agent_templated.name == "storyboard_agent_templated"
-    assert storyboard_agent_templated.model == "gemini-4-argon"
+    assert storyboard_agent_templated.canonical_model.model == "gemini-4-argon"
 
     assert isinstance(strategy_agent, LlmAgent)
     assert strategy_agent.name == "strategy_agent"
@@ -60,6 +61,19 @@ def test_agent_definitions():
     assert isinstance(full_pipeline_agent, SequentialAgent)
     assert full_pipeline_agent.name == "full_pipeline_agent"
     assert len(full_pipeline_agent.sub_agents) == 2
+
+
+def test_every_agent_retries_when_vertex_is_out_of_capacity():
+    import ads_x.agent
+
+    agents = [a for a in vars(ads_x.agent).values() if isinstance(a, LlmAgent)]
+
+    assert agents
+    for agent in agents:
+        model = agent.canonical_model
+        assert isinstance(model, Gemini), agent.name
+        retry = model.retry_options
+        assert retry is not None and retry.attempts not in (0, 1), agent.name
 
 
 def test_agent_tools():
