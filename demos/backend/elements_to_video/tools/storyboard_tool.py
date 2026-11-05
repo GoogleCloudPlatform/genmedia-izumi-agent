@@ -199,7 +199,7 @@ async def create_storyboard(
     project = settings.GOOGLE_CLOUD_PROJECT
     region = settings.GOOGLE_CLOUD_LOCATION
     client = genai.Client(vertexai=True, project=project, location=region)
-    model = "gemini-2.5-pro"
+    model = "gemini-4-argon"
 
     current_aspect_ratio = tool_context.state.get("aspect_ratio", "16:9")
     consistent_elements = tool_context.state.get("consistent_elements", [])

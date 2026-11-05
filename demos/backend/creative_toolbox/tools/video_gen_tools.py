@@ -44,7 +44,7 @@ async def generate_video_with_veo(
         prompt: The text prompt to generate the video from.
         file_name: The name of the file to save the video as. It will be stored in the user's scope. The file name should include extension (.mp4 by default).
         model: The model to use for video generation. Defaults to 'veo-3.1-generate-001'.
-            Supported models: 'veo-3.0-fast-generate-001', 'veo-3.0-generate-001', 'veo-3.1-generate-001'.
+            Supported models: 'veo-3.1-fast-generate-001', 'veo-3.1-generate-001'.
         first_frame_filename: Optional file name for a first frame image asset. Defaults to "" to pass no asset.
         last_frame_filename: Optional file name for a last frame image asset for interpolation. Defaults to "". If a last frame image is provided, a first frame must also be provided.
         aspect_ratio: The aspect ratio of the generated video. Supported values are "16:9", "9:16". Defaults to "16:9".
@@ -80,8 +80,7 @@ async def generate_video_with_veo(
         )
 
     supported_models = [
-        "veo-3.0-fast-generate-001",
-        "veo-3.0-generate-001",
+        "veo-3.1-fast-generate-001",
         "veo-3.1-generate-001",
     ]
     if model not in supported_models:
