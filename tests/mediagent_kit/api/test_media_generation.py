@@ -139,7 +139,7 @@ def test_generate_video_success(client, mock_orchestrator):
         json={
             "prompt": "a dog running",
             "file_name": "dog.mp4",
-            "model": VeoModel.VEO_3_0_GENERATE_001.value,
+            "model": VeoModel.VEO_3_1_GENERATE_001.value,
             "aspect_ratio": VeoAspectRatio.RATIO_16_9.value,
             "duration_seconds": VeoDuration.SECONDS_4.value,
         },
@@ -154,7 +154,7 @@ def test_generate_video_missing_first_frame(client, mock_orchestrator):
         json={
             "prompt": "a dog running",
             "file_name": "dog.mp4",
-            "model": VeoModel.VEO_3_0_GENERATE_001.value,
+            "model": VeoModel.VEO_3_1_GENERATE_001.value,
             "aspect_ratio": VeoAspectRatio.RATIO_16_9.value,
             "duration_seconds": VeoDuration.SECONDS_4.value,
             "last_frame_filename": "last.png",

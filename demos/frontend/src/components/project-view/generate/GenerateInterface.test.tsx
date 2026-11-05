@@ -114,7 +114,7 @@ describe('GenerateInterface', () => {
   it('should call correct mediaService function for each modality', async () => {
     renderComponent();
 
-    // Image (Gemini is default)
+    // Image
     let promptInput = screen.getByLabelText('Prompt');
 
     await userEvent.type(promptInput, 'A cat');
@@ -125,7 +125,7 @@ describe('GenerateInterface', () => {
         projectId,
         expect.objectContaining({
           prompt: 'A cat',
-          model: 'gemini-2.5-flash-image',
+          model: 'gemini-nano-banana-2.1',
         }),
       ),
     );

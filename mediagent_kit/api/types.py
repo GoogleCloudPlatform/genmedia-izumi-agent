@@ -184,8 +184,10 @@ class GeminiImageAspectRatio(enum.StrEnum):
 
 @enum.unique
 class GeminiImageModel(enum.StrEnum):
-    GEMINI_2_5_FLASH_IMAGE = "gemini-2.5-flash-image"
+    GEMINI_NANO_BANANA_2_1 = "gemini-nano-banana-2.1"
     GEMINI_3_PRO_IMAGE = "gemini-3-pro-image"
+    GEMINI_3_1_FLASH_IMAGE = "gemini-3.1-flash-image"
+    GEMINI_2_5_FLASH_IMAGE = "gemini-2.5-flash-image"
 
 
 @enum.unique
@@ -197,6 +199,8 @@ class LyriaModel(enum.StrEnum):
 
 @enum.unique
 class SpeechModel(enum.StrEnum):
+    GEMINI_3_8_FLASH_TTS = "gemini-3.8-flash-tts"
+    GEMINI_3_8_FLASH_LITE_TTS = "gemini-3.8-flash-lite-tts"
     GEMINI_3_1_FLASH_TTS_PREVIEW = "gemini-3.1-flash-tts-preview"
     GEMINI_2_5_FLASH_TTS = "gemini-2.5-flash-tts"
     GEMINI_2_5_PRO_TTS = "gemini-2.5-pro-tts"
@@ -238,9 +242,8 @@ class SpeechVoice(enum.StrEnum):
 
 @enum.unique
 class VeoModel(enum.StrEnum):
-    VEO_3_0_FAST_GENERATE_001 = "veo-3.0-fast-generate-001"
-    VEO_3_0_GENERATE_001 = "veo-3.0-generate-001"
     VEO_3_1_GENERATE_001 = "veo-3.1-generate-001"
+    VEO_3_1_FAST_GENERATE_001 = "veo-3.1-fast-generate-001"
 
 
 @enum.unique
@@ -283,7 +286,7 @@ class GenerateImageWithGeminiRequest(BaseModel):
     prompt: str
     aspect_ratio: GeminiImageAspectRatio
     file_name: str
-    model: GeminiImageModel = GeminiImageModel.GEMINI_2_5_FLASH_IMAGE
+    model: GeminiImageModel = GeminiImageModel.GEMINI_NANO_BANANA_2_1
     reference_image_filenames: list[str] = Field(default_factory=list)
 
 

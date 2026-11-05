@@ -43,8 +43,6 @@ import CloseIcon from '@mui/icons-material/Close';
 
 import {
   LyriaModel,
-  ImagenModel,
-  ImagenAspectRatio,
   GeminiImageAspectRatio,
   GeminiImageModel,
   VeoModel,
@@ -68,10 +66,7 @@ interface GenerateInterfaceProps {
 // Define state shapes for each modality
 interface ImageState {
   prompt: string;
-  imageModelProvider: 'imagen' | 'gemini';
-  imagenModel: ImagenModel;
   geminiModel: GeminiImageModel;
-  imagenAspectRatio: ImagenAspectRatio;
   geminiAspectRatio: GeminiImageAspectRatio;
   referenceImages: File[];
   fileName: string;
@@ -211,10 +206,7 @@ export default function GenerateInterface({
   const [modalityStates, setModalityStates] = useState({
     image: {
       prompt: '',
-      imageModelProvider: 'gemini',
-      imagenModel: ImagenModel.IMAGEN_4_0_GENERATE_001,
-      geminiModel: GeminiImageModel.GEMINI_2_5_FLASH_IMAGE,
-      imagenAspectRatio: ImagenAspectRatio.RATIO_16_9,
+      geminiModel: GeminiImageModel.GEMINI_NANO_BANANA_2_1,
       geminiAspectRatio: GeminiImageAspectRatio.RATIO_16_9,
       referenceImages: [],
       fileName: '',
@@ -232,13 +224,13 @@ export default function GenerateInterface({
     } as VideoState,
     music: {
       prompt: '',
-      lyriaModel: LyriaModel.LYRIA_002,
+      lyriaModel: LyriaModel.LYRIA_3_CLIP_PREVIEW,
       negativePrompt: '',
       fileName: '',
     } as MusicState,
     speech: {
       prompt: '',
-      speechModel: SpeechModel.GEMINI_2_5_FLASH_TTS,
+      speechModel: SpeechModel.GEMINI_3_8_FLASH_TTS,
       speechVoice: SpeechVoice.CHARON,
       speechText: '',
       fileName: '',
@@ -314,25 +306,16 @@ export default function GenerateInterface({
         const state = modalityStates.image;
         const finalFileName =
           state.fileName || `generated_image_${Date.now()}.png`;
-        if (state.imageModelProvider === 'imagen') {
-          await mediaService.generateImageWithImagen(projectId, {
-            prompt: state.prompt,
-            aspect_ratio: state.imagenAspectRatio,
-            model: state.imagenModel,
-            file_name: finalFileName,
-          });
-        } else {
-          const refNames = await Promise.all(
-            state.referenceImages.map(uploadFileAndGetName),
-          );
-          await mediaService.generateImageWithGemini(projectId, {
-            prompt: state.prompt,
-            aspect_ratio: state.geminiAspectRatio,
-            model: state.geminiModel,
-            file_name: finalFileName,
-            reference_image_filenames: refNames,
-          });
-        }
+        const refNames = await Promise.all(
+          state.referenceImages.map(uploadFileAndGetName),
+        );
+        await mediaService.generateImageWithGemini(projectId, {
+          prompt: state.prompt,
+          aspect_ratio: state.geminiAspectRatio,
+          model: state.geminiModel,
+          file_name: finalFileName,
+          reference_image_filenames: refNames,
+        });
         return finalFileName;
       },
       video: async () => {
@@ -411,53 +394,21 @@ export default function GenerateInterface({
         {outputModality === 'image' && (
           <>
             <FormControl fullWidth>
-              <InputLabel>Model Provider</InputLabel>
+              <InputLabel>Model</InputLabel>
               <Select
-                value={modalityStates.image.imageModelProvider}
-                label="Model Provider"
+                value={modalityStates.image.geminiModel}
+                label="Model"
                 onChange={(e) =>
                   updateState('image', {
-                    imageModelProvider: e.target.value as 'imagen' | 'gemini',
+                    geminiModel: e.target.value as GeminiImageModel,
                   })
                 }
               >
-                <MenuItem value="imagen">Imagen</MenuItem>
-                <MenuItem value="gemini">Gemini</MenuItem>
-              </Select>
-            </FormControl>
-
-            <FormControl fullWidth>
-              <InputLabel>Model</InputLabel>
-              <Select
-                value={
-                  modalityStates.image.imageModelProvider === 'imagen'
-                    ? modalityStates.image.imagenModel
-                    : modalityStates.image.geminiModel
-                }
-                label="Model"
-                onChange={(e) => {
-                  if (modalityStates.image.imageModelProvider === 'imagen') {
-                    updateState('image', {
-                      imagenModel: e.target.value as ImagenModel,
-                    });
-                  } else {
-                    updateState('image', {
-                      geminiModel: e.target.value as GeminiImageModel,
-                    });
-                  }
-                }}
-              >
-                {modalityStates.image.imageModelProvider === 'imagen'
-                  ? Object.values(ImagenModel).map((m) => (
-                      <MenuItem key={m} value={m}>
-                        {m}
-                      </MenuItem>
-                    ))
-                  : Object.values(GeminiImageModel).map((m) => (
-                      <MenuItem key={m} value={m}>
-                        {m}
-                      </MenuItem>
-                    ))}
+                {Object.values(GeminiImageModel).map((m) => (
+                  <MenuItem key={m} value={m}>
+                    {m}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
 
@@ -470,74 +421,55 @@ export default function GenerateInterface({
               onChange={(e) => updateState('image', { prompt: e.target.value })}
             />
 
-            {modalityStates.image.imageModelProvider === 'gemini' && (
-              <Box>
-                <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                  Reference Images (up to 4)
-                </Typography>
-                <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                  {modalityStates.image.referenceImages.length < 4 && (
-                    <Box sx={{ width: 100, height: 100 }}>
-                      <ImageUpload
-                        key={modalityStates.image.referenceImages.length}
-                        onUpload={handleReferenceImageUpload}
-                        objectFit="contain"
-                        paperSx={{
-                          bgcolor: 'transparent',
-                          border: '1px dashed',
-                          borderColor: 'divider',
-                        }}
-                      />
-                    </Box>
-                  )}
-                  {modalityStates.image.referenceImages.map((image, i) => (
-                    <Box
-                      sx={{ width: 100, height: 100, position: 'relative' }}
-                      key={i}
-                    >
-                      <ReferenceImagePreview
-                        file={image}
-                        onRemove={() => handleRemoveReferenceImage(i)}
-                      />
-                    </Box>
-                  ))}
-                </Box>
+            <Box>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                Reference Images (up to 4)
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                {modalityStates.image.referenceImages.length < 4 && (
+                  <Box sx={{ width: 100, height: 100 }}>
+                    <ImageUpload
+                      key={modalityStates.image.referenceImages.length}
+                      onUpload={handleReferenceImageUpload}
+                      objectFit="contain"
+                      paperSx={{
+                        bgcolor: 'transparent',
+                        border: '1px dashed',
+                        borderColor: 'divider',
+                      }}
+                    />
+                  </Box>
+                )}
+                {modalityStates.image.referenceImages.map((image, i) => (
+                  <Box
+                    sx={{ width: 100, height: 100, position: 'relative' }}
+                    key={i}
+                  >
+                    <ReferenceImagePreview
+                      file={image}
+                      onRemove={() => handleRemoveReferenceImage(i)}
+                    />
+                  </Box>
+                ))}
               </Box>
-            )}
+            </Box>
 
             <FormControl fullWidth>
               <InputLabel>Aspect Ratio</InputLabel>
               <Select
-                value={
-                  modalityStates.image.imageModelProvider === 'imagen'
-                    ? modalityStates.image.imagenAspectRatio
-                    : modalityStates.image.geminiAspectRatio
-                }
+                value={modalityStates.image.geminiAspectRatio}
                 label="Aspect Ratio"
-                onChange={(e) => {
-                  if (modalityStates.image.imageModelProvider === 'imagen') {
-                    updateState('image', {
-                      imagenAspectRatio: e.target.value as ImagenAspectRatio,
-                    });
-                  } else {
-                    updateState('image', {
-                      geminiAspectRatio: e.target
-                        .value as GeminiImageAspectRatio,
-                    });
-                  }
-                }}
+                onChange={(e) =>
+                  updateState('image', {
+                    geminiAspectRatio: e.target.value as GeminiImageAspectRatio,
+                  })
+                }
               >
-                {modalityStates.image.imageModelProvider === 'imagen'
-                  ? Object.values(ImagenAspectRatio).map((r) => (
-                      <MenuItem key={r} value={r}>
-                        {r}
-                      </MenuItem>
-                    ))
-                  : Object.values(GeminiImageAspectRatio).map((r) => (
-                      <MenuItem key={r} value={r}>
-                        {r}
-                      </MenuItem>
-                    ))}
+                {Object.values(GeminiImageAspectRatio).map((r) => (
+                  <MenuItem key={r} value={r}>
+                    {r}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
           </>

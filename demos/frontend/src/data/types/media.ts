@@ -17,6 +17,8 @@
 // --- Media Generation Enums ---
 
 export const LyriaModel = {
+  LYRIA_3_CLIP_PREVIEW: 'lyria-3-clip-preview',
+  LYRIA_3_PRO_PREVIEW: 'lyria-3-pro-preview',
   LYRIA_002: 'lyria-002',
 } as const;
 export type LyriaModel = (typeof LyriaModel)[keyof typeof LyriaModel];
@@ -54,16 +56,17 @@ export type GeminiImageAspectRatio =
   (typeof GeminiImageAspectRatio)[keyof typeof GeminiImageAspectRatio];
 
 export const GeminiImageModel = {
-  GEMINI_2_5_FLASH_IMAGE: 'gemini-2.5-flash-image',
+  GEMINI_NANO_BANANA_2_1: 'gemini-nano-banana-2.1',
   GEMINI_3_PRO_IMAGE: 'gemini-3-pro-image',
+  GEMINI_3_1_FLASH_IMAGE: 'gemini-3.1-flash-image',
+  GEMINI_2_5_FLASH_IMAGE: 'gemini-2.5-flash-image',
 } as const;
 export type GeminiImageModel =
   (typeof GeminiImageModel)[keyof typeof GeminiImageModel];
 
 export const VeoModel = {
-  VEO_3_0_FAST_GENERATE: 'veo-3.0-fast-generate-001',
-  VEO_3_0_GENERATE: 'veo-3.0-generate-001',
   VEO_3_1_GENERATE: 'veo-3.1-generate-001',
+  VEO_3_1_FAST_GENERATE: 'veo-3.1-fast-generate-001',
 } as const;
 export type VeoModel = (typeof VeoModel)[keyof typeof VeoModel];
 
@@ -88,6 +91,8 @@ export const VeoResolution = {
 export type VeoResolution = (typeof VeoResolution)[keyof typeof VeoResolution];
 
 export const SpeechModel = {
+  GEMINI_3_8_FLASH_TTS: 'gemini-3.8-flash-tts',
+  GEMINI_3_8_FLASH_LITE_TTS: 'gemini-3.8-flash-lite-tts',
   GEMINI_2_5_FLASH_TTS: 'gemini-2.5-flash-tts',
   GEMINI_2_5_PRO_TTS: 'gemini-2.5-pro-tts',
 } as const;
