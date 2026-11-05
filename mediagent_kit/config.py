@@ -37,15 +37,14 @@ class MediagentKitConfig:
         # Hardcoded defaults as fallback
         self.models = {
             "text": {
-                "default": "gemini-3.7-flash",
-                "repair": "gemini-3.7-flash",
-                "enrichment": "gemini-3.7-flash",
+                "default": "gemini-4-argon",
+                "repair": "gemini-4-argon",
+                "enrichment": "gemini-4-argon",
             },
-            "image_imagen": {"default": "imagen-4.0-generate-001"},
-            "image_gemini": {"default": "gemini-3.1-flash-image"},
-            "video": {"default": "gemini-omni-flash-preview"},
+            "image_gemini": {"default": "gemini-nano-banana-2.1"},
+            "video": {"default": "gemini-omni-1.2-flash"},
             "music": {"default": "lyria-3-clip-preview"},
-            "tts": {"default": "gemini-3.1-flash-tts-preview"},
+            "tts": {"default": "gemini-3.8-flash-tts"},
         }
 
         # Resolve mediagent_config.json regardless of the process working

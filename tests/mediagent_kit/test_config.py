@@ -12,8 +12,9 @@ def test_config_defaults():
     with patch.dict(os.environ, {"MEDIAGENT_CONFIG_PATH": ""}):
         with patch("mediagent_kit.config.os.path.exists", return_value=False):
             config = MediagentKitConfig()
-            assert config.models["text"]["default"] == "gemini-3.7-flash"
-            assert config.models["text"]["repair"] == "gemini-3.7-flash"
+            assert config.models["text"]["default"] == "gemini-4-argon"
+            assert config.models["text"]["repair"] == "gemini-4-argon"
+            assert config.models["tts"]["default"] == "gemini-3.8-flash-tts"
 
 
 def test_config_load_file():
@@ -32,8 +33,7 @@ def test_config_load_file():
                 config = MediagentKitConfig()
                 assert config.models["text"]["default"] == "custom-text-model"
                 # Verify that defaults are still there if not overridden
-                assert config.models["text"]["repair"] == "gemini-3.7-flash"
+                assert config.models["text"]["repair"] == "gemini-4-argon"
                 assert (
-                    config.models["image_imagen"]["default"]
-                    == "imagen-4.0-generate-001"
+                    config.models["image_gemini"]["default"] == "gemini-nano-banana-2.1"
                 )

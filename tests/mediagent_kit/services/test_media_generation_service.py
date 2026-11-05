@@ -53,43 +53,35 @@ def test_get_genai_client_missing_config(mock_asset_service):
         service._get_genai_client()
 
 
-@patch("mediagent_kit.services.media_generation_service.genai.Client")
-def test_generate_image_with_imagen_success(
-    mock_genai_client_class,
-    mock_asset_service,
-    mock_config,
+def test_an_imagen_request_is_made_by_the_gemini_image_model(
+    mock_asset_service, mock_config
 ):
+    """Vertex no longer serves Imagen, so the request goes to Gemini."""
     from mediagent_kit.services.media_generation_service import MediaGenerationService
-
-    # Mock GenAI Client
-    mock_client = MagicMock()
-    mock_genai_client_class.return_value = mock_client
-
-    # Mock response
-    mock_response = MagicMock()
-    mock_image = MagicMock()
-    mock_image.image_bytes = b"fake_image_bytes"
-    mock_image.mime_type = "image/png"
-    mock_generated_image = MagicMock()
-    mock_generated_image.image = mock_image
-    mock_response.generated_images = [mock_generated_image]
-    mock_client.models.generate_images.return_value = mock_response
-
-    # Mock save_asset
-    mock_asset_service.save_asset.return_value = "saved_asset"
 
     service = MediaGenerationService(
         asset_service=mock_asset_service, config=mock_config
     )
 
-    result = service.generate_image_with_imagen(
+    with patch.object(
+        service, "generate_image_with_gemini", return_value="saved_asset"
+    ) as gemini:
+        result = service.generate_image_with_imagen(
+            user_id="user_123",
+            file_name="test.png",
+            prompt="A beautiful sunset",
+            aspect_ratio="9:16",
+            model="imagen-4.0-generate-001",
+        )
+
+    assert result == "saved_asset"
+    gemini.assert_called_once_with(
         user_id="user_123",
         file_name="test.png",
         prompt="A beautiful sunset",
+        aspect_ratio="9:16",
+        purpose=None,
     )
-
-    assert result == "saved_asset"
-    mock_asset_service.save_asset.assert_called_once()
 
 
 @patch(
@@ -559,6 +551,136 @@ def test_speech_names_a_quota_project(
     assert mock_tts_client_class.call_args.kwargs["client_options"] == {
         "quota_project_id": "test-project"
     }
+
+
+# ---------------------------------------------------------------------------
+# Gemini 3.8 TTS
+#
+# Cloud Text-to-Speech does not serve it. It answers generateContent, speaks
+# its text verbatim and takes a delivery direction as speech_metadata.
+# ---------------------------------------------------------------------------
+
+
+def test_legacy_markup_becomes_tags_and_a_style():
+    from mediagent_kit.services.media_generation_service import (
+        _to_gemini_tts_markup,
+    )
+
+    transcript, directions = _to_gemini_tts_markup(
+        "Wake up [short pause] to fresh coffee. [Shouting] Every morning! "
+        "[sigh] [long pause] Brew."
+    )
+
+    assert transcript == (
+        "Wake up <short pause> to fresh coffee. Every morning! <sigh> "
+        "<long pause> Brew."
+    )
+    assert directions == ["shouting"]
+
+
+def _gemini_tts_response():
+    import base64
+
+    response = MagicMock()
+    response.status_code = 200
+    response.json.return_value = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "inlineData": {
+                                "mimeType": "audio/wav",
+                                "data": base64.b64encode(b"RIFFwav").decode(),
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+    return response
+
+
+@patch("mediagent_kit.services.media_generation_service.requests.post")
+@patch("mediagent_kit.services.media_generation_service.google.auth.default")
+@patch("mediagent_kit.services.media_generation_service.convert_wav_blob_to_mp3_blob")
+@patch(
+    "mediagent_kit.services.media_generation_service.texttospeech.TextToSpeechClient"
+)
+def test_gemini_38_speech_goes_through_generate_content(
+    mock_tts_client_class,
+    mock_convert_wav,
+    mock_auth_default,
+    mock_requests_post,
+    mock_asset_service,
+    mock_config,
+):
+    from mediagent_kit.services.media_generation_service import MediaGenerationService
+
+    mock_creds = MagicMock()
+    mock_creds.token = "fake_token"
+    mock_auth_default.return_value = (mock_creds, "test-project")
+    mock_requests_post.return_value = _gemini_tts_response()
+    mock_convert_wav.return_value = b"mp3"
+    mock_config.models = dict(
+        mock_config.models, tts={"default": "gemini-3.8-flash-tts"}
+    )
+
+    service = MediaGenerationService(
+        asset_service=mock_asset_service, config=mock_config
+    )
+    service.generate_speech_single_speaker(
+        user_id="user_123",
+        file_name="vo.mp3",
+        text="Fresh coffee [short pause] [shouting] every morning.",
+        voice_name="Aoede",
+        prompt="warm",
+    )
+
+    mock_tts_client_class.assert_not_called()
+    url = mock_requests_post.call_args.args[0]
+    assert url.endswith(
+        "/locations/global/publishers/google/models/gemini-3.8-flash-tts:generateContent"
+    )
+    body = mock_requests_post.call_args.kwargs["json"]
+    assert body["contents"][0]["parts"] == [
+        {
+            "text": "Fresh coffee <short pause> every morning.",
+            "speech_metadata": {"style": "warm, shouting"},
+        }
+    ]
+    assert body["generationConfig"]["speechConfig"]["voiceConfig"] == {
+        "prebuiltVoiceConfig": {"voiceName": "Aoede"}
+    }
+    mock_convert_wav.assert_called_once_with(b"RIFFwav")
+    assert mock_asset_service.save_asset.call_args.kwargs["blob"] == b"mp3"
+    assert mock_asset_service.save_asset.call_args.kwargs["mime_type"] == "audio/mpeg"
+
+
+@patch("mediagent_kit.services.media_generation_service.requests.post")
+@patch("mediagent_kit.services.media_generation_service.google.auth.default")
+def test_gemini_38_speech_without_direction_sends_no_style(
+    mock_auth_default, mock_requests_post, mock_asset_service, mock_config
+):
+    from mediagent_kit.services.media_generation_service import MediaGenerationService
+
+    mock_creds = MagicMock()
+    mock_creds.token = "fake_token"
+    mock_auth_default.return_value = (mock_creds, "test-project")
+    mock_requests_post.return_value = _gemini_tts_response()
+
+    service = MediaGenerationService(
+        asset_service=mock_asset_service, config=mock_config
+    )
+    wav = service._call_gemini_tts_api(
+        model="gemini-3.8-flash-tts", text="Hello.", voice_name="Kore", style=""
+    )
+
+    assert wav == b"RIFFwav"
+    assert mock_requests_post.call_args.kwargs["json"]["contents"][0]["parts"] == [
+        {"text": "Hello."}
+    ]
 
 
 # ---------------------------------------------------------------------------
