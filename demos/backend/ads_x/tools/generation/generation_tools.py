@@ -672,7 +672,10 @@ async def _generate_media(tool_context: ToolContext, phase: str) -> ToolResult:
         )
     else:
         music_task = generation_helpers.generate_background_music(
-            workspace_id, storyboard["background_music_prompt"], uid
+            workspace_id,
+            storyboard["background_music_prompt"],
+            uid,
+            duration_seconds=generation_helpers.runtime_seconds(storyboard),
         )
         per_scene_vo_tasks = []
         if use_per_scene_voiceover:

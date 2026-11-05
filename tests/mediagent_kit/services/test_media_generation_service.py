@@ -843,3 +843,70 @@ def test_veo_never_touches_the_interactions_endpoint(
 
     # It went down the Veo path (the genai client), not the REST interactions one.
     mock_requests_post.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Lyria 3 Pro
+#
+# It writes a song of its own length, minutes long unless the prompt names
+# one, and meets a named length only approximately. A track shorter than the
+# cut leaves the end of the cut silent.
+# ---------------------------------------------------------------------------
+
+
+def _pro_service(mock_asset_service, mock_config):
+    from mediagent_kit.services.media_generation_service import MediaGenerationService
+
+    return MediaGenerationService(asset_service=mock_asset_service, config=mock_config)
+
+
+def test_pro_is_asked_for_a_margin_over_the_cut(mock_asset_service, mock_config):
+    service = _pro_service(mock_asset_service, mock_config)
+    with (
+        patch.object(
+            service, "_call_lyria3_api", return_value=(b"mp3", "audio/mpeg")
+        ) as call,
+        patch(
+            "mediagent_kit.services.media_generation_service.get_media_metadata_from_blob",
+            return_value=MagicMock(duration=38.0),
+        ),
+    ):
+        service._render_lyria3("lyria-3-pro-preview", "Warm strings.", 30)
+
+    call.assert_called_once_with(
+        model="lyria-3-pro-preview",
+        prompt="Warm strings. The track runs about 40 seconds.",
+    )
+
+
+def test_a_pro_track_too_short_for_the_cut_is_rendered_again_without_a_length(
+    mock_asset_service, mock_config
+):
+    service = _pro_service(mock_asset_service, mock_config)
+    with (
+        patch.object(
+            service,
+            "_call_lyria3_api",
+            side_effect=[(b"short", "audio/mpeg"), (b"long", "audio/mpeg")],
+        ) as call,
+        patch(
+            "mediagent_kit.services.media_generation_service.get_media_metadata_from_blob",
+            return_value=MagicMock(duration=22.0),
+        ),
+    ):
+        music, _ = service._render_lyria3("lyria-3-pro-preview", "Warm strings.", 30)
+
+    assert music == b"long"
+    assert call.call_args_list[1].kwargs["prompt"] == "Warm strings."
+
+
+def test_clip_and_an_unknown_length_are_not_steered(mock_asset_service, mock_config):
+    service = _pro_service(mock_asset_service, mock_config)
+    with patch.object(
+        service, "_call_lyria3_api", return_value=(b"mp3", "audio/mpeg")
+    ) as call:
+        service._render_lyria3("lyria-3-clip-preview", "Warm strings.", 30)
+        service._render_lyria3("lyria-3-pro-preview", "Warm strings.", None)
+
+    prompts = [c.kwargs["prompt"] for c in call.call_args_list]
+    assert prompts == ["Warm strings.", "Warm strings."]

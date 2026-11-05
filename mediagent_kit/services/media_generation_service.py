@@ -34,6 +34,7 @@ from mediagent_kit.services import types as asset_types
 from mediagent_kit.services.asset_service import AssetService
 from mediagent_kit.utils.media_tools import (
     convert_wav_blob_to_mp3_blob,
+    get_media_metadata_from_blob,
     strip_audio_from_video_blob,
     trim_last_frames_from_video_blob,
 )
@@ -59,10 +60,14 @@ GEMINI_IMAGE_ASPECT_RATIOS = Literal[
 GEMINI_IMAGE_ASPECT_RATIO: Final = "16:9"
 
 
-LYRIA_MODEL: Final = "lyria-3-clip-preview"
+LYRIA_MODEL: Final = "lyria-3-pro-preview"
 
 # Lyria 3 model ids all start with this; they speak a different API to Lyria 2.
 LYRIA3_PREFIX: Final = "lyria-3"
+
+# How much longer than the cut a Lyria 3 Pro track is asked to run. Asked for a
+# length, it has returned as little as 94% of it.
+LYRIA3_LENGTH_MARGIN_SECONDS: Final = 10
 
 # A Pro track can run to three minutes, so generation is not quick. Bounded
 # only to stop a hung connection from stalling the whole generation phase.
@@ -484,6 +489,34 @@ class MediaGenerationService:
         music_bytes_b64 = predictions[0]["bytesBase64Encoded"]
         return base64.b64decode(music_bytes_b64)
 
+    def _render_lyria3(
+        self, model: str, prompt: str, duration_seconds: int | None
+    ) -> tuple[bytes, str]:
+        """Renders a Lyria 3 track at least ``duration_seconds`` long.
+
+        Lyria 3 Clip always renders 30 seconds. Lyria 3 Pro writes a song of
+        its own length, minutes long unless the prompt names one, and a named
+        length is met only approximately, while a track shorter than the cut
+        leaves the end of the cut silent. So Pro is asked for a margin over
+        what is needed, and a track that still comes back short is replaced
+        by one rendered without a length, which runs for minutes.
+        """
+        if not duration_seconds or "clip" in model:
+            return self._call_lyria3_api(model=model, prompt=prompt)
+
+        asked = duration_seconds + LYRIA3_LENGTH_MARGIN_SECONDS
+        music_bytes, mime_type = self._call_lyria3_api(
+            model=model, prompt=f"{prompt} The track runs about {asked} seconds."
+        )
+        length = get_media_metadata_from_blob(music_bytes, "mp3").duration
+        if length >= duration_seconds:
+            return music_bytes, mime_type
+        logger.warning(
+            f"{model} returned {length:.1f}s where {duration_seconds}s is needed. "
+            "Rendering it again without a length."
+        )
+        return self._call_lyria3_api(model=model, prompt=prompt)
+
     def generate_music_with_lyria(
         self,
         *,
@@ -493,8 +526,14 @@ class MediaGenerationService:
         negative_prompt: str | None = None,
         purpose: str | None = None,
         model: str | None = None,
+        duration_seconds: int | None = None,
     ) -> asset_types.Asset:
-        """Generates music using Lyria and saves it as a user-scoped asset."""
+        """Generates music using Lyria and saves it as a user-scoped asset.
+
+        ``duration_seconds`` is the shortest track the caller can use. Only a
+        model that writes songs of its own length, such as Lyria 3 Pro, is
+        steered by it; the others render a fixed length.
+        """
         if model is None:
             config = self._config.models.get("music", {})
             if purpose and purpose in config:
@@ -525,7 +564,9 @@ class MediaGenerationService:
                     f"Ignoring negative_prompt: {model} does not support one. "
                     "State the exclusion in the prompt instead."
                 )
-            music_bytes, mime_type = self._call_lyria3_api(model=model, prompt=prompt)
+            music_bytes, mime_type = self._render_lyria3(
+                model=model, prompt=prompt, duration_seconds=duration_seconds
+            )
         else:
             music_bytes = self._call_lyria_api(
                 model=model, prompt=prompt, negative_prompt=negative_prompt

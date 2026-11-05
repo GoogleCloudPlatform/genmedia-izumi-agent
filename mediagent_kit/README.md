@@ -130,7 +130,7 @@ Based on the codebase (`agent.py` and `mediagent_config.json`), the pipeline use
 -   🎨 **Image Generation**: `gemini-nano-banana-2.1`
 -   🗣️ **Voiceover (TTS)**: `gemini-3.8-flash-tts`
 -   🎥 **Video Generation**: `gemini-omni-1.2-flash`
--   🎵 **Music**: `lyria-3-clip-preview`
+-   🎵 **Music**: `lyria-3-pro-preview`
 
 ### 🎥 Gemini Omni Video Generation
 

@@ -140,7 +140,10 @@ async def regenerate_music(
         prompt.get("description", "")[:120],
     )
     asset = await generation_helpers.generate_background_music(
-        workspace_id, prompt, uuid.uuid4().hex[:4]
+        workspace_id,
+        prompt,
+        uuid.uuid4().hex[:4],
+        duration_seconds=generation_helpers.runtime_seconds(storyboard),
     )
     tool_context.state[common_utils.STORYBOARD_KEY] = storyboard
 

@@ -275,8 +275,8 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
     ) -> GeneratedAsset:
         """Generates background music via native Lyria.
 
-        Note: the legacy Lyria generator does not take a duration; it is
-        accepted here for interface parity and ignored by the native model.
+        ``duration_seconds`` is the shortest track the caller can use. Lyria 3
+        Pro is steered to it; Lyria 3 Clip and Lyria 2 render a fixed length.
         """
         asset = await asyncio.to_thread(
             self._media.generate_music_with_lyria,
@@ -284,6 +284,7 @@ class IzumiMediaGenerationService(MediaGenerationServiceInterface):
             file_name=file_name,
             prompt=prompt,
             model=model,
+            duration_seconds=duration_seconds,
         )
         return self._to_generated_asset(
             asset,

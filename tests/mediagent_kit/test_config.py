@@ -15,6 +15,7 @@ def test_config_defaults():
             assert config.models["text"]["default"] == "gemini-4-argon"
             assert config.models["text"]["repair"] == "gemini-4-argon"
             assert config.models["tts"]["default"] == "gemini-3.8-flash-tts"
+            assert config.models["music"]["default"] == "lyria-3-pro-preview"
 
 
 def test_config_load_file():

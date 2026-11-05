@@ -43,7 +43,7 @@ class MediagentKitConfig:
             },
             "image_gemini": {"default": "gemini-nano-banana-2.1"},
             "video": {"default": "gemini-omni-1.2-flash"},
-            "music": {"default": "lyria-3-clip-preview"},
+            "music": {"default": "lyria-3-pro-preview"},
             "tts": {"default": "gemini-3.8-flash-tts"},
         }
 

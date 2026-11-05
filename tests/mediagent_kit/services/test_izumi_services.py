@@ -241,6 +241,7 @@ async def test_generate_music_maps_args(media_mocks):
     assert kwargs["user_id"] == "ws1"
     assert kwargs["prompt"] == "upbeat"
     assert kwargs["model"] == "lyria-x"
+    assert kwargs["duration_seconds"] == 30
 
 
 # --------------------------------------------------------------------------- #

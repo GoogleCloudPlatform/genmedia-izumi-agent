@@ -38,7 +38,7 @@
       ]
     },
     "music": {
-      "default": "lyria-3-clip-preview",
+      "default": "lyria-3-pro-preview",
       "_compatible_models": [
         "lyria-002",
         "lyria-3-clip-preview",

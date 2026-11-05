@@ -15,6 +15,7 @@
 """Helper functions for media generation (voiceover, music, and context)."""
 
 import logging
+import math
 import re
 from typing import Any
 
@@ -79,12 +80,30 @@ def _simplified_music_brief(description: str) -> str:
     )
 
 
+def runtime_seconds(storyboard: dict[str, Any]) -> int:
+    """How long the storyboard's cut runs, rounded up to a whole second."""
+    total = 0.0
+    for scene in storyboard.get("scenes") or []:
+        if not isinstance(scene, dict):
+            continue
+        video = scene.get("video_prompt") or {}
+        duration = video.get("duration_seconds") or scene.get("duration_seconds")
+        if isinstance(duration, (int, float)):
+            total += duration
+    return math.ceil(total)
+
+
 async def generate_background_music(
     workspace_id: str,
     background_music_prompt: dict[str, Any],
     uid: str = "",
+    duration_seconds: int = 30,
 ) -> Asset | None:
-    """Generates the background music for the campaign."""
+    """Generates the background music for the campaign.
+
+    ``duration_seconds`` is the length of the cut the track plays under; a
+    shorter track would leave the end of the cut without music.
+    """
     # Idempotency: Skip if already generated
     if background_music_prompt.get("asset_ref"):
         logger.info("Background music already exists. Skipping generation.")
@@ -110,7 +129,7 @@ async def generate_background_music(
         return await mediagen_service.generate_music(
             workspace_id=workspace_id,
             prompt=prompt,
-            duration_seconds=30,
+            duration_seconds=duration_seconds,
             file_name=filename,
         )
 

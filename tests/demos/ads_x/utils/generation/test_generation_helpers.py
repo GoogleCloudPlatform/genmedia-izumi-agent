@@ -299,3 +299,41 @@ async def test_a_brief_refused_twice_leaves_the_campaign_without_music(
     assert result is None
     assert brief["asset_id"] is None
     assert mock_mediagen.generate_music.call_count == 2
+
+
+def test_runtime_is_the_sum_of_the_scenes_rounded_up():
+    from demos.backend.ads_x.utils.generation.generation_helpers import (
+        runtime_seconds,
+    )
+
+    storyboard = {
+        "scenes": [
+            {"video_prompt": {"duration_seconds": 4}},
+            {"video_prompt": {"duration_seconds": 3.5}},
+            {"duration_seconds": 5},
+            {"video_prompt": {}},
+        ]
+    }
+
+    assert runtime_seconds(storyboard) == 13
+
+
+@pytest.mark.asyncio
+@patch("mediagent_kit.services.aio.get_media_generation_service")
+@patch("mediagent_kit.services.aio.get_asset_service")
+async def test_music_is_asked_to_last_as_long_as_the_cut(
+    mock_get_asset_service,
+    mock_get_media_gen_service,
+):
+    """A track shorter than the cut leaves its end without music."""
+    mock_mediagen = AsyncMock()
+    mock_get_media_gen_service.return_value = mock_mediagen
+    mock_asset = MagicMock(spec=Asset)
+    mock_asset.id = "music_123"
+    mock_mediagen.generate_music.return_value = mock_asset
+
+    await generate_background_music(
+        "user1", {"description": "Upbeat jazz"}, duration_seconds=18
+    )
+
+    assert mock_mediagen.generate_music.call_args.kwargs["duration_seconds"] == 18
