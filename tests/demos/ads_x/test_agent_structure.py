@@ -27,18 +27,18 @@ def test_agent_definitions():
     # Verify LlmAgents
     assert isinstance(parameters_agent, LlmAgent)
     assert parameters_agent.name == "parameters_agent"
-    assert parameters_agent.model == "gemini-3.7-flash"
+    assert parameters_agent.model == "gemini-4-argon"
 
     assert isinstance(user_assets_agent, LlmAgent)
     assert user_assets_agent.name == "user_assets_agent"
 
     assert isinstance(storyboard_agent_creative, LlmAgent)
     assert storyboard_agent_creative.name == "storyboard_agent_creative"
-    assert storyboard_agent_creative.model == "gemini-3.1-pro-preview"
+    assert storyboard_agent_creative.model == "gemini-4-argon"
 
     assert isinstance(storyboard_agent_templated, LlmAgent)
     assert storyboard_agent_templated.name == "storyboard_agent_templated"
-    assert storyboard_agent_templated.model == "gemini-3.7-flash"
+    assert storyboard_agent_templated.model == "gemini-4-argon"
 
     assert isinstance(strategy_agent, LlmAgent)
     assert strategy_agent.name == "strategy_agent"

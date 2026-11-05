@@ -59,6 +59,17 @@ JSON_CONFIG = types.GenerateContentConfig(response_mime_type="application/json")
 ToolResult = dict[str, Any]
 
 
+def configured_image_model() -> str | None:
+    """The image model in force, from mediagent_config.json."""
+    import mediagent_kit.services.aio
+
+    try:
+        config = mediagent_kit.services.aio.get_config()
+        return (config.models.get("image_gemini", {}) or {}).get("default")
+    except Exception:  # pragma: no cover - config is optional at import time
+        return None
+
+
 def mark_stage_completed(tool_context: Any, stage: str) -> None:
     """Records that ``stage`` finished, if it is further along than the cursor.
 

@@ -123,18 +123,18 @@ This section provides a detailed estimate of the API calls and associated costs 
 
 ### 🛠️ Pipeline Models in Use
 Based on the codebase (`agent.py` and `mediagent_config.json`), the pipeline uses a multi-model approach:
--   🤖 **Root & Sequential Agents**: `gemini-3.7-flash`
--   🎬 **Custom Storyboard Agent**: `gemini-3.1-pro-preview`
--   📋 **Templated Storyboard Agent**: `gemini-3.7-flash`
--   ✨ **Prompt Enrichment**: `gemini-3.7-flash`
--   🎨 **Image Generation**: `gemini-3.1-flash-image`
--   🗣️ **Voiceover (TTS)**: `gemini-3.1-flash-tts-preview`
--   🎥 **Video Generation**: `gemini-omni-flash-preview`
+-   🤖 **Root & Sequential Agents**: `gemini-4-argon`
+-   🎬 **Custom Storyboard Agent**: `gemini-4-argon`
+-   📋 **Templated Storyboard Agent**: `gemini-4-argon`
+-   ✨ **Prompt Enrichment**: `gemini-4-argon`
+-   🎨 **Image Generation**: `gemini-nano-banana-2.1`
+-   🗣️ **Voiceover (TTS)**: `gemini-3.8-flash-tts`
+-   🎥 **Video Generation**: `gemini-omni-1.2-flash`
 -   🎵 **Music**: `lyria-3-clip-preview`
 
 ### 🎥 Gemini Omni Video Generation
 
-`gemini-omni-flash-preview` is the default video model. It is reached through the
+`gemini-omni-1.2-flash` is the default video model. It is reached through the
 Vertex AI `interactions` resource rather than the `:predict` endpoint that Veo
 uses, which changes several things a caller has to account for:
 
@@ -165,7 +165,7 @@ We analyze the two real use cases available in the repository to demonstrate the
 > [!NOTE]
 > Both breakdowns are archived traces of specific runs, and the model names and unit prices in them are those that were current when the traces were captured. They are retained to illustrate the cost *shape* of a custom pipeline against a templated one, not as a current quote. See **Pipeline Models in Use** above for the models actually configured today.
 >
-> The video rows differ most: they price Veo's four-second rendering grid, where every scene is rounded up to four seconds and trimmed back. The configured default is now `gemini-omni-flash-preview`, which renders whole seconds from 3 to 10, so a campaign generates close to its target duration instead.
+> The video rows differ most: they price Veo's four-second rendering grid, where every scene is rounded up to four seconds and trimmed back. The configured default is now `gemini-omni-1.2-flash`, which renders whole seconds from 3 to 10, so a campaign generates close to its target duration instead.
 
 ### 🎬 Case 1: Custom Cinematic Ad ("SED Snacks")
 This scenario involves dynamic planning, script generation, asset description, and iterative tool use by the agent.

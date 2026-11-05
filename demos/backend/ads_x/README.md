@@ -39,7 +39,7 @@ how the result looks and sounds.
    - Uses `summary_canvas_tool.py` to draft the script and frame-by-frame intent.
    - Enriches the prompt using the `enrichment_utils.py` to guarantee "Invisible Camera" semantics and high-fidelity physics descriptions for Vertex AI targets.
 5. **Generative Processing**: Kicks off asynchronous calls to:
-   - **Gemini** (`gemini-3.1-flash-image`) for scene-setting first frames.
+   - **Gemini** (`gemini-nano-banana-2.1`) for scene-setting first frames.
    - **Gemini Omni** for fluid, prompt-aligned action derived from those frames.
    - **Gemini TTS** and **Lyria** for auditory assembly.
 6. **Timeline Stitching**: Renders the complete, composite MP4 payload to the user dashboard.

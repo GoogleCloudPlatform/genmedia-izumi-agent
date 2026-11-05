@@ -24,6 +24,7 @@ from mediagent_kit.services.types.common import AssetRef
 from mediagent_kit.utils.retry import ContentBlockedError
 
 from ...instructions.generation import generation_prompts
+from . import common_utils
 from . import enrichment_utils
 from . import frame_validation
 
@@ -131,7 +132,7 @@ async def generate_scene_first_frame(
                 generated_asset = await mediagen_service.generate_image(
                     workspace_id=workspace_id,
                     prompt=attempt_prompt,
-                    generation_model="gemini-3.1-flash-image",
+                    generation_model=common_utils.configured_image_model(),
                     aspect_ratio=aspect_ratio,
                     resolution="1K",
                     file_name=attempt_name,

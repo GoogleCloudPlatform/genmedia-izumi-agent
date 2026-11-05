@@ -56,6 +56,9 @@ from .tools.parameters import campaign_edit_tools, parameters_tools
 # refuses for want of an approval — stuck rather than expensive.
 MAX_REVIEW_ROUNDS = 10
 
+# The model every agent here runs on, the storyboard writer included.
+AGENT_MODEL = "gemini-4-argon"
+
 
 async def debug_parameters_callback(*args, **kwargs):
     import logging
@@ -83,7 +86,7 @@ from google.genai import types
 parameters_agent = llm_agent.LlmAgent(
     name="parameters_agent",
     description="Agent that parses the user brief into ad campaign parameters.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=f"{parameters_instruction.AGENT_INSTRUCTION}\n\n{parameters_instruction.INSTRUCTION}",
     tools=[FunctionTool(parameters_tools.extract_campaign_parameters)],
     disallow_transfer_to_parent=True,
@@ -95,7 +98,7 @@ parameters_agent = llm_agent.LlmAgent(
 user_assets_agent = llm_agent.LlmAgent(
     name="user_assets_agent",
     description="Agent that ingests the user-provided assets.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=user_assets_instruction.INSTRUCTION,
     tools=[FunctionTool(user_assets_tools.ingest_assets)],
     before_model_callback=instrument_agent("user_assets_agent"),
@@ -105,7 +108,7 @@ user_assets_agent = llm_agent.LlmAgent(
 storyboard_agent_creative = llm_agent.LlmAgent(
     name="storyboard_agent_creative",
     description="Creates a highly creative, cinematic storyboard invented by the AI.",
-    model="gemini-3.1-pro-preview",
+    model=AGENT_MODEL,
     instruction=storyboard_instruction.get_ai_director_instruction,
     tools=[
         FunctionTool(production_tools.recommend_production_recipe),
@@ -119,7 +122,7 @@ storyboard_agent_creative = llm_agent.LlmAgent(
 storyboard_agent_templated = llm_agent.LlmAgent(
     name="storyboard_agent_templated",
     description="Creates a storyboard following a strict template.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=storyboard_instruction.get_templated_instruction,
     tools=[
         FunctionTool(production_tools.recommend_production_recipe),
@@ -133,7 +136,7 @@ storyboard_agent_templated = llm_agent.LlmAgent(
 strategy_agent = llm_agent.LlmAgent(
     name="strategy_agent",
     description="Synchronizes campaign strategy and secures the state.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=strategy_instruction.INSTRUCTION,
     tools=[
         FunctionTool(strategy_tools.map_strategy_to_metadata),
@@ -155,7 +158,7 @@ strategy_agent = llm_agent.LlmAgent(
 storyboard_router = llm_agent.LlmAgent(
     name="storyboard_router",
     description="Routes the campaign to the correct specialized storyboard generator and persists the output.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=storyboard_instruction.get_router_instruction,
     tools=[
         AgentTool(agent=storyboard_agent_creative),
@@ -168,7 +171,7 @@ storyboard_router = llm_agent.LlmAgent(
 frames_agent = llm_agent.LlmAgent(
     name="frames_agent",
     description="Renders the audio and every scene's first frame.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=(
         "Call `generate_scene_frames` once. It renders the narration, the "
         "music and every scene's opening frame, and stops before the videos. "
@@ -182,7 +185,7 @@ frames_agent = llm_agent.LlmAgent(
 videos_agent = llm_agent.LlmAgent(
     name="videos_agent",
     description="Renders the scene videos and stitches the final cut.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=generation_instruction.INSTRUCTION,
     tools=[
         FunctionTool(generation_tools.generate_scene_videos),
@@ -197,7 +200,7 @@ videos_agent = llm_agent.LlmAgent(
 generation_agent = llm_agent.LlmAgent(
     name="generation_agent",
     description="Agent that generates all media and stitches them together.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=generation_instruction.INSTRUCTION,
     tools=[
         FunctionTool(generation_tools.generate_all_media),
@@ -247,7 +250,7 @@ costs a full re-render. Never assume an approval that was not given.
 strategy_gate_agent = llm_agent.LlmAgent(
     name="strategy_gate_agent",
     description="Pauses the pipeline for human review of the campaign strategy.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=STRATEGY_GATE_INSTRUCTION,
     tools=[
         LongRunningFunctionTool(func=gate_tools.await_strategy_approval),
@@ -336,7 +339,7 @@ between. Media follows an "accept" and nothing else.
 storyboard_gate_agent = llm_agent.LlmAgent(
     name="storyboard_gate_agent",
     description="Pauses the pipeline for human review of the storyboard.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=GATE_INSTRUCTION,
     tools=[
         LongRunningFunctionTool(func=gate_tools.await_storyboard_approval),
@@ -399,7 +402,7 @@ checkpoint records an acceptance.
 frame_gate_agent = llm_agent.LlmAgent(
     name="frame_gate_agent",
     description="Pauses for human review of the rendered first frames.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=FRAME_GATE_INSTRUCTION,
     tools=[
         LongRunningFunctionTool(func=gate_tools.await_frame_approval),
@@ -452,7 +455,7 @@ really do mean all of it. If only the music is wrong, call
 final_cut_gate_agent = llm_agent.LlmAgent(
     name="final_cut_gate_agent",
     description="Pauses for human review of the finished video.",
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=FINAL_CUT_GATE_INSTRUCTION,
     tools=[
         LongRunningFunctionTool(func=gate_tools.await_final_cut_approval),
@@ -523,7 +526,7 @@ revision_agent = llm_agent.LlmAgent(
         "Changes a finished campaign: re-renders only what the reviewer names, "
         "then shows them the new cut."
     ),
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     instruction=_revision_instruction,
     tools=[
         FunctionTool(generation_tools.regenerate_scene),
@@ -599,7 +602,7 @@ def _build_root_sub_agents() -> list:
 # ResumableLlmAgent, not LlmAgent: a transferring root can only be resumed once
 # in stock ADK, which would cap a run at a single review. See resumable_agent.
 root_agent = ResumableLlmAgent(
-    model="gemini-3.7-flash",
+    model=AGENT_MODEL,
     name="ads_x_agent",
     instruction=root_instruction.get_instruction,
     tools=get_cs_tools(),
